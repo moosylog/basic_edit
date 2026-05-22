@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Basic Edit</title>
+    
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script>
+        tailwind.config = { 
+            darkMode: 'class',
+            theme: { extend: { colors: { moergo: { 900: '#0f172a', 800: '#1e293b', 700: '#334155', active: '#0ea5e9' } } } }
+        }
+    </script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; overflow: hidden; background-color: #0b1120; color: #f8fafc; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        /* Tactile Key Styling */
+        .p-key { 
+            position: absolute; width: 62px; height: 62px; border-radius: 8px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            cursor: pointer; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); user-select: none; 
+            border: 1px solid #334155; background-color: #1e293b; 
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+            padding: 4px; text-align: center; overflow: hidden; 
+        }
+        .p-key:active { transform: scale(0.96); box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .p-key:hover { filter: brightness(1.2); border-color: #64748b; z-index: 5; }
+        .p-key.selected { 
+            border-color: #0ea5e9 !important; 
+            box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.25), inset 0 1px 0 rgba(255,255,255,0.2) !important; 
+            z-index: 10; transform: translateY(-2px); background-color: #0f172a;
+        }
+        .p-key.trans { opacity: 0.5; border-style: dashed; }
+
+        .text-clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .text-fit-md { font-size: 11px; font-weight: 600; line-height: 1.2; word-break: break-word; white-space: pre-wrap; }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+</head>
+<body class="antialiased h-screen w-screen flex dark">
+    <div id="root" class="h-full w-full flex relative"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
+
+        // --- 1. HARDWARE GEOMETRY ---
+        const GLOVE80_GEO = [
+            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:910,y:0},{x:980,y:0},{x:1050,y:0},{x:1120,y:35},{x:1190,y:35},
+            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:840,y:70},{x:910,y:70},{x:980,y:70},{x:1050,y:70},{x:1120,y:105},{x:1190,y:105},
+            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:840,y:140},{x:910,y:140},{x:980,y:140},{x:1050,y:140},{x:1120,y:175},{x:1190,y:175},
+            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:840,y:210},{x:910,y:210},{x:980,y:210},{x:1050,y:210},{x:1120,y:245},{x:1190,y:245},
+            {x:0,y:315},{x:70,y:315},{x:140,y:280},{x:210,y:280},{x:280,y:280},{x:350,y:280},
+            {x:448,y:280,r:20,o:"-168px 0px"},{x:546,y:231,r:30,o:"-266px 0px"},{x:707,y:105,r:45,o:"-427px 0px"},{x:490,y:105,r:-45,o:"490px 0px"},{x:651,y:231,r:-30,o:"329px 0px"},{x:749,y:280,r:-20,o:"231px 0px"},
+            {x:840,y:280},{x:910,y:280},{x:980,y:280},{x:1050,y:280},{x:1120,y:315},{x:1190,y:315},
+            {x:0,y:385},{x:70,y:385},{x:140,y:350},{x:210,y:350},{x:280,y:350},
+            {x:371,y:378,r:15,o:"-91px 0px"},{x:462,y:350,r:25,o:"-182px 0px"},{x:630,y:224,r:45,o:"-350px 0px"},{x:560,y:224,r:-45,o:"420px 0px"},{x:728,y:350,r:-25,o:"252px 0px"},{x:819,y:378,r:-15,o:"161px 0px"},
+            {x:910,y:350},{x:980,y:350},{x:1050,y:350},{x:1120,y:385},{x:1190,y:385}
+        ];
+
+        const GO60_GEO = [
+            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:350,y:0},{x:805,y:0},{x:875,y:0},{x:945,y:0},{x:1015,y:0},{x:1085,y:35},{x:1155,y:35},
+            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:805,y:70},{x:875,y:70},{x:945,y:70},{x:1015,y:70},{x:1085,y:105},{x:1155,y:105},
+            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:805,y:140},{x:875,y:140},{x:945,y:140},{x:1015,y:140},{x:1085,y:175},{x:1155,y:175},
+            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:805,y:210},{x:875,y:210},{x:945,y:210},{x:1015,y:210},{x:1085,y:245},{x:1155,y:245},
+            {x:140,y:280},{x:210,y:280},{x:280,y:280},{x:875,y:280},{x:945,y:280},{x:1015,y:280},
+            {x:364,y:287,r:12.5,o:"0px 0px"},{x:448,y:308,r:25,o:"0px 0px"},{x:525,y:346.5,r:37,o:"0px 0px"},
+            {x:640.5,y:385,r:-37,o:"0px 0px"},{x:710.5,y:336,r:-25,o:"0px 0px"},{x:791,y:301,r:-12.5,o:"0px 0px"}
+        ];
+
+        // --- 2. PARSERS & HELPERS ---
+        const extractParamString = (paramObj) => {
+            if (!paramObj) return 'none';
+            if (typeof paramObj === 'string' || typeof paramObj === 'number') return String(paramObj);
+            if (paramObj.value && paramObj.params && paramObj.params.length > 0) return `${paramObj.value}(${extractParamString(paramObj.params[0])})`;
+            return String(paramObj.value || 'none');
+        };
+
+        const getContrastColor = (hexcolor) => {
+            if (!hexcolor) return '#f8fafc'; 
+            hexcolor = hexcolor.replace("#", ""); 
+            if (hexcolor.length === 3) hexcolor = hexcolor.split('').map(c => c+c).join('');
+            const r = parseInt(hexcolor.substr(0,2),16); 
+            const g = parseInt(hexcolor.substr(2,2),16); 
+            const b = parseInt(hexcolor.substr(4,2),16);
+            return (((r*299)+(g*587)+(b*114))/1000 >= 128) ? '#0f172a' : '#ffffff';
+        };
+
+        const formatKeycode = (val) => {
+            if (!val || val === 'none') return '';
+            const map = {
+                LSHFT:'Shift', LCTRL:'Ctrl', LALT:'Alt', LGUI:'GUI',
+                RSHFT:'Shift', RCTRL:'Ctrl', RALT:'Alt', RGUI:'GUI',
+                BSPC:'Bksp', RET:'Enter', PG_DN:'PgDn', PG_UP:'PgUp',
+                UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→',
+                MINUS:'-', EQUAL:'=', GRAVE:'`', BSLH:'\\',
+                SEMI:';', SQT:"'", FSLH:'/', LBKT:'[', RBKT:']',
+                COMMA:',', DOT:'.', SPACE:'␣'
+            };
+            if (map[val.toUpperCase()]) return map[val.toUpperCase()];
+            if (val.length === 2 && val.startsWith('N') && '0123456789'.includes(val[1])) return val[1];
+            if (val.length > 1) return val.charAt(0).toUpperCase() + val.slice(1).toLowerCase();
+            return val;
+        };
+
+        const generateAutoLabel = (binding) => {
+            if (!binding || binding.value === '&none') return '';
+            if (binding.value === '&trans') return '▽';
+            
+            // Manual Decoration Override
+            if (binding.decoration && binding.decoration.label) return binding.decoration.label;
+
+            // Simple Keypress
+            if (binding.value === '&kp' && binding.params && binding.params.length > 0) {
+                let val = binding.params[0].value;
+                if (typeof val === 'string' && val.length === 2 && val.endsWith('S') && binding.params[0].params) {
+                    return '⇧' + (binding.params[0].params[0]?.value || '');
+                }
+                return formatKeycode(val);
+            }
+
+            // Layer Toggle / Hold
+            if (binding.value === '&mo' || binding.value === '&tog') {
+                return `L${extractParamString(binding.params[0])}`;
+            }
+
+            // Hold-Tap Patterns (e.g., Mod-Tap, Layer-Tap)
+            if (binding.value === '&lt' || binding.value === '&mt' || binding.value.startsWith('&ht_')) {
+                const holdRaw = extractParamString(binding.params[0]);
+                const tapRaw = extractParamString(binding.params[1]);
+                const hLabel = binding.value === '&lt' ? `L${holdRaw}` : formatKeycode(holdRaw);
+                const tLabel = formatKeycode(tapRaw);
+                return `${hLabel}\n${tLabel}`;
+            }
+
+            // Auto Generated Name Fallback
+            if (binding.value.startsWith('&ht_auto_')) return binding.value.split('_').pop(); 
+            
+            return binding.value.replace('&', '');
+        };
+
+        // --- 3. COMPONENTS ---
+        const KeyComponent = ({ index, geo, binding, baseBinding, isSelected, onSelect }) => {
+            const isTrans = binding.value === '&trans';
+            const labelText = isTrans && baseBinding ? generateAutoLabel(baseBinding) : generateAutoLabel(binding);
+            
+            const keyStyle = { left: `${geo.x}px`, top: `${geo.y}px`, transform: geo.r ? `rotate(${geo.r}deg)` : 'none', transformOrigin: geo.o || 'center' };
+            if (!isTrans && binding.decoration?.background) {
+                keyStyle.backgroundColor = binding.decoration.background;
+                keyStyle.color = binding.decoration.color || getContrastColor(binding.decoration.background);
+            }
+
+            return (
+                <div className={`p-key ${isSelected ? 'selected' : ''} ${isTrans ? 'trans' : ''}`} style={keyStyle} onClick={() => onSelect(index)}>
+                    <span className="text-fit-md text-clamp">{labelText}</span>
+                </div>
+            );
+        };
+
+        const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, baseLayerBindings, selectedKey, onSelectKey }) => (
+            <div className="relative w-[1260px] h-[450px] scale-[0.70] xl:scale-[0.80] origin-center transition-transform mt-10">
+                {keyboardGeo.map((geo, index) => (
+                    <KeyComponent key={index} index={index} geo={geo} 
+                        binding={activeLayerBindings[index] || { value: '&none', params: [] }} 
+                        baseBinding={baseLayerBindings?.[index]} isSelected={selectedKey === index} onSelect={onSelectKey} />
+                ))}
+            </div>
+        );
+
+        // SPLIT-PANE: The Docked Inspector
+        const DockedInspector = ({ config, activeLayer, selectedKey, setSelectedKey, updateConfig }) => {
+            const [view, setView] = useState('key'); // 'key', 'macros', 'combos', 'holdTaps'
+            const [jsonStr, setJsonStr] = useState("");
+            const [error, setError] = useState("");
+
+            useEffect(() => { if (selectedKey !== null) setView('key'); }, [selectedKey]);
+
+            useEffect(() => {
+                setError("");
+                if (view === 'key' && selectedKey !== null) {
+                    setJsonStr(JSON.stringify(config.layers[activeLayer][selectedKey], null, 2));
+                } else if (view !== 'key') {
+                    setJsonStr(JSON.stringify(config[view] || [], null, 2));
+                }
+            }, [view, selectedKey, activeLayer, config]);
+
+            const handleSave = () => {
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    // Deep clone to prevent React state mutation bugs and force re-renders
+                    const newConfig = JSON.parse(JSON.stringify(config)); 
+                    newConfig.date = Math.floor(Date.now() / 1000);
+                    
+                    if (view === 'key') {
+                        if (!parsed.value || !parsed.params) throw new Error("Binding needs 'value' and 'params'");
+                        newConfig.layers[activeLayer][selectedKey] = parsed;
+                    } else {
+                        if (!Array.isArray(parsed)) throw new Error(`Root ${view} must be an array`);
+                        newConfig[view] = parsed;
+                    }
+                    
+                    updateConfig(newConfig);
+                    setError("");
+                } catch (err) {
+                    setError(err.message);
+                }
+            };
+
+            return (
+                <div className="w-[340px] bg-slate-900 border-l border-slate-800 flex flex-col shrink-0 overflow-hidden">
+                    <div className="flex text-xs font-semibold bg-slate-950 border-b border-slate-800">
+                        {['key', 'macros', 'combos', 'holdTaps'].map(t => (
+                            <button key={t} onClick={() => { setView(t); setSelectedKey(null); }}
+                                className={`flex-1 py-3 text-center capitalize transition-colors ${view === t ? 'text-sky-400 border-b-2 border-sky-400 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>
+                                {t}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="p-4 flex-1 flex flex-col overflow-y-auto">
+                        <div className="mb-2 flex justify-between items-center">
+                            <h3 className="font-bold text-sm text-white">
+                                {view === 'key' ? (selectedKey !== null ? `Layer ${activeLayer} : Key ${selectedKey}` : 'No Key Selected') : `Global ${view}`}
+                            </h3>
+                            {view === 'key' && selectedKey !== null && (
+                                <button onClick={() => setSelectedKey(null)} className="text-slate-500 hover:text-white text-xs bg-slate-800 px-2 py-1 rounded">Deselect</button>
+                            )}
+                        </div>
+
+                        {(view !== 'key' || selectedKey !== null) ? (
+                            <>
+                                <p className="text-xs text-slate-400 mb-3">
+                                    {view === 'key' ? "Edit binding AST directly." : `Modify root-level ${view} array. Ensure integrity with matrix references.`}
+                                </p>
+                                <textarea 
+                                    className="flex-1 w-full bg-black text-emerald-400 font-mono text-xs p-3 rounded border border-slate-700 outline-none focus:border-sky-500 resize-none mb-3 min-h-[300px]"
+                                    value={jsonStr} onChange={(e) => setJsonStr(e.target.value)}
+                                    spellCheck="false"
+                                />
+                                {error && <div className="text-red-400 text-xs mb-3 p-2 bg-red-400/10 rounded">{error}</div>}
+                                <button onClick={handleSave} className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded transition-colors text-sm shadow">
+                                    Save {view === 'key' ? 'Binding' : view}
+                                </button>
+                            </>
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center text-slate-500 text-sm italic text-center p-4">
+                                Select a physical key on the board to edit its binding.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 4. MAIN APP ---
+        const App = () => {
+            const [config, setConfig] = useState(null);
+            const [activeLayer, setActiveLayer] = useState(0);
+            const [selectedKey, setSelectedKey] = useState(null);
+
+            // Correctly dynamically scale to either Glove80 or Go60 based on JSON
+            const keyboardGeo = useMemo(() => {
+                if (!config) return [];
+                if (config.layout && config.layout.keys) return config.layout.keys;
+                if (config.keyboard?.toLowerCase() === 'glove80') return GLOVE80_GEO;
+                if (config.keyboard?.toLowerCase() === 'go60') return GO60_GEO;
+                return GLOVE80_GEO; // Master fallback
+            }, [config]);
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        let parsed = JSON.parse(event.target.result);
+                        parsed = parsed.keymap !== undefined ? parsed.keymap : parsed;
+                        
+                        parsed.macros = parsed.macros || [];
+                        parsed.combos = parsed.combos || [];
+                        parsed.holdTaps = parsed.holdTaps || [];
+                        
+                        setConfig(parsed); 
+                        setActiveLayer(0); 
+                        setSelectedKey(null);
+                    } catch (err) { alert("Invalid JSON file."); }
+                };
+                reader.readAsText(file);
+            };
+
+            const handleExport = () => {
+                if (!config) return;
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+                const anchor = document.createElement('a');
+                anchor.href = dataStr; 
+                anchor.download = `layout_${config.keyboard || 'custom'}.json`; 
+                anchor.click();
+            };
+
+            return (
+                <div className="flex h-full w-full">
+                    {/* Left Sidebar */}
+                    <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 p-5 gap-6">
+                        <div>
+                            <h1 className="text-xl font-bold text-white mb-4">Basic Edit</h1>
+                            <label className="block w-full bg-slate-800 border border-slate-700 hover:border-sky-500 text-center py-2 rounded cursor-pointer transition-colors text-sm font-semibold">
+                                Load JSON
+                                <input type="file" accept=".json" className="hidden" onChange={handleFileUpload} />
+                            </label>
+                        </div>
+
+                        {config && (
+                            <>
+                                <div className="space-y-1 text-xs text-slate-400 bg-slate-800/50 p-3 rounded">
+                                    <div className="flex justify-between"><span>Board:</span> <span className="text-white uppercase">{config.keyboard}</span></div>
+                                    <div className="flex justify-between"><span>Keys:</span> <span className="text-white">{keyboardGeo.length}</span></div>
+                                </div>
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Active Layer</label>
+                                    <select className="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded focus:ring-sky-500 p-2 outline-none"
+                                        value={activeLayer} onChange={(e) => { setActiveLayer(parseInt(e.target.value)); setSelectedKey(null); }}>
+                                        {config.layer_names.map((name, i) => <option key={i} value={i}>{i}: {name}</option>)}
+                                    </select>
+                                </div>
+                                <button onClick={handleExport} className="w-full mt-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2 rounded text-sm transition-colors shadow">
+                                    Export Config
+                                </button>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Middle Workspace */}
+                    <div className="flex-1 flex items-center justify-center bg-[#0b1120] overflow-hidden relative">
+                        {!config ? (
+                            <div className="text-slate-500 text-center">Upload a config to begin.</div>
+                        ) : (
+                            <KeyboardContainer 
+                                keyboardGeo={keyboardGeo} 
+                                activeLayerBindings={config.layers[activeLayer]} 
+                                baseLayerBindings={config.layers[0]}
+                                selectedKey={selectedKey} onSelectKey={setSelectedKey}
+                            />
+                        )}
+                    </div>
+
+                    {/* Right Inspector pane */}
+                    {config && (
+                        <DockedInspector 
+                            config={config} activeLayer={activeLayer} 
+                            selectedKey={selectedKey} setSelectedKey={setSelectedKey} 
+                            updateConfig={setConfig} 
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
