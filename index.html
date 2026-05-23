@@ -3,94 +3,48 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="Basic Edit - A visual JSON layout editor for ergonomic keyboards">
+    <meta name="description" content="Basic Edit - An LLM-optimized visual JSON layout editor for MoErgo keyboards">
     <title>Basic Edit | Keyboard Layout Editor</title>
     
-    <!-- Core Dependencies -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- Tailwind Configuration -->
     <script>
         tailwind.config = { 
             darkMode: 'class',
             theme: { 
                 extend: { 
-                    colors: { 
-                        moergo: { 900: '#0f172a', 800: '#1e293b', 700: '#334155', active: '#0ea5e9' } 
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        mono: ['JetBrains Mono', 'monospace'],
-                    }
+                    colors: { moergo: { 900: '#0f172a', 800: '#1e293b', 700: '#334155', active: '#0ea5e9' } },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }
                 } 
             }
         }
     </script>
     
-    <!-- Typography -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     
     <style>
-        body { 
-            background-color: #0b1120; 
-            color: #f8fafc; 
-            overflow: hidden; 
-        }
-
-        /* Hardware Key Geometry Styling */
+        body { background-color: #0b1120; color: #f8fafc; overflow: hidden; }
         .p-key { 
-            position: absolute; 
-            width: 62px; 
-            height: 62px; 
-            border-radius: 8px; 
-            display: flex; 
-            flex-direction: column; 
-            align-items: center; 
-            justify-content: center; 
-            cursor: pointer; 
-            transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); 
-            user-select: none; 
-            border: 1px solid #334155; 
-            background-color: #1e293b; 
+            position: absolute; width: 62px; height: 62px; border-radius: 8px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            cursor: pointer; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); user-select: none; 
+            border: 1px solid #334155; background-color: #1e293b; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
-            padding: 4px; 
-            text-align: center; 
-            overflow: hidden; 
-            will-change: transform, box-shadow;
+            padding: 4px; text-align: center; overflow: hidden; will-change: transform, box-shadow;
         }
-        
         .p-key:active { transform: scale(0.96) !important; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         .p-key:hover { filter: brightness(1.2); border-color: #64748b; z-index: 5; }
-        
         .p-key.selected { 
             border-color: #0ea5e9 !important; 
             box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.25), inset 0 1px 0 rgba(255,255,255,0.2) !important; 
-            z-index: 10; 
-            transform: translateY(-2px); 
-            background-color: #0f172a;
+            z-index: 10; transform: translateY(-2px); background-color: #0f172a;
         }
-        
         .p-key.trans { opacity: 0.5; border-style: dashed; }
-
-        /* Typography Utilities */
-        .text-clamp { 
-            display: -webkit-box; 
-            -webkit-line-clamp: 3; 
-            -webkit-box-orient: vertical; 
-            overflow: hidden; 
-        }
-        .text-fit-md { 
-            font-size: 11px; 
-            font-weight: 600; 
-            line-height: 1.2; 
-            word-break: break-word; 
-            white-space: pre-wrap; 
-        }
-
-        /* Custom Scrollbars */
+        .text-clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .text-fit-md { font-size: 11px; font-weight: 600; line-height: 1.2; word-break: break-word; white-space: pre-wrap; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
@@ -98,21 +52,45 @@
     </style>
 </head>
 <body class="antialiased h-screen w-screen flex dark">
-    <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root" class="h-full w-full flex relative"></div>
 
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback, memo } = React;
 
+        /* ==========================================================================
+           LLM CONTEXT & REFERENCE SCHEMAS (DO NOT REMOVE)
+           This section serves as the prompt-context source of truth for AI editors.
+           ========================================================================== */
+
         /**
          * @typedef {Object} KeyGeo
-         * @property {number} x - X coordinate
-         * @property {number} y - Y coordinate
-         * @property {number} [r] - Rotation in degrees
-         * @property {string} [o] - Transform origin string (e.g., "-168px 0px")
+         * @property {number} x - Horizontal offset in pixels
+         * @property {number} y - Vertical offset in pixels
+         * @property {number} [r] - Key rotation angle in degrees
+         * @property {string} [o] - Origin coordinate anchor shift for proper rotation symmetry
          */
 
-        // --- 1. HARDWARE GEOMETRY CONSTANTS ---
+        /**
+         * @typedef {Object} ZmkBindingNode
+         * @property {string} value - The primary ZMK execution code behavior (e.g., "&kp", "&mo", "&trans")
+         * @property {Array<ZmkBindingNode|string|number>} params - Nested parameters passed directly to the token behavior
+         * @property {Object} [decoration] - Custom presentation configurations mapping back to UI rendering engines
+         * @property {string} [decoration.label] - Text override string displaying directly on physical matrix layout
+         * @property {string} [decoration.background] - Background hexadecimal color code string
+         */
+
+        /**
+         * @typedef {Object} MoergoLayoutEditorSchema
+         * @property {string} keyboard - Target hardware model framework registration (e.g., "glove80", "go60")
+         * @property {Array<string>} layer_names - Indexed tracking descriptors identifying keyboard configurations
+         * @property {Array<Array<ZmkBindingNode>>} layers - Direct multi-dimensional array mapping layers to key positions
+         * @property {Array<Object>} macros - Registered global sequence strings mapping macro injection objects
+         * @property {Array<Object>} combos - Advanced multi-press triggers capturing positional chord interactions
+         * @property {Array<Object>} holdTaps - Dynamic time-dependent interaction definitions tuning positional taps
+         */
+
+
+        // --- 1. HARDWARE GEOMETRY REPOSITORIES ---
         const GLOVE80_GEO = [
             {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:910,y:0},{x:980,y:0},{x:1050,y:0},{x:1120,y:35},{x:1190,y:35},
             {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:840,y:70},{x:910,y:70},{x:980,y:70},{x:1050,y:70},{x:1120,y:105},{x:1190,y:105},
@@ -136,77 +114,62 @@
             {x:640.5,y:385,r:-37,o:"0px 0px"},{x:710.5,y:336,r:-25,o:"0px 0px"},{x:791,y:301,r:-12.5,o:"0px 0px"}
         ];
 
-        // --- 2. DATA PARSING & AST UTILITIES ---
-        
-        /** Recursively extracts string representations from AST param nodes */
+        // --- 2. PARSERS & STRING TRANSLATION MAPS ---
+        const ZMK_KEYCODE_MAP = {
+            LSHFT:'Shift', LCTRL:'Ctrl', LALT:'Alt', LGUI:'GUI',
+            RSHFT:'Shift', RCTRL:'Ctrl', RALT:'Alt', RGUI:'GUI',
+            BSPC:'Bksp', RET:'Enter', PG_DN:'PgDn', PG_UP:'PgUp',
+            UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→',
+            MINUS:'-', EQUAL:'=', GRAVE:'`', BSLH:'\\',
+            SEMI:';', SQT:"'", FSLH:'/', LBKT:'[', RBKT:']',
+            COMMA:',', DOT:'.', SPACE:'␣'
+        };
+
         const extractParamString = (paramObj) => {
             if (!paramObj) return 'none';
             if (typeof paramObj === 'string' || typeof paramObj === 'number') return String(paramObj);
-            if (paramObj.value && paramObj.params && paramObj.params.length > 0) {
+            if (paramObj.value && paramObj.params?.length > 0) {
                 return `${paramObj.value}(${extractParamString(paramObj.params[0])})`;
             }
             return String(paramObj.value || 'none');
         };
 
-        /** Calculates readable text color based on hex background */
         const getContrastColor = (hexcolor) => {
             if (!hexcolor) return '#f8fafc'; 
-            hexcolor = hexcolor.replace("#", ""); 
-            if (hexcolor.length === 3) hexcolor = hexcolor.split('').map(c => c+c).join('');
-            const r = parseInt(hexcolor.substr(0,2), 16); 
-            const g = parseInt(hexcolor.substr(2,2), 16); 
-            const b = parseInt(hexcolor.substr(4,2), 16);
-            // YIQ equation formula
-            return (((r * 299) + (g * 587) + (b * 114)) / 1000 >= 128) ? '#0f172a' : '#ffffff';
+            let cleanHex = hexcolor.replace("#", ""); 
+            if (cleanHex.length === 3) cleanHex = cleanHex.split('').map(c => c+c).join('');
+            const r = parseInt(cleanHex.substr(0,2),16); 
+            const g = parseInt(cleanHex.substr(2,2),16); 
+            const b = parseInt(cleanHex.substr(4,2),16);
+            return (((r*299)+(g*587)+(b*114))/1000 >= 128) ? '#0f172a' : '#ffffff';
         };
 
-        /** Maps internal layout engine keycodes to human-readable strings */
         const formatKeycode = (val) => {
             if (!val || val === 'none') return '';
-            const MAP = {
-                LSHFT:'Shift', LCTRL:'Ctrl', LALT:'Alt', LGUI:'GUI',
-                RSHFT:'Shift', RCTRL:'Ctrl', RALT:'Alt', RGUI:'GUI',
-                BSPC:'Bksp', RET:'Enter', PG_DN:'PgDn', PG_UP:'PgUp',
-                UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→',
-                MINUS:'-', EQUAL:'=', GRAVE:'`', BSLH:'\\',
-                SEMI:';', SQT:"'", FSLH:'/', LBKT:'[', RBKT:']',
-                COMMA:',', DOT:'.', SPACE:'␣'
-            };
-            const upperVal = val.toUpperCase();
-            if (MAP[upperVal]) return MAP[upperVal];
-            
-            // Handle N-pad or standard numbers mapped as N1, N2, etc.
+            const normalized = val.toUpperCase();
+            if (ZMK_KEYCODE_MAP[normalized]) return ZMK_KEYCODE_MAP[normalized];
             if (val.length === 2 && val.startsWith('N') && '0123456789'.includes(val[1])) return val[1];
-            
-            // Capitalize first letter logic for unknown codes
             if (val.length > 1) return val.charAt(0).toUpperCase() + val.slice(1).toLowerCase();
             return val;
         };
 
-        /** Generates the final UI string for a given key binding object */
         const generateAutoLabel = (binding) => {
             if (!binding || binding.value === '&none') return '';
             if (binding.value === '&trans') return '▽';
-            
-            // Manual Decoration Override
             if (binding.decoration?.label) return binding.decoration.label;
 
-            // Simple Keypress
             if (binding.value === '&kp' && binding.params?.length > 0) {
                 let val = binding.params[0].value;
-                // Handle shifted versions
                 if (typeof val === 'string' && val.length === 2 && val.endsWith('S') && binding.params[0].params) {
                     return '⇧' + (binding.params[0].params[0]?.value || '');
                 }
                 return formatKeycode(val);
             }
 
-            // Layer Toggle / Hold
             if (binding.value === '&mo' || binding.value === '&tog') {
                 return `L${extractParamString(binding.params[0])}`;
             }
 
-            // Hold-Tap Patterns (e.g., Mod-Tap, Layer-Tap)
             if (binding.value === '&lt' || binding.value === '&mt' || binding.value.startsWith('&ht_')) {
                 const holdRaw = extractParamString(binding.params[0]);
                 const tapRaw = extractParamString(binding.params[1]);
@@ -215,19 +178,13 @@
                 return `${hLabel}\n${tLabel}`;
             }
 
-            // Auto Generated Name Fallback
             if (binding.value.startsWith('&ht_auto_')) return binding.value.split('_').pop(); 
-            
             return binding.value.replace('&', '');
         };
 
 
-        // --- 3. UI COMPONENTS ---
-
-        /**
-         * Render an individual key on the matrix.
-         * Memoized to prevent 80-key re-renders when the sidebar JSON is edited.
-         */
+        // --- 3. COMPONENTS (ISOLATED & MEMOIZED) ---
+        
         const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect }) => {
             const isTrans = binding.value === '&trans';
             const labelText = isTrans && baseBinding ? generateAutoLabel(baseBinding) : generateAutoLabel(binding);
@@ -238,7 +195,6 @@
                 transform: geo.r ? `rotate(${geo.r}deg)` : 'none', 
                 transformOrigin: geo.o || 'center' 
             };
-            
             if (!isTrans && binding.decoration?.background) {
                 keyStyle.backgroundColor = binding.decoration.background;
                 keyStyle.color = binding.decoration.color || getContrastColor(binding.decoration.background);
@@ -251,25 +207,22 @@
                     onClick={() => onSelect(index)}
                     role="button"
                     tabIndex={0}
-                    aria-label={`Key ${index}`}
                 >
                     <span className="text-fit-md text-clamp">{labelText}</span>
                 </div>
             );
-        }, (prev, next) => {
-            return (
-                prev.isSelected === next.isSelected &&
-                prev.binding === next.binding &&
-                prev.baseBinding === next.baseBinding &&
-                prev.geo === next.geo
-            );
-        });
+        }, (prev, next) => (
+            prev.isSelected === next.isSelected &&
+            prev.binding === next.binding &&
+            prev.baseBinding === next.baseBinding &&
+            prev.geo === next.geo
+        ));
 
         const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, baseLayerBindings, selectedKey, onSelectKey }) => (
             <div className="relative w-[1260px] h-[450px] scale-[0.65] md:scale-[0.70] xl:scale-[0.80] origin-center transition-transform mt-10">
                 {keyboardGeo.map((geo, index) => (
                     <KeyComponent 
-                        key={`key-${index}`} 
+                        key={`matrix-key-${index}`} 
                         index={index} 
                         geo={geo} 
                         binding={activeLayerBindings[index] || { value: '&none', params: [] }} 
@@ -281,20 +234,13 @@
             </div>
         );
 
-        /**
-         * Split-pane for docked JSON inspection and editing
-         */
         const DockedInspector = ({ config, activeLayer, selectedKey, setSelectedKey, updateConfig }) => {
-            const [view, setView] = useState('key'); // 'key', 'macros', 'combos', 'holdTaps'
+            const [view, setView] = useState('key'); 
             const [jsonStr, setJsonStr] = useState("");
             const [error, setError] = useState("");
 
-            // Force tab switch when a key is physically clicked
-            useEffect(() => { 
-                if (selectedKey !== null) setView('key'); 
-            }, [selectedKey]);
+            useEffect(() => { if (selectedKey !== null) setView('key'); }, [selectedKey]);
 
-            // Sync the textarea JSON string with external state changes
             useEffect(() => {
                 setError("");
                 if (view === 'key' && selectedKey !== null) {
@@ -307,94 +253,62 @@
             const handleSave = () => {
                 try {
                     const parsed = JSON.parse(jsonStr);
-                    
-                    // Deep clone via modern API
-                    const newConfig = typeof structuredClone === "function" 
-                        ? structuredClone(config) 
-                        : JSON.parse(JSON.stringify(config));
-                        
+                    const newConfig = typeof structuredClone === "function" ? structuredClone(config) : JSON.parse(JSON.stringify(config)); 
                     newConfig.date = Math.floor(Date.now() / 1000);
                     
                     if (view === 'key') {
-                        if (!parsed.value || !parsed.params) throw new Error("Binding requires a 'value' and 'params' array.");
+                        if (!parsed.value || !parsed.params) throw new Error("Binding structure validation failed. Missing 'value' or 'params'.");
                         newConfig.layers[activeLayer][selectedKey] = parsed;
                     } else {
-                        if (!Array.isArray(parsed)) throw new Error(`Root ${view} configuration must be a JSON array.`);
+                        if (!Array.isArray(parsed)) throw new Error(`Root updates for ${view} must be formatted as an array.`);
                         newConfig[view] = parsed;
                     }
                     
                     updateConfig(newConfig);
                     setError("");
                 } catch (err) {
-                    setError(`Save Error: ${err.message}`);
+                    setError(err.message);
                 }
             };
 
-            const TABS = ['key', 'macros', 'combos', 'holdTaps'];
-
             return (
                 <div className="w-[340px] bg-slate-900 border-l border-slate-800 flex flex-col shrink-0 overflow-hidden shadow-2xl">
-                    {/* Tab Navigation */}
                     <div className="flex text-xs font-semibold bg-slate-950 border-b border-slate-800">
-                        {TABS.map(t => (
-                            <button 
-                                key={t} 
-                                onClick={() => { setView(t); setSelectedKey(null); }}
-                                className={`flex-1 py-3 text-center capitalize transition-colors focus:outline-none ${
-                                    view === t ? 'text-sky-400 border-b-2 border-sky-400 bg-slate-900' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-900/50'
-                                }`}
-                            >
+                        {['key', 'macros', 'combos', 'holdTaps'].map(t => (
+                            <button key={t} onClick={() => { setView(t); setSelectedKey(null); }}
+                                className={`flex-1 py-3 text-center capitalize transition-colors focus:outline-none ${view === t ? 'text-sky-400 border-b-2 border-sky-400 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>
                                 {t}
                             </button>
                         ))}
                     </div>
 
                     <div className="p-4 flex-1 flex flex-col overflow-y-auto">
-                        {/* Header Context */}
                         <div className="mb-2 flex justify-between items-center h-6">
                             <h3 className="font-bold text-sm text-white">
-                                {view === 'key' 
-                                    ? (selectedKey !== null ? `Layer ${activeLayer} : Key ${selectedKey}` : 'No Key Selected') 
-                                    : `Global ${view}`}
+                                {view === 'key' ? (selectedKey !== null ? `Layer ${activeLayer} : Key ${selectedKey}` : 'No Key Selected') : `Global ${view}`}
                             </h3>
                             {view === 'key' && selectedKey !== null && (
-                                <button 
-                                    onClick={() => setSelectedKey(null)} 
-                                    className="text-slate-400 hover:text-white text-xs bg-slate-800 px-2 py-1 rounded transition-colors"
-                                >
-                                    Deselect
-                                </button>
+                                <button onClick={() => setSelectedKey(null)} className="text-slate-400 hover:text-white text-xs bg-slate-800 px-2 py-1 rounded transition-colors">Deselect</button>
                             )}
                         </div>
 
-                        {/* Editor Workspace */}
                         {(view !== 'key' || selectedKey !== null) ? (
                             <div className="flex flex-col flex-1">
                                 <p className="text-xs text-slate-400 mb-3">
-                                    {view === 'key' 
-                                        ? "Edit the AST binding representation directly." 
-                                        : `Modify the root-level ${view} array. Ensure integrity with matrix references.`}
+                                    {view === 'key' ? "Modify parsing AST directly." : `Modify structural root sequence for ${view}.`}
                                 </p>
                                 <textarea 
-                                    className={`flex-1 w-full bg-[#0a0a0a] text-emerald-400 font-mono text-xs p-3 rounded border outline-none resize-none mb-3 min-h-[300px] shadow-inner transition-colors ${error ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-sky-500'}`}
-                                    value={jsonStr} 
-                                    onChange={(e) => setJsonStr(e.target.value)}
+                                    className={`flex-1 w-full bg-[#0a0a0a] text-emerald-400 font-mono text-xs p-3 rounded border outline-none resize-none mb-3 min-h-[300px] transition-colors ${error ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-sky-500'}`}
+                                    value={jsonStr} onChange={(e) => setJsonStr(e.target.value)}
                                     spellCheck="false"
                                 />
-                                {error && (
-                                    <div className="text-red-300 text-xs font-semibold mb-3 p-3 bg-red-900/40 border border-red-800/50 rounded break-words">
-                                        {error}
-                                    </div>
-                                )}
-                                <button 
-                                    onClick={handleSave} 
-                                    className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded transition-colors text-sm shadow focus:ring-2 focus:ring-sky-400 focus:outline-none"
-                                >
+                                {error && <div className="text-red-400 text-xs mb-3 p-3 bg-red-950 border border-red-900/50 rounded">{error}</div>}
+                                <button onClick={handleSave} className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded transition-colors text-sm shadow">
                                     Save {view === 'key' ? 'Binding' : view}
                                 </button>
                             </div>
                         ) : (
-                            <div className="flex-1 flex items-center justify-center text-slate-500 text-sm italic text-center p-4 border-2 border-dashed border-slate-800 rounded">
+                            <div className="flex-1 flex items-center justify-center text-slate-500 text-sm italic text-center p-4 border border-dashed border-slate-800 rounded">
                                 Select a physical key on the board to edit its binding properties.
                             </div>
                         )}
@@ -403,22 +317,21 @@
             );
         };
 
-        // --- 4. MAIN APP ---
+
+        // --- 4. ENGINE MASTER CONTROLLER ---
         const App = () => {
             const [config, setConfig] = useState(null);
             const [activeLayer, setActiveLayer] = useState(0);
             const [selectedKey, setSelectedKey] = useState(null);
-            const [uploadError, setUploadError] = useState("");
+            const [fileError, setFileError] = useState("");
 
-            // Dynamically scale to either Glove80 or Go60 based on JSON declaration
             const keyboardGeo = useMemo(() => {
                 if (!config) return [];
-                if (config.layout && config.layout.keys) return config.layout.keys;
+                if (config.layout?.keys) return config.layout.keys;
                 if (config.keyboard?.toLowerCase() === 'go60') return GO60_GEO;
-                return GLOVE80_GEO; // Master fallback default
+                return GLOVE80_GEO; 
             }, [config]);
 
-            // Memoized to prevent prop-drilling render triggers
             const handleSelectKey = useCallback((index) => {
                 setSelectedKey(index);
             }, []);
@@ -426,18 +339,18 @@
             const handleFileUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
+                setFileError("");
                 
-                setUploadError("");
                 const reader = new FileReader();
-                
                 reader.onload = (event) => {
                     try {
                         let parsed = JSON.parse(event.target.result);
-                        
-                        // Handle wrapped ZMK exports vs standard raw exports
                         parsed = parsed.keymap !== undefined ? parsed.keymap : parsed;
                         
-                        // Normalize arrays
+                        if (!parsed.layers || !Array.isArray(parsed.layers)) {
+                            throw new Error("Invalid schema tracking parameters: Missing layout 'layers' matrix map.");
+                        }
+
                         parsed.macros = parsed.macros || [];
                         parsed.combos = parsed.combos || [];
                         parsed.holdTaps = parsed.holdTaps || [];
@@ -446,58 +359,42 @@
                         setActiveLayer(0); 
                         setSelectedKey(null);
                     } catch (err) { 
-                        setUploadError("Invalid JSON structure. Please ensure the file is a valid configuration export.");
+                        setFileError(err.message || "Invalid JSON structure file targeting layout schemas."); 
                     }
                 };
-                
-                reader.onerror = () => setUploadError("Failed to read the selected file.");
                 reader.readAsText(file);
-                e.target.value = ''; // Reset input to allow re-uploading the same file
+                e.target.value = '';
             };
 
             const handleExport = () => {
                 if (!config) return;
-                try {
-                    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
-                    const anchor = document.createElement('a');
-                    anchor.href = dataStr; 
-                    anchor.download = `layout_${config.keyboard || 'custom'}_${Math.floor(Date.now() / 1000)}.json`; 
-                    document.body.appendChild(anchor);
-                    anchor.click();
-                    document.body.removeChild(anchor);
-                } catch (e) {
-                    alert("Download blocked. You can manually copy the JSON using the Global views.");
-                }
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+                const anchor = document.createElement('a');
+                anchor.href = dataStr; 
+                anchor.download = `layout_${config.keyboard || 'custom'}_${Math.floor(Date.now() / 1000)}.json`; 
+                document.body.appendChild(anchor);
+                anchor.click();
+                document.body.removeChild(anchor);
             };
 
             return (
                 <div className="flex h-full w-full font-sans">
-                    {/* Left Sidebar (Controls) */}
                     <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col shrink-0 p-5 gap-6 z-20">
                         <div>
-                            <h1 className="text-xl font-bold text-white mb-1 flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-sky-500" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-                                </svg>
-                                Basic Edit
-                            </h1>
-                            <p className="text-xs text-slate-500 mb-5">Ergonomic JSON Visualizer</p>
-                            
+                            <h1 className="text-xl font-bold text-white mb-1 flex items-center gap-2">Basic Edit</h1>
+                            <p className="text-xs text-slate-500 mb-5">Ergonomic ZMK Layout Visualizer</p>
                             <label className="block w-full bg-slate-800 border border-slate-700 hover:border-sky-500 text-slate-200 text-center py-2.5 rounded cursor-pointer transition-colors text-sm font-semibold shadow">
                                 Load JSON Layout
                                 <input type="file" accept=".json" className="hidden" onChange={handleFileUpload} />
                             </label>
-                            
-                            {uploadError && (
-                                <p className="mt-3 text-xs text-red-400 bg-red-400/10 p-2 rounded">{uploadError}</p>
-                            )}
+                            {fileError && <p className="mt-2 text-xs text-red-400 bg-red-950/50 p-2 border border-red-900/30 rounded">{fileError}</p>}
                         </div>
 
                         {config && (
                             <div className="flex-1 flex flex-col gap-6">
                                 <div className="space-y-1.5 text-xs text-slate-400 bg-slate-800/40 border border-slate-800 p-4 rounded shadow-inner">
                                     <div className="flex justify-between items-center">
-                                        <span>Board Form:</span> 
+                                        <span>Target Form:</span> 
                                         <span className="text-white uppercase font-mono bg-slate-700 px-1.5 py-0.5 rounded">{config.keyboard || 'Custom'}</span>
                                     </div>
                                     <div className="flex justify-between items-center">
@@ -508,64 +405,42 @@
 
                                 <div>
                                     <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-2">Active Layer</label>
-                                    <select 
-                                        className="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded focus:ring-2 focus:ring-sky-500 p-2.5 outline-none transition-shadow cursor-pointer appearance-none"
-                                        value={activeLayer} 
-                                        onChange={(e) => { setActiveLayer(parseInt(e.target.value, 10)); setSelectedKey(null); }}
-                                    >
-                                        {config.layer_names?.map((name, i) => (
-                                            <option key={i} value={i}>{i} : {name}</option>
-                                        )) || config.layers.map((_, i) => (
-                                            <option key={i} value={i}>Layer {i}</option>
-                                        ))}
+                                    <select className="w-full bg-slate-950 border border-slate-700 text-white text-sm rounded focus:ring-2 focus:ring-sky-500 p-2.5 outline-none cursor-pointer appearance-none"
+                                        value={activeLayer} onChange={(e) => { setActiveLayer(parseInt(e.target.value, 10)); setSelectedKey(null); }}>
+                                        {config.layer_names?.map((name, i) => <option key={i} value={i}>{i} : {name}</option>) || config.layers.map((_, i) => <option key={i} value={i}>Layer {i}</option>)}
                                     </select>
                                 </div>
 
-                                <button 
-                                    onClick={handleExport} 
-                                    className="w-full mt-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded text-sm transition-all shadow-md hover:shadow-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                                >
+                                <button onClick={handleExport} className="w-full mt-auto bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded text-sm transition-all shadow focus:ring-2 focus:ring-emerald-400">
                                     Export Configuration
                                 </button>
                             </div>
                         )}
                     </div>
 
-                    {/* Middle Workspace (Matrix Viewer) */}
                     <div className="flex-1 flex items-center justify-center bg-[#0b1120] overflow-hidden relative z-10">
                         {!config ? (
-                            <div className="text-slate-500 flex flex-col items-center gap-4">
-                                <svg xmlns="http://www.w3.org/2000/svg" className="h-16 w-16 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                </svg>
-                                <span>Upload a configuration JSON to begin visual editing.</span>
+                            <div className="text-slate-500 flex flex-col items-center gap-2">
+                                <span>Upload a configuration file matching the MoErgo layout schema.</span>
                             </div>
                         ) : (
                             <KeyboardContainer 
-                                keyboardGeo={keyboardGeo} 
-                                activeLayerBindings={config.layers[activeLayer]} 
-                                baseLayerBindings={config.layers[0]}
-                                selectedKey={selectedKey} 
-                                onSelectKey={handleSelectKey}
+                                keyboardGeo={keyboardGeo} activeLayerBindings={config.layers[activeLayer]} baseLayerBindings={config.layers[0]}
+                                selectedKey={selectedKey} onSelectKey={handleSelectKey}
                             />
                         )}
                     </div>
 
-                    {/* Right Pane (Inspector) */}
                     {config && (
                         <DockedInspector 
-                            config={config} 
-                            activeLayer={activeLayer} 
-                            selectedKey={selectedKey} 
-                            setSelectedKey={setSelectedKey} 
-                            updateConfig={setConfig} 
+                            config={config} activeLayer={activeLayer} 
+                            selectedKey={selectedKey} setSelectedKey={setSelectedKey} updateConfig={setConfig} 
                         />
                     )}
                 </div>
             );
         };
 
-        // Initialize React Tree
         const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
