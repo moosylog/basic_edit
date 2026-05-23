@@ -8,9 +8,6 @@
 
 It runs entirely in the browser as a single HTML file—no build steps, no package managers, and no local server required.
 
----
-
-
   <img src="screenshot.png" alt="Basic Edit Screenshot" width="800" />
 
 
