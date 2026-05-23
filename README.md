@@ -12,9 +12,9 @@ It runs entirely in the browser as a single HTML file—no build steps, no packa
 
 ---
 
-<p align="center">
+
   <img src="screenshot.png" alt="Basic Edit Screenshot" width="800" />
-</p>
+
 
 ## ✨ Features
 
