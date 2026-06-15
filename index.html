@@ -43,12 +43,16 @@
             z-index: 10; transform: translateY(-2px); background-color: #0f172a;
         }
         .p-key.trans { opacity: 0.5; border-style: dashed; }
+        .p-key.dead { background-color: #0f172a; border-color: #1e293b; opacity: 0.3; }
         .text-clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .text-fit-md { font-size: 11px; font-weight: 600; line-height: 1.2; word-break: break-word; white-space: pre-wrap; }
+        
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body class="antialiased h-screen w-screen flex dark">
@@ -87,8 +91,9 @@
          * @property {Array<Object>} macros - Registered global sequence strings mapping macro injection objects
          * @property {Array<Object>} combos - Advanced multi-press triggers capturing positional chord interactions
          * @property {Array<Object>} holdTaps - Dynamic time-dependent interaction definitions tuning positional taps
+         * @property {Array<Object>} modMorphs - Shift-dependent dual-action definitions
+         * @property {Array<Object>} tapDances - Sequential multi-tap behavior definitions
          */
-
 
         // --- 1. HARDWARE GEOMETRY REPOSITORIES ---
         const GLOVE80_GEO = [
@@ -182,11 +187,10 @@
             return binding.value.replace('&', '');
         };
 
-
         // --- 3. COMPONENTS (ISOLATED & MEMOIZED) ---
-        
         const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect }) => {
             const isTrans = binding.value === '&trans';
+            const isDead = binding.value === '&none' || binding.value === 'none';
             const labelText = isTrans && baseBinding ? generateAutoLabel(baseBinding) : generateAutoLabel(binding);
             
             const keyStyle = { 
@@ -202,7 +206,7 @@
 
             return (
                 <div 
-                    className={`p-key ${isSelected ? 'selected' : ''} ${isTrans ? 'trans' : ''}`} 
+                    className={`p-key ${isSelected ? 'selected' : ''} ${isTrans ? 'trans' : ''} ${isDead ? 'dead' : ''}`} 
                     style={keyStyle} 
                     onClick={() => onSelect(index)}
                     role="button"
@@ -257,11 +261,18 @@
                     newConfig.date = Math.floor(Date.now() / 1000);
                     
                     if (view === 'key') {
-                        if (!parsed.value || !parsed.params) throw new Error("Binding structure validation failed. Missing 'value' or 'params'.");
+                        // Allow missing params specifically for parameterless bindings like &none
+                        if (!parsed.value || (parsed.value !== '&none' && !parsed.params)) {
+                            throw new Error("Binding structure validation failed. Missing 'value' or 'params'.");
+                        }
                         newConfig.layers[activeLayer][selectedKey] = parsed;
                     } else {
                         if (!Array.isArray(parsed)) throw new Error(`Root updates for ${view} must be formatted as an array.`);
-                        newConfig[view] = parsed;
+                        if (parsed.length > 0) {
+                            newConfig[view] = parsed;
+                        } else {
+                            delete newConfig[view];
+                        }
                     }
                     
                     updateConfig(newConfig);
@@ -273,10 +284,10 @@
 
             return (
                 <div className="w-[340px] bg-slate-900 border-l border-slate-800 flex flex-col shrink-0 overflow-hidden shadow-2xl">
-                    <div className="flex text-xs font-semibold bg-slate-950 border-b border-slate-800">
-                        {['key', 'macros', 'combos', 'holdTaps'].map(t => (
+                    <div className="flex text-xs font-semibold bg-slate-950 border-b border-slate-800 overflow-x-auto hide-scrollbar">
+                        {['key', 'macros', 'combos', 'holdTaps', 'modMorphs', 'tapDances'].map(t => (
                             <button key={t} onClick={() => { setView(t); setSelectedKey(null); }}
-                                className={`flex-1 py-3 text-center capitalize transition-colors focus:outline-none ${view === t ? 'text-sky-400 border-b-2 border-sky-400 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>
+                                className={`flex-1 min-w-[75px] py-3 text-center capitalize transition-colors focus:outline-none ${view === t ? 'text-sky-400 border-b-2 border-sky-400 bg-slate-900' : 'text-slate-500 hover:text-slate-300'}`}>
                                 {t}
                             </button>
                         ))}
@@ -299,7 +310,18 @@
                                 </p>
                                 <textarea 
                                     className={`flex-1 w-full bg-[#0a0a0a] text-emerald-400 font-mono text-xs p-3 rounded border outline-none resize-none mb-3 min-h-[300px] transition-colors ${error ? 'border-red-500 focus:border-red-400' : 'border-slate-700 focus:border-sky-500'}`}
-                                    value={jsonStr} onChange={(e) => setJsonStr(e.target.value)}
+                                    value={jsonStr} 
+                                    onChange={(e) => setJsonStr(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Tab') {
+                                            e.preventDefault();
+                                            const start = e.target.selectionStart;
+                                            const end = e.target.selectionEnd;
+                                            const newVal = jsonStr.substring(0, start) + "  " + jsonStr.substring(end);
+                                            setJsonStr(newVal);
+                                            setTimeout(() => { e.target.selectionStart = e.target.selectionEnd = start + 2; }, 0);
+                                        }
+                                    }}
                                     spellCheck="false"
                                 />
                                 {error && <div className="text-red-400 text-xs mb-3 p-3 bg-red-950 border border-red-900/50 rounded">{error}</div>}
@@ -317,13 +339,23 @@
             );
         };
 
-
         // --- 4. ENGINE MASTER CONTROLLER ---
         const App = () => {
             const [config, setConfig] = useState(null);
             const [activeLayer, setActiveLayer] = useState(0);
             const [selectedKey, setSelectedKey] = useState(null);
             const [fileError, setFileError] = useState("");
+
+            useEffect(() => {
+                const handleBeforeUnload = (e) => {
+                    if (config) {
+                        e.preventDefault();
+                        e.returnValue = ''; 
+                    }
+                };
+                window.addEventListener('beforeunload', handleBeforeUnload);
+                return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+            }, [config]);
 
             const keyboardGeo = useMemo(() => {
                 if (!config) return [];
@@ -350,10 +382,6 @@
                         if (!parsed.layers || !Array.isArray(parsed.layers)) {
                             throw new Error("Invalid schema tracking parameters: Missing layout 'layers' matrix map.");
                         }
-
-                        parsed.macros = parsed.macros || [];
-                        parsed.combos = parsed.combos || [];
-                        parsed.holdTaps = parsed.holdTaps || [];
                         
                         setConfig(parsed); 
                         setActiveLayer(0); 
