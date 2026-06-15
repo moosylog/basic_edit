@@ -16,7 +16,7 @@ It runs entirely in the browser as a single HTML file—no build steps, no packa
 * **Visual Foundation:** The tedious work of mapping physical key coordinates is already done. The app understands the geometry of both the **Glove80** and **Go60** and automatically displays the correct keyboard canvas based on your loaded JSON.
 * **Zero Setup:** A complete React application bundled into a single `.html` file. Just double-click to open it in any modern browser.
 * **Split-Pane Architecture:** A docked inspector allows you to edit the raw AST (Abstract Syntax Tree) of bindings without occluding the visual keyboard.
-* **Advanced ZMK Support:** Safely edit root-level behaviors like `macros`, `combos`, and `holdTaps` alongside standard layer bindings.
+* **Advanced ZMK Support:** Safely edit root-level extended behaviors like macros, combos, holdTaps, modMorphs, and tapDances alongside standard layer bindings. 
 * **Import & Export:** Load an existing MoErgo layout JSON, tweak it visually or via the raw JSON AST, and immediately export the updated file ready for the firmware builder.
 
 ---
@@ -28,7 +28,7 @@ You can try the editor immediately via the [Live Demo](https://moosylog.github.i
 1. **Clone or download** this repository.
 2. **Double-click** `index.html` to open it in your web browser.
 3. Click **Load JSON Layout** and select a valid MoErgo ZMK JSON file.
-4. **Select physical keys** on the canvas to edit their bindings directly, or use the tabs in the right-hand inspector to edit global Macros, Combos, and Hold-Taps.
+4. **Select physical keys** on the canvas to edit their bindings directly, or use the tabs in the right-hand inspector to edit global Macros, Combos, Hold-Taps, Mod-Morphs, and Tap-Dances.
 5. Click **Export Configuration** to download your customized, builder-ready layout.
 
 ---
