@@ -1,0 +1,2140 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoErgo Studio | Ultimate Visual Engine</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] } } }
+        }
+    </script>
+
+    <style>
+        /* --- DYNAMIC THEME VARIABLES --- */
+        :root {
+            /* Light Theme (Crisp & Clean) */
+            --bg-base: #f8fafc;
+            --bg-panel: #ffffff;
+            --border-panel: #e2e8f0;
+            --accent: #ea700d;
+            --accent-glow: rgba(234, 112, 13, 0.15);
+            --accent-soft: rgba(234, 112, 13, 0.05);
+            --combo: #a855f7;
+            
+            --key-bg: #ffffff;
+            --key-border: #cbd5e1;
+            --key-dashed: #94a3b8;
+            --key-shadow: 0 1px 3px rgba(0,0,0,0.05), inset 0 -2px 0 rgba(0,0,0,0.02);
+            --key-text: #1e293b;
+            --key-shift: #64748b;
+            --key-hover: #f1f5f9;
+
+            --input-bg: #ffffff;
+            --input-border: #cbd5e1;
+        }
+
+        .dark {
+            /* Dark Theme (Deep IDE) */
+            --bg-base: #0b1120;
+            --bg-panel: #0f172a;
+            --border-panel: #1e293b;
+            --accent: #0ea5e9;
+            --accent-glow: rgba(14, 165, 233, 0.3);
+            --accent-soft: rgba(14, 165, 233, 0.1);
+            --combo: #c084fc;
+
+            --key-bg: linear-gradient(180deg, #334155 0%, #1e293b 100%);
+            --key-border: #475569;
+            --key-dashed: #64748b;
+            --key-shadow: 0 4px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+            --key-text: #f8fafc;
+            --key-shift: #94a3b8;
+            --key-hover: #334155;
+
+            --input-bg: #0b1120;
+            --input-border: #334155;
+        }
+
+        body { background-color: var(--bg-base); color: var(--key-text); font-family: 'Inter', sans-serif; overflow: hidden; margin: 0; display: flex; height: 100vh; width: 100vw; transition: background-color 0.2s, color 0.2s; }
+        
+        /* Premium Scrollbars */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark ::-webkit-scrollbar-thumb { background: #334155; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+
+        /* --- MATRIX SCALING LOGIC --- */
+        #matrix-wrapper { flex: 1; position: relative; overflow: hidden; padding: 40px; display: flex; align-items: center; justify-content: center; }
+        #matrix-container { position: absolute; left: 50%; top: 50%; transform-origin: center center; transition: transform 0.1s ease-out; }
+
+        /* --- MATRIX KEYCAPS --- */
+        .matrix-key { 
+            position: absolute; width: 62px; height: 62px; border-radius: 8px; 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            cursor: pointer; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); user-select: none; 
+            border: 1px solid var(--key-border); background: var(--key-bg);
+            box-shadow: var(--key-shadow); padding: 4px; text-align: center; z-index: 1; color: var(--key-text);
+        }
+        .matrix-key:active { transform: scale(0.92) !important; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .matrix-key:hover { border-color: var(--accent); z-index: 5; }
+        
+        /* Highlight States */
+        .matrix-key.selected { border-color: var(--accent) !important; box-shadow: 0 0 0 4px var(--accent-glow) !important; z-index: 10; transform: translateY(-2px); background: var(--key-bg); }
+        .matrix-key.combo-active { border-color: var(--combo) !important; background: rgba(168, 85, 247, 0.1); box-shadow: 0 0 0 4px rgba(168, 85, 247, 0.2) !important; z-index: 10; transform: translateY(-2px); }
+        
+        /* Unified Dead & Trans Keys Styling */
+        .matrix-key.trans, .matrix-key.dead { border: 1px dashed var(--key-dashed); box-shadow: none; opacity: 0.6; }
+        .matrix-key.trans { background: repeating-linear-gradient(45deg, var(--accent-soft) 0px, var(--accent-soft) 4px, transparent 4px, transparent 8px); }
+        .matrix-key.dead { background: transparent; opacity: 0.4; }
+        .matrix-key.dead::after { content: ''; position: absolute; width: 4px; height: 4px; border-radius: 50%; background: var(--key-dashed); }
+
+        .text-clamp { font-size: 11px; font-weight: 700; line-height: 1.2; word-break: break-word; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .dark .text-clamp { text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+
+        /* --- PHYSICAL KEYBOARD PICKER --- */
+        .phys-key {
+            background: var(--key-bg); border: 1px solid var(--key-border); border-bottom-width: 4px; border-bottom-color: #cbd5e1;
+            border-radius: 6px; color: var(--key-text); cursor: pointer; display: flex; flex-direction: column; position: relative;
+            transition: all 0.1s; box-shadow: 0 1px 2px rgba(0,0,0,0.05); user-select: none; padding: 4px 6px;
+        }
+        .dark .phys-key { border-bottom-color: #020617; box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+        .phys-key:hover { background: var(--key-hover); border-color: var(--accent); border-bottom-color: var(--key-border); }
+        .phys-key:active, .phys-key.mod-active, .phys-key.active-press {
+            border-bottom-width: 1px !important; transform: translateY(3px) !important;
+            background: var(--accent); border-color: var(--accent); color: #ffffff; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+        }
+        .phys-key:active .key-shift, .phys-key.mod-active .key-shift, .phys-key.active-press .key-shift { color: rgba(255,255,255,0.8); }
+        
+        .key-center { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 12px; font-weight: 700; text-align: center; }
+        .key-main { position: absolute; bottom: 6px; left: 8px; font-weight: 700; font-size: 13px; }
+        .key-shift { position: absolute; top: 4px; left: 8px; font-size: 10px; color: var(--key-shift); font-weight: 600; }
+        
+        .kbd-row { display: flex; gap: 6px; margin-bottom: 6px; width: 100%; }
+        .k-1 { flex: 1; height: 44px; } .k-1-25 { flex: 1.25; height: 44px; } .k-1-5 { flex: 1.5; height: 44px; } .k-1-75 { flex: 1.75; height: 44px; }
+        .k-2 { flex: 2; height: 44px; } .k-2-25 { flex: 2.25; height: 44px; } .k-2-75 { flex: 2.75; height: 44px; } .k-space { flex: 6.25; height: 44px; }
+
+        /* --- GENERIC UI COMPONENTS --- */
+        .mod-chip {
+            padding: 8px 10px; border: 1px solid var(--key-border); border-radius: 6px; 
+            font-size: 11px; font-weight: 600; color: var(--key-shift); background: transparent; 
+            cursor: pointer; transition: all 0.15s; text-align: center;
+        }
+        .mod-chip.active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent-glow); }
+        
+        .input-field {
+            width: 100%; background: var(--input-bg); border: 1px solid var(--key-border); color: var(--key-text); 
+            font-size: 13px; font-weight: 500; padding: 10px 12px; border-radius: 6px; outline: none; transition: all 0.2s;
+        }
+        .input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+        
+        input[type=range] { -webkit-appearance: none; background: transparent; width: 100%; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%; background: var(--accent); cursor: pointer; margin-top: -6px; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: var(--key-border); border-radius: 2px; }
+
+        button:disabled { pointer-events: none; }
+
+        /* Tree Lines for Nested Actions */
+        .tree-line {
+            position: absolute; left: -16px; top: -16px; bottom: 50%; width: 16px; 
+            border-left: 2px solid var(--key-border); border-bottom: 2px solid var(--key-border); border-bottom-left-radius: 8px;
+        }
+
+        /* --- TERMINOLOGY TOGGLE --- */
+        .toggle-bg { background: transparent; border-radius: 20px; padding: 3px; display: inline-flex; position: relative; border: 1px solid var(--key-border); }
+        .dark .toggle-bg { background: #0f172a; border-color: #334155; }
+        .toggle-btn { padding: 4px 12px; font-size: 11px; font-weight: 700; border-radius: 16px; cursor: pointer; z-index: 10; transition: color 0.2s; color: var(--key-shift); }
+        .toggle-btn.active { color: #ffffff; }
+        .light .toggle-btn.active { color: #0f172a; }
+        .toggle-pill { position: absolute; top: 3px; bottom: 3px; background: #ffffff; border-radius: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .dark .toggle-pill { background: #334155; box-shadow: 0 1px 2px rgba(0,0,0,0.3); }
+    </style>
+</head>
+<body class="antialiased h-screen w-screen flex">
+
+    <div class="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 p-5 z-30 shadow-lg relative transition-colors">
+        <div class="mb-6">
+            <div class="flex justify-between items-center mb-1">
+                <h1 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">MoErgo Studio</h1>
+                <button onclick="toggleTheme()" class="text-slate-400 hover:text-[color:var(--accent)] transition-colors" title="Toggle Theme">
+                    <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                </button>
+            </div>
+            <p class="text-[11px] font-mono text-slate-500 mb-6">Visual Behavior Engine</p>
+            
+            <label class="block w-full bg-[color:var(--accent)] hover:brightness-110 border border-[color:var(--accent)] text-white text-center py-3 rounded-lg cursor-pointer transition-all text-sm font-bold shadow-md">
+                Load JSON Layout
+                <input type="file" id="file-upload" accept=".json" class="hidden" />
+            </label>
+        </div>
+        
+        <div id="sidebar-ui" class="flex-1 flex flex-col hidden overflow-y-auto custom-scrollbar pr-1">
+            <div class="mb-6">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1" id="lbl-layers">Matrix Layers</h3>
+                <div id="layer-list" class="flex flex-col gap-1.5"></div>
+            </div>
+            <div class="mb-6">
+                <button id="btn-settings-nav" onclick="inspectorPath=[{type:'settings'}]; closePicker(); renderAll();"
+                    class="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-bold border transition-all bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-[color:var(--accent)]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span id="lbl-settings-nav">Settings</span>
+                </button>
+            </div>
+            <div class="flex-1">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 px-1" id="lbl-behaviors">Behaviors</h3>
+                <div id="behavior-nav-list" class="flex flex-col gap-1.5"></div>
+            </div>
+            <div class="flex gap-2 mt-6">
+                <button id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)" disabled
+                    class="flex-1 flex items-center justify-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-lg text-xs transition-all opacity-30 cursor-not-allowed">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a5 5 0 015 5v1m-15-6l4-4m-4 4l4 4"></path></svg>
+                    Undo
+                </button>
+                <button id="btn-redo" onclick="redo()" title="Redo (Ctrl+Shift+Z)" disabled
+                    class="flex-1 flex items-center justify-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-lg text-xs transition-all opacity-30 cursor-not-allowed">
+                    Redo
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a5 5 0 00-5 5v1m15-6l-4-4m4 4l-4 4"></path></svg>
+                </button>
+            </div>
+            <button id="btn-export" class="w-full mt-3 bg-slate-800 dark:bg-emerald-600 hover:brightness-110 text-white font-bold py-3.5 rounded-lg text-sm transition-all shadow-md">
+                Export Layout
+            </button>
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col relative z-10 overflow-hidden">
+        
+        <div id="matrix-wrapper">
+            <div id="zoom-controls" class="absolute top-6 right-6 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm z-20 hidden transition-colors">
+                <button id="btn-zoom-out" class="p-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors" title="Zoom Out">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                </button>
+                <span id="zoom-level-text" class="text-[11px] font-mono font-bold w-12 text-center text-slate-700 dark:text-slate-300">100%</span>
+                <button id="btn-zoom-in" class="p-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors" title="Zoom In">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                </button>
+                <div class="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                <button id="btn-zoom-auto" class="p-2.5 text-[color:var(--accent)] hover:brightness-110 transition-colors" title="Auto Fit">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                </button>
+            </div>
+
+            <div id="empty-state" class="text-slate-400 flex flex-col items-center gap-4 absolute">
+                <svg class="w-16 h-16 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                <span class="text-sm font-medium">Upload a MoErgo JSON layout to begin.</span>
+            </div>
+            
+            <div id="matrix-banner" class="absolute top-6 left-1/2 transform -translate-x-1/2 bg-purple-100 dark:bg-purple-900/90 border border-purple-500 text-purple-700 dark:text-purple-100 px-6 py-2.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-md hidden z-20 transition-all flex items-center gap-2">
+                <svg class="w-4 h-4 text-purple-500 dark:text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+                Combo Mode: Click physical keys to chord them together.
+            </div>
+
+            <div id="matrix-container" class="hidden"></div>
+        </div>
+
+        <div id="picker-drawer" class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-[340px] shrink-0 p-8 flex flex-col items-center transition-transform duration-300 transform translate-y-full absolute bottom-0 left-0 right-0 z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_50px_rgba(0,0,0,0.5)]">
+            <div class="w-full max-w-[850px]">
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <svg class="w-4 h-4 text-[color:var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            Physical Key Picker
+                        </h4>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Select a keycode to apply to the current parameter.</p>
+                    </div>
+                    <button onclick="closePicker()" class="text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-2.5 rounded-lg transition-all shadow-sm">Done / Close</button>
+                </div>
+                <div id="phys-keyboard" class="w-full flex flex-col gap-1.5"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="inspector" class="w-[420px] bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col shrink-0 z-30 shadow-2xl transition-all hidden">
+        <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex flex-wrap items-center gap-1.5" id="breadcrumbs"></div>
+        <div class="flex flex-col items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <div class="flex w-full justify-between items-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-1.5 rounded-2xl">
+                <span class="text-[10px] font-bold text-slate-400 pl-2 uppercase tracking-widest">Terminology</span>
+                <div class="toggle-bg">
+                    <div class="toggle-pill" id="toggle-pill" style="left: 3px; width: 68px;"></div>
+                    <div class="toggle-btn active" id="btn-friendly" onclick="setTerminology('friendly')">Friendly</div>
+                    <div class="toggle-btn" id="btn-zmk" onclick="setTerminology('zmk')">Technical</div>
+                </div>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-8 custom-scrollbar" id="inspector-content"></div>
+    </div>
+
+    <script>
+        // --- 1. THEME ENGINE ---
+        function toggleTheme() {
+            document.documentElement.classList.toggle('dark');
+            renderAll(); 
+        }
+
+        // --- 2. CORE DICTIONARIES ---
+        let termMode = 'friendly';
+        
+        const T = {
+            friendly: {
+                layers: "Matrix Layers", behaviors: "Global Behaviors", 
+                holdTaps: "Hold-Taps", tapDances: "Multi-Taps", modMorphs: "Modifier Rules", combos: "Chords / Combos", macros: "Macros",
+                kp: "Standard Keypress", mo: "Momentary Layer", mt: "Mod-Tap", lt: "Layer-Tap", sl: "Sticky Layer", sk: "Sticky Modifier", trans: "Transparent", none: "Dead Key", custom: "Custom Reference",
+                to: "Switch To Layer", tog: "Toggle Layer", bt: "Bluetooth", out: "Output Select", rgb_ug: "RGB Underglow", ext_power: "External Power", bootloader: "Bootloader", sys_reset: "Reset", caps_word: "Caps Word", key_repeat: "Repeat Last Key",
+                flavor: "Interaction Flavor", tappingTermMs: "Max Tap Delay", quickTapMs: "Quick Tap Timeout", requirePriorIdleMs: "Require Idle Time", waitMs: "Wait Delay", tapMs: "Tap Duration", timeoutMs: "Chord Timeout",
+                holdAction: "Hold Action", tapAction: "Tap Action", baseAction: "Base Action", shiftAction: "Shifted Action", step: "Step",
+                settings: "Settings", holdTriggerKeyPositions: "Bilateral Combo Keys", holdTriggerOnRelease: "Trigger On Release", retroTap: "Retro Tap", keepMods: "Keep Modifiers", slowRelease: "Slow Release"
+            },
+            zmk: {
+                layers: ".layers", behaviors: "ZMK Behaviors", 
+                holdTaps: "&hold_tap", tapDances: "&tap_dance", modMorphs: "&mod_morph", combos: "combos", macros: "&amp;macro", 
+                kp: "&kp", mo: "&mo", mt: "&mt", lt: "&lt", sl: "&sl", sk: "&sk", trans: "&trans", none: "&none", custom: "Raw String",
+                to: "&to", tog: "&tog", bt: "&bt", out: "&out", rgb_ug: "&rgb_ug", ext_power: "&ext_power", bootloader: "&bootloader", sys_reset: "&sys_reset", caps_word: "&caps_word", key_repeat: "&key_repeat",
+                flavor: "flavor", tappingTermMs: "tapping-term-ms", quickTapMs: "quick-tap-ms", requirePriorIdleMs: "require-prior-idle-ms", waitMs: "wait-ms", tapMs: "tap-ms", timeoutMs: "timeout-ms",
+                holdAction: "bindings[0]", tapAction: "bindings[1]", baseAction: "bindings[0]", shiftAction: "bindings[1]", step: "bindings[",
+                settings: "Root Config", holdTriggerKeyPositions: "hold-trigger-key-positions", holdTriggerOnRelease: "hold-trigger-on-release", retroTap: "retro-tap", keepMods: "keep-mods", slowRelease: "slow-release"
+            }
+        };
+
+        const ZMK_MODS = ["LSHFT", "LCTRL", "LALT", "LGUI", "RSHFT", "RCTRL", "RALT", "RGUI"];
+        // LAYERS removed: layer chips now read config.layer_names at render time.
+
+        const PROPERTY_SCHEMA = {
+            tappingTermMs: { type: 'slider', min: 100, max: 500, step: 10 },
+            quickTapMs: { type: 'slider', min: -1, max: 500, step: 1 },
+            requirePriorIdleMs: { type: 'slider', min: 0, max: 500, step: 10 },
+            timeoutMs: { type: 'slider', min: 10, max: 200, step: 5 },
+            waitMs: { type: 'slider', min: 0, max: 200, step: 5 },
+            tapMs: { type: 'slider', min: 0, max: 200, step: 5 },
+            flavor: { type: 'select', options: ['hold-preferred', 'tap-preferred', 'tap-unless-interrupted', 'balanced'] },
+            holdTriggerOnRelease: { type: 'boolean' },
+            retroTap: { type: 'boolean' },
+            slowRelease: { type: 'boolean' },
+            holdTriggerKeyPositions: { type: 'keyPositionList' },
+        };
+
+        const SKELETONS = {
+            holdTaps: { name: "&new_ht", bindings: ["&kp", "&kp"], tappingTermMs: 200, flavor: "tap-preferred", quickTapMs: -1, requirePriorIdleMs: 0 },
+            tapDances: { name: "&new_td", tappingTermMs: 200, bindings: [{ value: "&kp", params: [{value: "A"}] }] },
+            modMorphs: { name: "&new_morph", cases: [ { binding: { value: "&kp", params: [{value: "A"}] }, mods: [], keepMods: [] }, { binding: { value: "&kp", params: [{value: "B"}] }, mods: ["LSHFT"], keepMods: [] } ] },
+            combos: { name: "new_combo", binding: { value: "&kp", params: [{ value: "ESC" }] }, keyPositions: [], layers: [-1], timeoutMs: 50 },
+            macros: { name: "&new_macro", waitMs: 30, tapMs: 30, bindings: [{ value: "&macro_tap" }, { value: "&kp", params: [{value: "A"}] }] }
+        };
+
+        const BEHAVIOR_DEF = {
+            "&kp": { name: "Standard Keypress", type: "keycode" },
+            "&mo": { name: "Momentary Layer", type: "layer" },
+            "&sl": { name: "Sticky Layer", type: "layer" },
+            "&sk": { name: "Sticky Modifier", type: "modifier" },
+            "&mt": { name: "Mod-Tap", type: "modifier+keycode" },
+            "&lt": { name: "Layer-Tap", type: "layer+keycode" },
+            "&to": { name: "To Layer", type: "layer" },
+            "&tog": { name: "Toggle Layer", type: "layer" },
+            "&trans": { name: "Transparent", type: "none" },
+            "&none": { name: "None / Dead Key", type: "none" },
+            "none": { name: "None / Dead Key", type: "none" },
+            "&caps_word": { name: "Caps Word", type: "none" },
+            "&key_repeat": { name: "Repeat Last Key", type: "none" },
+            "&bootloader": { name: "Bootloader", type: "none" },
+            "&sys_reset": { name: "Reset", type: "none" },
+            "&bt":         { name: "Bluetooth",        type: "system-select" },
+            "&out":        { name: "Output Select",    type: "system-select" },
+            "&rgb_ug":     { name: "RGB Underglow",    type: "system-select" },
+            "&ext_power":  { name: "External Power",   type: "system-select" },
+            "&macro_tap": { name: "Macro: Tap", type: "none" },
+            "&macro_press": { name: "Macro: Press", type: "none" },
+            "&macro_release": { name: "Macro: Release", type: "none" },
+            "&macro_wait_time": { name: "Macro: Wait Time", type: "macro-timing" },
+            "&macro_param_1to1": { name: "Macro: Param Passthrough (1→1)", type: "none" },
+            "&macro_param_2to1": { name: "Macro: Param Passthrough (2→1)", type: "none" },
+            "Custom": { name: "Global Behavior / Custom", type: "custom" }
+        };
+
+        const ZMK_MAP = {
+            LSHFT:'⇧', LCTRL:'Ctrl', LALT:'Alt', LGUI:'⌘', RSHFT:'⇧', RCTRL:'Ctrl', RALT:'Alt', RGUI:'⌘',
+            BSPC:'⌫', RET:'↵', PG_DN:'PgDn', PG_UP:'PgUp', UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→', ESC:'Esc', TAB:'Tab',
+            MINUS:'-', EQUAL:'=', GRAVE:'`', BSLH:'\\', SEMI:';', SQT:"'", FSLH:'/', LBKT:'[', RBKT:']', COMMA:',', DOT:'.', SPACE:'␣'
+        };
+
+        // Maps the short modifier-wrapper function prefixes ZMK uses for &kp LS(x)/LC(x)/LA(x)/LG(x)
+        // (and their right-hand RS/RC/RA/RG variants) to the matching full modifier keycode, so
+        // the wrapped key's actual modifier symbol can be looked up from ZMK_MAP. Shared by both
+        // generateMatrixLabel and getBeautifulLabel.
+        const MOD_WRAPPER_TO_FULL = { LS: 'LSHFT', RS: 'RSHFT', LC: 'LCTRL', RC: 'RCTRL', LA: 'LALT', RA: 'RALT', LG: 'LGUI', RG: 'RGUI' };
+
+        const LAYOUT_US_EN = [
+            [{ c: 'GRAVE', m:'`', s:'~' }, { c: 'N1', m:'1', s:'!' }, { c: 'N2', m:'2', s:'@' }, { c: 'N3', m:'3', s:'#' }, { c: 'N4', m:'4', s:'$' }, { c: 'N5', m:'5', s:'%' }, { c: 'N6', m:'6', s:'^' }, { c: 'N7', m:'7', s:'&' }, { c: 'N8', m:'8', s:'*' }, { c: 'N9', m:'9', s:'(' }, { c: 'N0', m:'0', s:')' }, { c: 'MINUS', m:'-', s:'_' }, { c: 'EQUAL', m:'=', s:'+' }, { c: 'BSPC', l: 'Backspace', w: 'k-2' }],
+            [{ c: 'TAB', l: 'Tab', w: 'k-1-5' }, { c: 'Q', m:'Q' }, { c: 'W', m:'W' }, { c: 'E', m:'E' }, { c: 'R', m:'R' }, { c: 'T', m:'T' }, { c: 'Y', m:'Y' }, { c: 'U', m:'U' }, { c: 'I', m:'I' }, { c: 'O', m:'O' }, { c: 'P', m:'P' }, { c: 'LBKT', m:'[', s:'{' }, { c: 'RBKT', m:']', s:'}' }, { c: 'BSLH', m:'\\', s:'|', w:'k-1-5' }],
+            [{ c: 'CAPS', l: 'Caps', w: 'k-1-75' }, { c: 'A', m:'A' }, { c: 'S', m:'S' }, { c: 'D', m:'D' }, { c: 'F', m:'F' }, { c: 'G', m:'G' }, { c: 'H', m:'H' }, { c: 'J', m:'J' }, { c: 'K', m:'K' }, { c: 'L', m:'L' }, { c: 'SEMI', m:';', s:':' }, { c: 'SQT', m:"'", s:'"' }, { c: 'RET', l: 'Enter', w: 'k-2-25' }],
+            [{ c: 'LSHFT', l: 'Shift', w: 'k-2-25', isMod:true }, { c: 'Z', m:'Z' }, { c: 'X', m:'X' }, { c: 'C', m:'C' }, { c: 'V', m:'V' }, { c: 'B', m:'B' }, { c: 'N', m:'N' }, { c: 'M', m:'M' }, { c: 'COMMA', m:',', s:'<' }, { c: 'DOT', m:'.', s:'>' }, { c: 'FSLH', m:'/', s:'?' }, { c: 'RSHFT', l: 'Shift', w: 'k-2-75', isMod:true }]
+        ];
+
+        const GLOVE80_GEO = [
+            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:910,y:0},{x:980,y:0},{x:1050,y:0},{x:1120,y:35},{x:1190,y:35},
+            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:840,y:70},{x:910,y:70},{x:980,y:70},{x:1050,y:70},{x:1120,y:105},{x:1190,y:105},
+            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:840,y:140},{x:910,y:140},{x:980,y:140},{x:1050,y:140},{x:1120,y:175},{x:1190,y:175},
+            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:840,y:210},{x:910,y:210},{x:980,y:210},{x:1050,y:210},{x:1120,y:245},{x:1190,y:245},
+            {x:0,y:315},{x:70,y:315},{x:140,y:280},{x:210,y:280},{x:280,y:280},{x:350,y:280},
+            {x:448,y:280,r:20,o:"-168px 0px"},{x:546,y:231,r:30,o:"-266px 0px"},{x:707,y:105,r:45,o:"-427px 0px"},{x:490,y:105,r:-45,o:"490px 0px"},{x:651,y:231,r:-30,o:"329px 0px"},{x:749,y:280,r:-20,o:"231px 0px"},
+            {x:840,y:280},{x:910,y:280},{x:980,y:280},{x:1050,y:280},{x:1120,y:315},{x:1190,y:315},
+            {x:0,y:385},{x:70,y:385},{x:140,y:350},{x:210,y:350},{x:280,y:350},
+            {x:371,y:378,r:15,o:"-91px 0px"},{x:462,y:350,r:25,o:"-182px 0px"},{x:630,y:224,r:45,o:"-350px 0px"},{x:560,y:224,r:-45,o:"420px 0px"},{x:728,y:350,r:-25,o:"252px 0px"},{x:819,y:378,r:-15,o:"161px 0px"},
+            {x:910,y:350},{x:980,y:350},{x:1050,y:350},{x:1120,y:385},{x:1190,y:385}
+        ];
+
+        const GO60_GEO = [
+            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:350,y:0},{x:805,y:0},{x:875,y:0},{x:945,y:0},{x:1015,y:0},{x:1085,y:35},{x:1155,y:35},
+            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:805,y:70},{x:875,y:70},{x:945,y:70},{x:1015,y:70},{x:1085,y:105},{x:1155,y:105},
+            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:805,y:140},{x:875,y:140},{x:945,y:140},{x:1015,y:140},{x:1085,y:175},{x:1155,y:175},
+            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:805,y:210},{x:875,y:210},{x:945,y:210},{x:1015,y:210},{x:1085,y:245},{x:1155,y:245},
+            {x:140,y:280},{x:210,y:280},{x:280,y:280},{x:875,y:280},{x:945,y:280},{x:1015,y:280},
+            {x:364,y:287,r:12.5,o:"0px 0px"},{x:448,y:308,r:25,o:"0px 0px"},{x:525,y:346.5,r:37,o:"0px 0px"},
+            {x:640.5,y:385,r:-37,o:"0px 0px"},{x:710.5,y:336,r:-25,o:"0px 0px"},{x:791,y:301,r:-12.5,o:"0px 0px"}
+        ];
+
+        // --- 3. RENDER PARSERS (BEAUTIFUL KEYCAPS) ---
+        const getContrastColor = (hexcolor) => {
+            if (!hexcolor) return '#0f172a'; 
+            let cleanHex = hexcolor.replace("#", ""); 
+            if (cleanHex.length === 3) cleanHex = cleanHex.split('').map(c => c+c).join('');
+            const r = parseInt(cleanHex.substr(0,2),16), g = parseInt(cleanHex.substr(2,2),16), b = parseInt(cleanHex.substr(4,2),16);
+            return (((r*299)+(g*587)+(b*114))/1000 >= 128) ? '#020617' : '#ffffff';
+        };
+
+        const formatKeycode = (val) => {
+            if (!val || val === 'none' || val === '&none') return '';
+            const normalized = val.toUpperCase().replace('&', '');
+            if (ZMK_MAP[normalized]) return ZMK_MAP[normalized];
+            if (val.length === 2 && val.startsWith('N') && '0123456789'.includes(val[1])) return val[1];
+            return val;
+        };
+
+        // Punctuation keycodes whose decoration.label uses a display symbol rather than the keycode
+        // name itself (matching MoErgo editor's convention, confirmed against real files this session).
+        const KEYCODE_LABEL_SYMBOLS = {
+            SEMI:';', SQT:"'", GRAVE:'`', COMMA:',', DOT:'.', FSLH:'/', BSLH:'\\',
+            MINUS:'-', EQUAL:'=', LBKT:'[', RBKT:']'
+        };
+        const labelForKeycode = (kc) => KEYCODE_LABEL_SYMBOLS[String(kc).toUpperCase()] || String(kc);
+
+        // When a binding's param (e.g. tap keycode) changes, its decoration.label may be stale.
+        // Only updates the label when it's recognisably derived from the OLD keycode -- plain letter,
+        // digit, or a symbol from KEYCODE_LABEL_SYMBOLS. Custom/functional labels like "Esc",
+        // "MousDn", "( <" are left completely untouched.
+        const syncDecorationLabel = (bindingObj, oldChar, newChar) => {
+            if (!bindingObj?.decoration || !oldChar || !newChar || oldChar === newChar) return;
+            const label = bindingObj.decoration.label;
+            if (label === undefined || label === null) return;
+            if (String(label) === String(oldChar) || String(label) === labelForKeycode(oldChar)) {
+                bindingObj.decoration.label = labelForKeycode(newChar);
+            }
+        };
+
+        // Recursively flattens a nested binding param (e.g. a modifier-wrapper like
+        // {value:"LC", params:[{value:"C"}]}) into a single ZMK-style string ("LC(C)"). Used by
+        // generateMatrixLabel for any param that isn't a simple keycode.
+        const extractParamString = (paramObj) => {
+            if (paramObj === undefined || paramObj === null) return 'none';
+            if (typeof paramObj === 'string' || typeof paramObj === 'number') return String(paramObj);
+            if (paramObj.value !== undefined && paramObj.params?.length > 0) {
+                return `${paramObj.value}(${extractParamString(paramObj.params[0])})`;
+            }
+            return String(paramObj.value ?? 'none');
+        };
+
+        // Matrix-specific label generator: always returns ONE flat string (never multi-span HTML),
+        // designed to be centered and naturally wrapped/clamped via the .text-fit-md/.text-clamp
+        // CSS classes. This reads cleanly at any zoom level the matrix is scaled to, unlike the
+        // richer multi-span getBeautifulLabel markup below (top-left/bottom-left absolutely
+        // positioned sub-labels), which was designed for the physical picker's fixed-size,
+        // never-scaled keycaps and doesn't hold up well once the whole board is shrunk to fit.
+        const generateMatrixLabel = (binding) => {
+            if (!binding || binding.value === '&none' || binding.value === 'none') return '';
+            if (binding.value === '&trans') return '▽';
+            if (binding.decoration?.label) return binding.decoration.label;
+
+            const val = binding.value;
+            const params = binding.params || [];
+
+            if (val === 'Custom') return params[0]?.value || 'Custom';
+
+            if (val === '&kp' && params.length > 0) {
+                let p0 = params[0];
+                let pVal = p0?.value;
+                if (typeof pVal === 'string' && MOD_WRAPPER_TO_FULL[pVal] && p0.params) {
+                    let modSymbol = formatKeycode(MOD_WRAPPER_TO_FULL[pVal]);
+                    return `${modSymbol}+${formatKeycode(p0.params[0]?.value)}`;
+                }
+                return formatKeycode(pVal);
+            }
+
+            if (val === '&mo' || val === '&tog' || val === '&to' || val === '&sl') {
+                return `L${extractParamString(params[0])}`;
+            }
+            if (val === '&sk') return `★${formatKeycode(extractParamString(params[0]))}`;
+
+            if (val === '&mt' || val === '&lt' || val.startsWith('&ht_') || val.startsWith('&HRM_')) {
+                const holdRaw = extractParamString(params[0]);
+                const tapRaw = extractParamString(params[1]);
+                const hLabel = val === '&lt' ? `L${holdRaw}` : formatKeycode(holdRaw) || holdRaw;
+                const tLabel = formatKeycode(tapRaw) || tapRaw;
+                return `${hLabel}\n${tLabel}`;
+            }
+
+            if (BEHAVIOR_DEF[val]?.type === 'system-select') {
+                const cmd = params[0]?.value || '';
+                const idx = params[1]?.value;
+                // Drop the redundant family prefix for a tighter label, e.g. "BT_SEL" -> "SEL"
+                const short = cmd.replace(/^(BT|OUT|RGB|EP)_/, '');
+                return idx !== undefined ? `${short} ${idx}` : short;
+            }
+
+            if (val.startsWith('&ht_auto_')) return val.split('_').pop();
+            return val.replace('&', '');
+        };
+
+        const getBeautifulLabel = (binding) => {
+            if (!binding) return '';
+            let val = binding.value;
+            if (!val || val === '&none' || val === 'none') return '';
+            
+            if (binding.decoration?.label) return `<span class="key-center">${binding.decoration.label}</span>`;
+            if (val === 'Custom') return `<span class="key-center text-[10px] text-[color:var(--accent)] font-bold">${binding.params?.[0]?.value || 'Custom'}</span>`;
+
+            let p1 = binding.params?.[0]?.value || '?';
+            let p2 = binding.params?.[1]?.value || '?';
+
+            if (val === '&kp') {
+                if (MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
+                    let modSymbol = formatKeycode(MOD_WRAPPER_TO_FULL[p1]);
+                    return `<span class="key-shift">${modSymbol}</span><span class="key-main">${formatKeycode(binding.params[0].params[0].value)}</span>`;
+                }
+                let mapped = formatKeycode(p1);
+                let layoutKey = null;
+                for (let r of LAYOUT_US_EN) { let f = r.find(k => k.c === p1.replace('MOD_', '')); if (f) layoutKey = f; }
+                if (layoutKey && layoutKey.s && !layoutKey.l) {
+                    return `<span class="key-shift">${layoutKey.s}</span><span class="key-main">${layoutKey.m}</span>`;
+                }
+                return `<span class="key-center">${mapped}</span>`;
+            }
+            if (val === '&mo' || val === '&tog' || val === '&to' || val === '&sl') return `<span class="key-center text-[color:var(--accent)]">L${p1}</span>`;
+            if (val === '&sk') return `<span class="key-shift text-[color:var(--accent)]">★</span><span class="key-main">${formatKeycode(p1)}</span>`;
+            if (val === '&mt') return `<span class="key-shift">${formatKeycode(p1)}</span><span class="key-main">${formatKeycode(p2)}</span>`;
+            if (val === '&lt') return `<span class="key-shift text-[color:var(--accent)]">L${p1}</span><span class="key-main">${formatKeycode(p2)}</span>`;
+            // Macro control tokens
+            if (val === '&macro_tap')    return `<span class="key-center text-[10px] text-sky-400">▶ tap</span>`;
+            if (val === '&macro_press')  return `<span class="key-center text-[10px] text-emerald-400">↓ press</span>`;
+            if (val === '&macro_release') return `<span class="key-center text-[10px] text-rose-400">↑ rel</span>`;
+            if (val === '&macro_wait_time') return `<span class="key-center text-[10px] text-amber-400">⏱ ${p1}ms</span>`;
+            if (val === '&macro_param_1to1') return `<span class="key-center text-[10px] text-purple-400">%0→0</span>`;
+            if (val === '&macro_param_2to1') return `<span class="key-center text-[10px] text-purple-400">%1→0</span>`;
+            // System behaviors
+            if (BEHAVIOR_DEF[val]?.type === 'system-select') {
+                const cmd = (p1 || '').replace(/^(BT|OUT|RGB|EP)_/, '');
+                const idx = binding.params?.[1]?.value;
+                return `<span class="key-center text-[10px]">${val.replace('&','')}\n${cmd}${idx !== undefined ? ' '+idx : ''}</span>`;
+            }
+            if (val.startsWith('&ht_auto_')) return `<span class="key-center text-[10px]">${val.split('_').pop()}</span>`;
+            
+            return `<span class="key-center text-[10px]">${val.replace('&', '')}</span>`;
+        };
+
+        // getBaseType is now only used to detect 'custom' (the raw-reference literal wrapper type)
+        // vs everything else. All per-behavior parameter type discrimination has moved to
+        // BEHAVIOR_PARAMS + resolveParamSlots, which handle built-in and file-defined behaviors alike.
+        const getBaseType = (val) => {
+            if (val === 'Custom') return 'custom';
+            if (!BEHAVIOR_DEF[val]) return 'custom';
+            return 'known';
+        };
+
+        // --- 4. STATE ARCHITECTURE ---
+        let config = null;
+        let activeLayer = 0;
+        let inspectorPath = []; 
+        let activePickerTarget = null; 
+        
+        // Auto-Scale Engine State
+        let autoZoom = true;
+        let currentScale = 1;
+        let matrixBounds = { w: 1260, h: 450 }; // Default bounds
+
+        // --- 4b. UNDO / REDO HISTORY ENGINE ---
+        // A simple snapshot-based history stack. Every mutation to `config` is preceded by a call to
+        // pushHistory(), which deep-clones the CURRENT config onto the undo stack before the change is
+        // applied. undo() pops that snapshot back; redo() re-applies whatever was undone. Navigation-only
+        // state (activeLayer, inspectorPath, picker state) is intentionally NOT part of history -- only
+        // the actual keymap data is undoable, so undo/redo doesn't yank the user between unrelated
+        // inspector views while they're just trying to revert a value.
+        const MAX_HISTORY = 100;
+        let undoStack = [];
+        let redoStack = [];
+
+        function pushHistory() {
+            if (!config) return;
+            undoStack.push(JSON.stringify(config));
+            if (undoStack.length > MAX_HISTORY) undoStack.shift();
+            redoStack = []; // any new change invalidates the redo branch
+            updateUndoRedoUI();
+        }
+
+        function undo() {
+            if (undoStack.length === 0) return;
+            redoStack.push(JSON.stringify(config));
+            config = JSON.parse(undoStack.pop());
+            closePicker();
+            renderAll();
+            updateUndoRedoUI();
+        }
+
+        function redo() {
+            if (redoStack.length === 0) return;
+            undoStack.push(JSON.stringify(config));
+            config = JSON.parse(redoStack.pop());
+            closePicker();
+            renderAll();
+            updateUndoRedoUI();
+        }
+
+        function resetHistory() {
+            undoStack = [];
+            redoStack = [];
+            updateUndoRedoUI();
+        }
+
+        function updateUndoRedoUI() {
+            const btnUndo = document.getElementById('btn-undo');
+            const btnRedo = document.getElementById('btn-redo');
+            if (!btnUndo || !btnRedo) return;
+            btnUndo.disabled = undoStack.length === 0;
+            btnRedo.disabled = redoStack.length === 0;
+            btnUndo.classList.toggle('opacity-30', undoStack.length === 0);
+            btnUndo.classList.toggle('cursor-not-allowed', undoStack.length === 0);
+            btnRedo.classList.toggle('opacity-30', redoStack.length === 0);
+            btnRedo.classList.toggle('cursor-not-allowed', redoStack.length === 0);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            const isMod = e.ctrlKey || e.metaKey;
+            if (!isMod) return;
+            const key = e.key.toLowerCase();
+            if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+            else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); redo(); }
+        });
+
+        const els = {
+            matrixWrap: document.getElementById('matrix-wrapper'),
+            matrix: document.getElementById('matrix-container'),
+            matrixBanner: document.getElementById('matrix-banner'),
+            layerList: document.getElementById('layer-list'),
+            behaviorNav: document.getElementById('behavior-nav-list'),
+            inspector: document.getElementById('inspector'),
+            inspContent: document.getElementById('inspector-content'),
+            breadcrumbs: document.getElementById('breadcrumbs'),
+            pickerDrawer: document.getElementById('picker-drawer'),
+            physKeyboard: document.getElementById('phys-keyboard'),
+            zoomControls: document.getElementById('zoom-controls'),
+            zoomLevelText: document.getElementById('zoom-level-text'),
+            btnZoomAuto: document.getElementById('btn-zoom-auto')
+        };
+
+        window.setTerminology = function(mode) {
+            termMode = mode;
+            document.getElementById('btn-friendly').classList.toggle('active', mode === 'friendly');
+            document.getElementById('btn-zmk').classList.toggle('active', mode === 'zmk');
+            document.getElementById('toggle-pill').style.left = mode === 'friendly' ? '3px' : '71px';
+            document.getElementById('toggle-pill').style.width = mode === 'friendly' ? '68px' : '75px';
+            document.getElementById('lbl-layers').textContent = T[mode].layers;
+            document.getElementById('lbl-behaviors').textContent = T[mode].behaviors;
+            document.getElementById('lbl-settings-nav').textContent = T[mode].settings;
+            if(config) renderAll();
+        };
+
+        // --- 5. MATRIX AUTO-SCALING ENGINE ---
+        function getKeyboardGeo() {
+            if (!config) return [];
+            if (config.layout?.keys) return config.layout.keys;
+            if (config.keyboard?.toLowerCase() === 'go60') return GO60_GEO;
+            return GLOVE80_GEO;
+        }
+
+        function calculateMatrixBounds() {
+            const geo = getKeyboardGeo();
+            if(!geo || geo.length === 0) return { w: 1260, h: 450 };
+            
+            let maxX = 0, maxY = 0;
+            geo.forEach(g => {
+                if (g.x > maxX) maxX = g.x;
+                if (Math.abs(g.y) > maxY) maxY = Math.abs(g.y);
+            });
+            // Buffer for physical keycap dimensions (approx 65px + padding)
+            return { w: maxX + 100, h: maxY + 100 };
+        }
+
+        function applyScale(scale) {
+            currentScale = scale;
+            els.matrix.style.width = `${matrixBounds.w}px`;
+            els.matrix.style.height = `${matrixBounds.h}px`;
+            els.matrix.style.transform = `translate(-50%, -50%) scale(${scale})`;
+            els.zoomLevelText.textContent = Math.round(scale * 100) + '%';
+        }
+
+        function triggerAutoZoom() {
+            if(!config || !autoZoom) return;
+            const rect = els.matrixWrap.getBoundingClientRect();
+            // Shrink matrix slightly to leave a nice padding border
+            const scale = Math.min((rect.width - 60) / matrixBounds.w, (rect.height - 60) / matrixBounds.h);
+            applyScale(scale);
+        }
+
+        const resizeObserver = new ResizeObserver(() => triggerAutoZoom());
+        resizeObserver.observe(els.matrixWrap);
+
+        document.getElementById('btn-zoom-in').onclick = () => { autoZoom = false; updateZoomUI(); applyScale(currentScale + 0.1); };
+        document.getElementById('btn-zoom-out').onclick = () => { autoZoom = false; updateZoomUI(); applyScale(Math.max(0.2, currentScale - 0.1)); };
+        els.btnZoomAuto.onclick = () => { autoZoom = true; updateZoomUI(); triggerAutoZoom(); };
+        
+        function updateZoomUI() {
+            if(autoZoom) {
+                els.btnZoomAuto.classList.add('text-[color:var(--accent)]');
+                els.btnZoomAuto.classList.remove('text-slate-500');
+            } else {
+                els.btnZoomAuto.classList.add('text-slate-500');
+                els.btnZoomAuto.classList.remove('text-[color:var(--accent)]');
+            }
+        }
+
+        // --- 6. INIT & RENDER PIPELINE ---
+        document.getElementById('file-upload').addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                let parsed = JSON.parse(event.target.result);
+                config = parsed.keymap !== undefined ? parsed.keymap : parsed;
+                activeLayer = 0; inspectorPath = []; closePicker();
+                resetHistory();
+                
+                matrixBounds = calculateMatrixBounds();
+                
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('sidebar-ui').classList.remove('hidden');
+                els.matrix.classList.remove('hidden');
+                els.zoomControls.classList.remove('hidden');
+                
+                autoZoom = true;
+                updateZoomUI();
+                renderAll();
+                setTimeout(triggerAutoZoom, 10); // Ensure layout is drawn before initial measure
+            };
+            reader.readAsText(file);
+            e.target.value = ''; // Reset input
+        });
+
+        document.getElementById('btn-export').addEventListener('click', () => {
+            if(!config) return;
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+            const anchor = document.createElement('a');
+            anchor.href = dataStr; anchor.download = `layout_${config.keyboard || 'custom'}_${Math.floor(Date.now()/1000)}.json`; anchor.click();
+        });
+
+        function renderAll() {
+            renderSidebar();
+            renderMatrix();
+            renderPhysicalKeyboard();
+            renderInspector();
+        }
+
+        // --- 7. SIDEBAR & MATRIX ---
+        // --- LAYER MUTATION ENGINE (LLM2.txt section 6) ---
+        // Re-indexing whitelist per spec: ONLY &mo/&to/&tog/&sl/&lt are adjusted when layers shift.
+        // Never touch &kp, &bt, millisecond params, or any other behavior -- those are keycodes or
+        // timings, not layer indices, even if they happen to contain small integers.
+        const LAYER_REMAP_BEHAVIORS = new Set(['&mo','&to','&tog','&sl','&lt']);
+
+        function walkLayerRefs(fn) {
+            // Walk every binding across all layer matrices
+            (config.layers || []).forEach(layer => {
+                (layer || []).forEach(binding => applyToBinding(binding, fn));
+            });
+            // Walk combo bindings (confirmed from real files: combos can reference layers via &tog etc.)
+            (config.combos || []).forEach(c => {
+                if (c.binding) applyToBinding(c.binding, fn);
+            });
+            // Note: inputListeners may contain &zip_temp_layer with a layer index, but we leave those
+            // read-only in this version as documented in the Settings panel notice.
+        }
+
+        function applyToBinding(binding, fn) {
+            if (!binding || typeof binding !== 'object') return;
+            if (LAYER_REMAP_BEHAVIORS.has(binding.value) && binding.params?.length > 0) {
+                fn(binding);
+            }
+            // Recurse into params and bindings for nested structures
+            (binding.params || []).forEach(p => applyToBinding(p, fn));
+            (binding.bindings || []).forEach(b => applyToBinding(b, fn));
+        }
+
+        function getLayerParam(binding) {
+            // For &lt the layer is param[0]; for all other whitelist behaviors it's param[0] too.
+            return binding.params?.[0];
+        }
+
+        function addLayer(name) {
+            const geo = getKeyboardGeo();
+            const keyCount = Math.max(geo.length, (config.layers[0] || []).length);
+            // New layer filled entirely with &trans (falls through to layer 0 for everything)
+            const newLayer = Array.from({ length: keyCount }, () => ({ value: '&trans', params: [] }));
+            config.layers.push(newLayer);
+            if (!config.layer_names) config.layer_names = config.layers.map((_, i) => `Layer ${i}`);
+            config.layer_names.push(name);
+            activeLayer = config.layers.length - 1;
+            renderAll();
+        }
+
+        function deleteLayer(targetIdx) {
+            // Guard: never delete layer 0 (Base) or the Magic layer
+            if (targetIdx === 0) return;
+            const name = (config.layer_names?.[targetIdx] || '').toLowerCase();
+            if (name === 'magic') return;
+
+            // Re-index: any layer pointer ABOVE the deleted index shifts down by 1.
+            // Any pointer AT the deleted index gets neutralised to &none (the key would otherwise
+            // point to a now-nonexistent or wrong layer).
+            walkLayerRefs(binding => {
+                const p = getLayerParam(binding);
+                if (p === undefined || p === null) return;
+                const idx = typeof p === 'object' ? p.value : p;
+                if (idx === targetIdx) {
+                    // Neutralise: replace the whole binding with &none
+                    binding.value = '&none';
+                    binding.params = [];
+                } else if (idx > targetIdx) {
+                    if (typeof p === 'object') p.value = idx - 1;
+                    else binding.params[0] = idx - 1;
+                }
+            });
+
+            config.layers.splice(targetIdx, 1);
+            config.layer_names?.splice(targetIdx, 1);
+
+            // Clamp activeLayer so it's never out of bounds after deletion
+            if (activeLayer >= config.layers.length) activeLayer = config.layers.length - 1;
+            inspectorPath = [];
+            renderAll();
+        }
+
+        function reorderLayer(fromIdx, toIdx) {
+            if (fromIdx === toIdx) return;
+            if (fromIdx === 0 || toIdx === 0) return; // Never move Base (layer 0)
+
+            // To move layer A to position B, we need to re-index all references:
+            // Think of it as a splice: every binding that pointed at fromIdx now points at toIdx;
+            // every binding in the range between gets shifted by ±1 depending on direction.
+            const lo = Math.min(fromIdx, toIdx);
+            const hi = Math.max(fromIdx, toIdx);
+            const dir = fromIdx < toIdx ? -1 : +1; // how the in-between layers shift
+
+            walkLayerRefs(binding => {
+                const p = getLayerParam(binding);
+                if (p === undefined || p === null) return;
+                const idx = typeof p === 'object' ? p.value : p;
+                const set = (v) => { if (typeof p === 'object') p.value = v; else binding.params[0] = v; };
+                if (idx === fromIdx) set(toIdx);
+                else if (idx >= lo && idx <= hi) set(idx + dir);
+            });
+
+            // Splice the arrays
+            const [removedLayer] = config.layers.splice(fromIdx, 1);
+            config.layers.splice(toIdx, 0, removedLayer);
+            if (config.layer_names) {
+                const [removedName] = config.layer_names.splice(fromIdx, 1);
+                config.layer_names.splice(toIdx, 0, removedName);
+            }
+
+            activeLayer = toIdx;
+            renderAll();
+        }
+
+        function renderSidebar() {
+            els.layerList.innerHTML = "";
+
+            // --- Layer management ---
+            config.layers.forEach((_, i) => {
+                let name = config.layer_names?.[i] || `Layer ${i}`;
+                let isActive = activeLayer === i;
+                let isMagic = name.toLowerCase() === 'magic';
+                let isBase = i === 0;
+
+                let row = document.createElement('div');
+                row.className = `flex items-center gap-1 group rounded-lg transition-all ${isActive ? 'bg-[color:var(--accent-soft)] border border-[color:var(--accent)]' : 'border border-transparent hover:border-slate-200 dark:hover:border-slate-700'}`;
+
+                row.innerHTML = `
+                    <button class="flex-1 text-left px-3 py-2.5 text-xs font-bold transition-colors truncate ${isActive ? 'text-[color:var(--accent)]' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}" data-layersel="${i}">
+                        <span class="text-[9px] font-mono opacity-60 mr-1">${i}</span>${name}
+                    </button>
+                    <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pr-1 shrink-0">
+                        <button title="Move up" data-layerup="${i}" class="text-slate-400 hover:text-white hover:bg-slate-600 p-1 rounded text-[10px] ${i === 0 ? 'invisible' : ''}">▲</button>
+                        <button title="Move down" data-layerdn="${i}" class="text-slate-400 hover:text-white hover:bg-slate-600 p-1 rounded text-[10px] ${i === config.layers.length - 1 ? 'invisible' : ''}">▼</button>
+                        <button title="Clone layer" data-layerclone="${i}" class="text-slate-400 hover:text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] p-1 rounded text-[10px]">⎘</button>
+                        <button title="Rename layer" data-layerren="${i}" class="text-slate-400 hover:text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] p-1 rounded text-[10px]">✎</button>
+                        <button title="${isMagic ? 'Magic layer cannot be deleted' : isBase ? 'Base layer (0) cannot be deleted' : 'Delete layer'}" data-layerdel="${i}" class="text-slate-400 hover:text-red-400 hover:bg-red-900/30 p-1 rounded text-[10px] ${(isMagic || isBase) ? 'opacity-20 cursor-not-allowed' : ''}">✕</button>
+                    </div>
+                `;
+
+                row.querySelector(`[data-layersel="${i}"]`).onclick = () => { activeLayer = i; inspectorPath = []; renderAll(); };
+
+                const upBtn = row.querySelector(`[data-layerup="${i}"]`);
+                if (upBtn) upBtn.onclick = () => { if (i > 0) { pushHistory(); reorderLayer(i, i - 1); } };
+
+                const dnBtn = row.querySelector(`[data-layerdn="${i}"]`);
+                if (dnBtn) dnBtn.onclick = () => { if (i < config.layers.length - 1) { pushHistory(); reorderLayer(i, i + 1); } };
+
+                const cloneBtn = row.querySelector(`[data-layerclone="${i}"]`);
+                if (cloneBtn) cloneBtn.onclick = () => {
+                    pushHistory();
+                    // Deep-clone the layer's bindings so edits to the clone don't affect the source.
+                    // No layer-pointer re-indexing needed: cloning doesn't shift any existing indices —
+                    // the clone is appended at the end, so indices 0..N-1 remain exactly as they were.
+                    const clonedBindings = JSON.parse(JSON.stringify(config.layers[i]));
+                    config.layers.push(clonedBindings);
+                    if (!config.layer_names) config.layer_names = config.layers.map((_,j) => `Layer ${j}`);
+                    config.layer_names.push(name + '_copy');
+                    activeLayer = config.layers.length - 1;
+                    inspectorPath = [];
+                    renderAll();
+                };
+
+                row.querySelector(`[data-layerren="${i}"]`).onclick = () => {
+                    const newName = prompt(`Rename layer ${i}:`, name);
+                    if (newName !== null && newName.trim() && newName.trim() !== name) {
+                        pushHistory();
+                        if (!config.layer_names) config.layer_names = config.layers.map((_,j) => `Layer ${j}`);
+                        config.layer_names[i] = newName.trim();
+                        renderAll();
+                    }
+                };
+
+                const delBtn = row.querySelector(`[data-layerdel="${i}"]`);
+                if (delBtn && !isMagic && !isBase) {
+                    delBtn.onclick = () => {
+                        if (!confirm(`Delete layer ${i}: "${name}"? All bindings on this layer will be lost, and all layer pointers above index ${i} will be shifted down.`)) return;
+                        pushHistory();
+                        deleteLayer(i);
+                    };
+                }
+
+                els.layerList.appendChild(row);
+            });
+
+            // Add layer button
+            let addLayerBtn = document.createElement('button');
+            addLayerBtn.className = "w-full mt-1 py-2 text-xs font-bold text-slate-400 hover:text-[color:var(--accent)] border border-dashed border-slate-700 hover:border-[color:var(--accent)] rounded-lg transition-all";
+            addLayerBtn.textContent = "+ Add Layer";
+            addLayerBtn.onclick = () => {
+                const newName = prompt("New layer name:", `Layer ${config.layers.length}`);
+                if (newName === null) return;
+                pushHistory();
+                addLayer(newName.trim() || `Layer ${config.layers.length}`);
+            };
+            els.layerList.appendChild(addLayerBtn);
+
+            // --- Behavior nav ---
+            els.behaviorNav.innerHTML = "";
+            [ 'holdTaps', 'tapDances', 'modMorphs', 'macros', 'combos' ].forEach(g => {
+                let count = config[g] ? config[g].length : 0;
+                let btn = document.createElement('button');
+                let isActive = inspectorPath.length > 0 && inspectorPath[0].group === g;
+                
+                btn.className = `w-full flex justify-between items-center px-4 py-3 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white border border-transparent'}`;
+                btn.innerHTML = `<span>${T[termMode][g]}</span> <span class="bg-white dark:bg-slate-950 px-2 py-0.5 rounded text-[10px] text-slate-500 border border-slate-200 dark:border-transparent">${count}</span>`;
+                btn.onclick = () => { inspectorPath = [{ type: 'behaviorList', group: g }]; closePicker(); renderAll(); };
+                els.behaviorNav.appendChild(btn);
+            });
+        }
+
+        function renderMatrix() {
+            els.matrix.innerHTML = "";
+            const geo = getKeyboardGeo();
+            const bindings = config.layers[activeLayer];
+            
+            let isComboMode = inspectorPath.length > 0 && inspectorPath[0].group === 'combos' && inspectorPath.length === 2 && inspectorPath[1].type === 'behavior';
+            let activeCombo = isComboMode ? config.combos[inspectorPath[1].index] : null;
+
+            if (isComboMode) els.matrixBanner.classList.remove('hidden');
+            else els.matrixBanner.classList.add('hidden');
+
+            geo.forEach((g, idx) => {
+                let bind = bindings[idx] || { value: '&none' };
+                let isDead = bind.value === '&none' || bind.value === 'none';
+                let isTrans = bind.value === '&trans';
+                
+                let isSelected = inspectorPath.length > 0 && inspectorPath[0].type === 'matrix' && inspectorPath[0].index === idx;
+                let isComboPos = isComboMode && activeCombo.keyPositions && activeCombo.keyPositions.includes(idx);
+
+                let keyNode = document.createElement('div');
+                keyNode.className = `matrix-key ${isSelected ? 'selected' : ''} ${isDead ? 'dead' : ''} ${isTrans ? 'trans' : ''} ${isComboPos ? 'combo-active' : ''}`;
+                keyNode.style.left = `${g.x}px`; keyNode.style.top = `${g.y}px`;
+                if (g.r) { keyNode.style.transform = `rotate(${g.r}deg)`; keyNode.style.transformOrigin = g.o; }
+
+                if (!isDead && !isTrans && bind.decoration?.background && !isComboPos && !isSelected) {
+                    keyNode.style.background = bind.decoration.background;
+                    keyNode.style.borderColor = bind.decoration.background;
+                    keyNode.style.color = bind.decoration.color || getContrastColor(bind.decoration.background);
+                }
+
+                keyNode.onclick = () => { 
+                    if (isComboMode) {
+                        pushHistory();
+                        if (!activeCombo.keyPositions) activeCombo.keyPositions = [];
+                        let posIdx = activeCombo.keyPositions.indexOf(idx);
+                        if (posIdx > -1) activeCombo.keyPositions.splice(posIdx, 1);
+                        else activeCombo.keyPositions.push(idx);
+                        renderAll();
+                    } else {
+                        inspectorPath = [{ type: 'matrix', layer: activeLayer, index: idx }]; 
+                        closePicker(); renderAll(); 
+                    }
+                };
+                
+                if (isTrans) {
+                    // Ghost Label: a &trans key shows Layer 0's binding at the same physical index,
+                    // faded (via the existing .matrix-key.trans styling), matching MoErgo's own
+                    // editor convention -- rather than a generic placeholder glyph that gives no
+                    // hint of what the key actually does once it falls through to the base layer.
+                    const baseBind = activeLayer !== 0 ? config.layers[0][idx] : null;
+                    const ghostLabel = baseBind ? generateMatrixLabel(baseBind) : '';
+                    keyNode.innerHTML = `<span class="text-clamp">${ghostLabel || '▽'}</span>`;
+                }
+                else if (!isDead) keyNode.innerHTML = `<span class="text-clamp">${generateMatrixLabel(bind)}</span>`;
+                
+                els.matrix.appendChild(keyNode);
+            });
+        }
+
+        // --- 8. PHYSICAL KEYBOARD PICKER ---
+        function renderPhysicalKeyboard() {
+            els.physKeyboard.innerHTML = "";
+            LAYOUT_US_EN.forEach(row => {
+                let rowDiv = document.createElement('div');
+                rowDiv.className = 'kbd-row';
+                row.forEach(key => {
+                    let btn = document.createElement('div');
+                    if (key.spacer) { btn.className = key.w; rowDiv.appendChild(btn); return; }
+                    btn.className = `phys-key ${key.w || 'k-1'}`;
+                    
+                    if (key.l) btn.innerHTML = `<span class="key-center text-[11px]">${key.l}</span>`;
+                    else if (key.s) btn.innerHTML = `<span class="key-shift">${key.s}</span><span class="key-main">${key.m}</span>`;
+                    else btn.innerHTML = `<span class="key-center">${key.m}</span>`;
+
+                    btn.onclick = () => {
+                        if (activePickerTarget) {
+                            pushHistory();
+                            activePickerTarget(key.c);
+                            btn.classList.add('active-press');
+                            setTimeout(() => btn.classList.remove('active-press'), 150);
+                        }
+                    };
+                    rowDiv.appendChild(btn);
+                });
+                els.physKeyboard.appendChild(rowDiv);
+            });
+        }
+
+        function openPicker(callback) { activePickerTarget = callback; els.pickerDrawer.classList.remove('translate-y-full'); }
+        function closePicker() { activePickerTarget = null; els.pickerDrawer.classList.add('translate-y-full'); }
+
+        // --- 9. DEEP-DIVE INSPECTOR ---
+        function navigateUp(level) { inspectorPath = inspectorPath.slice(0, level + 1); closePicker(); renderAll(); }
+
+        function getTargetFromPath(pathArray) {
+            let target = null;
+            pathArray.forEach(p => {
+                if (p.type === 'matrix') target = config.layers[p.layer][p.index];
+                else if (p.type === 'behaviorList') target = config[p.group];
+                else if (p.type === 'behavior') target = config[p.group][p.index];
+                else if (p.type === 'binding') {
+                    if (p.group === 'tapDances' || p.group === 'macros') target = target.bindings[p.index];
+                    else if (p.group === 'modMorphs') target = target.cases[p.index].binding;
+                    else if (p.group === 'holdTaps') {
+                        if(!target.bindings) target.bindings = ["&kp", "&kp"];
+                        target = target.bindings;
+                    }
+                    else if (p.group === 'combos') target = target.binding;
+                }
+            });
+            return target;
+        }
+
+        function renderInspector() {
+            if (inspectorPath.length === 0) { els.inspector.classList.add('hidden'); return; }
+            els.inspector.classList.remove('hidden');
+            
+            // Breadcrumbs
+            els.breadcrumbs.innerHTML = "";
+            let rootBtn = document.createElement('button');
+            rootBtn.className = "breadcrumb-btn hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white px-2 py-1 rounded transition-colors";
+            rootBtn.innerHTML = `✕`;
+            rootBtn.onclick = () => { inspectorPath = []; closePicker(); renderAll(); };
+            els.breadcrumbs.appendChild(rootBtn);
+
+            inspectorPath.forEach((p, i) => {
+                els.breadcrumbs.insertAdjacentHTML('beforeend', `<span class="text-slate-400 dark:text-slate-600 px-0.5">/</span>`);
+                let crumb = document.createElement('button');
+                crumb.className = "breadcrumb-btn hover:bg-slate-200 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-white px-2 py-1 rounded transition-colors";
+                
+                if (p.type === 'matrix') crumb.textContent = `Key ${p.index}`;
+                else if (p.type === 'settings') crumb.textContent = T[termMode].settings;
+                else if (p.type === 'behaviorList') crumb.innerHTML = T[termMode][p.group];
+                else if (p.type === 'behavior') crumb.textContent = config[p.group][p.index].name;
+                else if (p.type === 'binding') {
+                    if (p.group === 'modMorphs') crumb.textContent = p.index === 0 ? T[termMode].baseAction : T[termMode].shiftAction;
+                    else if (p.group === 'holdTaps') crumb.textContent = p.index === 0 ? T[termMode].holdAction : T[termMode].tapAction;
+                    else if (p.group === 'combos') crumb.textContent = "Binding";
+                    else crumb.textContent = `${T[termMode].step} ${p.index + 1}${termMode==='zmk'?']':''}`;
+                }
+                
+                crumb.onclick = () => navigateUp(i);
+                els.breadcrumbs.appendChild(crumb);
+            });
+
+            els.inspContent.innerHTML = "";
+            const currentContext = inspectorPath[inspectorPath.length - 1];
+
+            if (currentContext.type === 'settings') { renderSettingsPanel(); return; }
+
+            const targetData = getTargetFromPath(inspectorPath);
+
+            if (currentContext.type === 'binding' && currentContext.group === 'holdTaps') renderHoldTapSlotEditor(targetData, currentContext);
+            else if (currentContext.type === 'matrix' || currentContext.type === 'binding') renderGenericBindingEditor(targetData, currentContext);
+            else if (currentContext.type === 'behaviorList') renderBehaviorList(currentContext.group);
+            else if (currentContext.type === 'behavior') renderGenericBehaviorProperties(targetData, currentContext);
+        }
+
+        // --- 9a. SETTINGS PANEL (root/global metadata, Tier 4) ---
+        // These fields live at the root of the MoErgo JSON, outside any layer or behavior array,
+        // but are just as real and compile-affecting as anything in .layers or .holdTaps:
+        // custom_defined_behaviors is literally where hand-declared ZMK behaviors like
+        // &sticky_key_quickrel or &parang_left/&parang_right are defined (raw devicetree text,
+        // appended into the compiled behaviors {...} block); config_parameters carries hardware
+        // flags (e.g. HID_POINTING for trackpad models); tags gate which conversion/automation
+        // tooling treats a file as in-scope. Previously these were read on load and passed through
+        // untouched on export (safe), but had zero visibility or editing in the GUI.
+        function renderSettingsPanel() {
+            if (!config) return;
+            const sectionClass = "bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-inner mb-6";
+            const labelClass = "block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3";
+            const hintClass = "text-[11px] text-slate-400 dark:text-slate-500 mb-3 leading-relaxed";
+
+            const metaFields = [
+                { key: 'title', label: 'Title', type: 'text' },
+                { key: 'notes', label: 'Notes', type: 'textarea' },
+                { key: 'creator', label: 'Creator', type: 'text' },
+                { key: 'locale', label: 'Locale', type: 'text' },
+            ];
+
+            const cfgParams = config.config_parameters || [];
+            const tags = config.tags || [];
+
+            els.inspContent.innerHTML = `
+                <div class="${sectionClass}">
+                    <label class="${labelClass}">Layout Metadata</label>
+                    <div class="flex flex-col gap-3" id="set-meta-fields"></div>
+                </div>
+
+                <div class="${sectionClass}">
+                    <label class="${labelClass}">Tags</label>
+                    <p class="${hintClass}">Used by external tooling (e.g. conversion/automation scripts) to decide which layers and macros are in scope. Free text, comma separated.</p>
+                    <input type="text" id="set-tags" class="input-field font-mono" value="${tags.join(', ')}" placeholder="tailorkey, ge, my-tag">
+                </div>
+
+                <div class="${sectionClass}">
+                    <div class="flex justify-between items-center mb-3">
+                        <label class="${labelClass} mb-0">Config Parameters</label>
+                        <button id="set-add-param" class="text-[10px] font-bold text-[color:var(--accent)] hover:underline">+ Add</button>
+                    </div>
+                    <p class="${hintClass}">Hardware feature flags compiled into the build, e.g. <code class="font-mono">HID_POINTING = y</code> for trackpad models.</p>
+                    <div class="flex flex-col gap-2" id="set-config-params"></div>
+                </div>
+
+                <div class="${sectionClass}">
+                    <label class="${labelClass}">Custom Defined Behaviors</label>
+                    <p class="${hintClass}">Raw devicetree text appended into the compiled <code class="font-mono">behaviors {</code> block. This is where hand-declared behaviors referenced elsewhere as "Custom" types (e.g. a mod-morph or sticky-key variant not expressible through the standard editors) actually get defined.</p>
+                    <textarea id="set-custom-behaviors" class="w-full bg-[#0a0a0a] text-emerald-400 font-mono text-xs p-3 rounded border border-slate-700 dark:border-slate-600 outline-none resize-y min-h-[160px]" spellcheck="false">${config.custom_defined_behaviors || ''}</textarea>
+                </div>
+
+                <div class="${sectionClass}">
+                    <label class="${labelClass}">Custom Devicetree</label>
+                    <p class="${hintClass}">Raw text appended to the absolute root of the compiled file, for driver overrides and other configuration outside the behaviors block.</p>
+                    <textarea id="set-custom-devicetree" class="w-full bg-[#0a0a0a] text-emerald-400 font-mono text-xs p-3 rounded border border-slate-700 dark:border-slate-600 outline-none resize-y min-h-[120px]" spellcheck="false">${config.custom_devicetree || ''}</textarea>
+                </div>
+
+                ${(config.inputListeners?.length || Object.keys(config.layout_parameters || {}).length) ? `
+                <div class="${sectionClass} border-amber-300 dark:border-amber-700">
+                    <label class="${labelClass} text-amber-600 dark:text-amber-400">⚠ Pointer / Trackpad Configuration</label>
+                    <p class="${hintClass}">This file has <code class="font-mono">inputListeners</code> and/or <code class="font-mono">layout_parameters</code> data (per-layer mouse/trackpad speed scaling, input processors). These are preserved exactly as-is on export, but are not yet editable in this version of the editor.</p>
+                </div>` : ''}
+            `;
+
+            // --- Metadata fields ---
+            const metaContainer = document.getElementById('set-meta-fields');
+            metaFields.forEach(f => {
+                const row = document.createElement('div');
+                const val = config[f.key] || '';
+                if (f.type === 'textarea') {
+                    row.innerHTML = `<label class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 block">${f.label}</label><textarea class="input-field min-h-[70px] resize-y" data-key="${f.key}">${val}</textarea>`;
+                } else {
+                    row.innerHTML = `<label class="text-[11px] font-semibold text-slate-500 dark:text-slate-400 mb-1 block">${f.label}</label><input type="text" class="input-field" data-key="${f.key}" value="${val}">`;
+                }
+                metaContainer.appendChild(row);
+                row.querySelector('[data-key]').onchange = (e) => {
+                    if ((config[f.key] || '') === e.target.value) return;
+                    pushHistory();
+                    config[f.key] = e.target.value;
+                    renderAll();
+                };
+            });
+
+            // --- Tags ---
+            document.getElementById('set-tags').onchange = (e) => {
+                const newTags = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                if (JSON.stringify(newTags) === JSON.stringify(tags)) return;
+                pushHistory();
+                config.tags = newTags;
+                renderAll();
+            };
+
+            // --- Config parameters (paramName/value pairs) ---
+            const paramsContainer = document.getElementById('set-config-params');
+            const renderParamRows = () => {
+                paramsContainer.innerHTML = '';
+                (config.config_parameters || []).forEach((p, i) => {
+                    const row = document.createElement('div');
+                    row.className = 'flex gap-2 items-center';
+                    row.innerHTML = `
+                        <input type="text" class="input-field font-mono text-xs" placeholder="paramName" value="${p.paramName || ''}" data-field="paramName">
+                        <input type="text" class="input-field font-mono text-xs" placeholder="value" value="${p.value || ''}" data-field="value">
+                        <button class="text-slate-400 hover:text-red-500 px-2 shrink-0" title="Remove">✕</button>
+                    `;
+                    const [nameInput, valInput] = row.querySelectorAll('input');
+                    nameInput.onchange = (e) => { pushHistory(); config.config_parameters[i].paramName = e.target.value; renderAll(); };
+                    valInput.onchange = (e) => { pushHistory(); config.config_parameters[i].value = e.target.value; renderAll(); };
+                    row.querySelector('button').onclick = () => { pushHistory(); config.config_parameters.splice(i, 1); renderAll(); };
+                    paramsContainer.appendChild(row);
+                });
+            };
+            renderParamRows();
+            document.getElementById('set-add-param').onclick = () => {
+                pushHistory();
+                if (!config.config_parameters) config.config_parameters = [];
+                config.config_parameters.push({ paramName: '', value: '' });
+                renderAll();
+            };
+
+            // --- Custom devicetree text blocks ---
+            document.getElementById('set-custom-behaviors').onchange = (e) => {
+                if ((config.custom_defined_behaviors || '') === e.target.value) return;
+                pushHistory();
+                config.custom_defined_behaviors = e.target.value;
+                renderAll();
+            };
+            document.getElementById('set-custom-devicetree').onchange = (e) => {
+                if ((config.custom_devicetree || '') === e.target.value) return;
+                pushHistory();
+                config.custom_devicetree = e.target.value;
+                renderAll();
+            };
+        }
+
+        // --- 9b. HOLD-TAP SLOT EDITOR (behavior-class string only, no params) ---
+        // holdTaps[].bindings[0]/[1] declare which behavior CLASS the hold/tap action uses
+        // (e.g. "&kp", "&mo", or a custom behavior name) -- this is shared metadata for every key
+        // that uses this hold-tap, not a per-key keycode. The actual keycode for a specific physical
+        // key lives on that key's matrix layer binding, never inside the hold-tap definition itself.
+        // This editor therefore only ever writes a plain string back into bindingsArray[index].
+        const COMMON_HOLDTAP_CLASSES = ['&kp', '&mo', '&sk', '&sl', '&to', '&tog', '&trans', '&none'];
+
+        function renderHoldTapSlotEditor(bindingsArray, context) {
+            if (!bindingsArray) return;
+            const idx = context.index;
+            const currentVal = typeof bindingsArray[idx] === 'string' ? bindingsArray[idx] : (bindingsArray[idx]?.value || '&kp');
+            const isCommon = COMMON_HOLDTAP_CLASSES.includes(currentVal);
+
+            els.inspContent.innerHTML = `
+                <div class="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-inner mb-6">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Behavior Class</label>
+                    <p class="text-[11px] text-slate-400 dark:text-slate-500 mb-4 leading-relaxed">This declares which behavior type runs in this slot for every key that uses this hold-tap. It does not set a specific keycode -- that's chosen per-key on the matrix layer.</p>
+                    <select id="ht-slot-select" class="input-field cursor-pointer font-bold mb-3">
+                        ${COMMON_HOLDTAP_CLASSES.map(c => `<option value="${c}" ${currentVal === c ? 'selected' : ''}>${c}</option>`).join('')}
+                        <option value="__custom__" ${!isCommon ? 'selected' : ''}>Custom behavior name…</option>
+                    </select>
+                    <input type="text" id="ht-slot-custom" class="input-field font-mono text-[color:var(--accent)] font-bold ${isCommon ? 'hidden' : ''}" value="${isCommon ? '' : currentVal}" placeholder="&my_custom_behavior">
+                </div>
+            `;
+
+            const selectEl = document.getElementById('ht-slot-select');
+            const customEl = document.getElementById('ht-slot-custom');
+
+            const commit = (newVal) => {
+                if (!newVal || newVal === currentVal) return;
+                pushHistory();
+                bindingsArray[idx] = newVal;
+                renderAll();
+            };
+
+            selectEl.onchange = (e) => {
+                if (e.target.value === '__custom__') {
+                    customEl.classList.remove('hidden');
+                    customEl.focus();
+                } else {
+                    customEl.classList.add('hidden');
+                    commit(e.target.value);
+                }
+            };
+            customEl.onchange = (e) => commit(e.target.value.trim());
+        }
+
+        // --- UNIFIED PARAM SLOT SYSTEM ---
+        // Truth table for every built-in ZMK behavior's parameter shapes.
+        // slot types: 'keycode' = physical key picker, 'layer' = layer chip grid,
+        //             'modifier' = modifier chip grid, 'number' = plain number input,
+        //             'ms' = millisecond number input, 'bt_cmd'/'out_cmd'/'rgb_cmd'/'ep_cmd'
+        //             = enum chip grids, 'raw' = editable text (fallback for unknown)
+        const BEHAVIOR_PARAMS = {
+            '&kp':            [{ label: 'Key', type: 'keycode', idx: 0 }],
+            '&sk':            [{ label: 'Modifier / Key', type: 'keycode', idx: 0 }],
+            '&mo':            [{ label: 'Layer', type: 'layer', idx: 0 }],
+            '&to':            [{ label: 'Layer', type: 'layer', idx: 0 }],
+            '&tog':           [{ label: 'Layer', type: 'layer', idx: 0 }],
+            '&sl':            [{ label: 'Layer', type: 'layer', idx: 0 }],
+            '&mt':            [{ label: 'Hold (Modifier)', type: 'modifier', idx: 0 }, { label: 'Tap (Key)', type: 'keycode', idx: 1 }],
+            '&lt':            [{ label: 'Hold (Layer)', type: 'layer', idx: 0 },    { label: 'Tap (Key)', type: 'keycode', idx: 1 }],
+            '&bt':            [{ label: 'Command', type: 'bt_cmd', idx: 0 },        { label: 'Profile #', type: 'number', idx: 1, optional: true }],
+            '&out':           [{ label: 'Output', type: 'out_cmd', idx: 0 }],
+            '&rgb_ug':        [{ label: 'Command', type: 'rgb_cmd', idx: 0 }],
+            '&ext_power':     [{ label: 'Command', type: 'ep_cmd', idx: 0 }],
+            '&macro_wait_time': [{ label: 'Wait (ms)', type: 'ms', idx: 0 }],
+        };
+
+        const ENUM_OPTIONS = {
+            bt_cmd:  { options: ['BT_SEL', 'BT_CLR', 'BT_CLR_ALL', 'BT_NXT', 'BT_PRV', 'BT_DISC'], indexed: ['BT_SEL', 'BT_DISC'] },
+            out_cmd: { options: ['OUT_USB', 'OUT_BLE', 'OUT_TOG'] },
+            rgb_cmd: { options: ['RGB_TOG','RGB_ON','RGB_OFF','RGB_HUI','RGB_HUD','RGB_SAI','RGB_SAD','RGB_BRI','RGB_BRD','RGB_SPI','RGB_SPD','RGB_EFF','RGB_EFR'] },
+            ep_cmd:  { options: ['EP_ON', 'EP_OFF', 'EP_TOG'] },
+        };
+
+        // Given a behavior value string, return the array of param slot descriptors.
+        // For custom-named behaviors not in BEHAVIOR_PARAMS, looks up the file's holdTap definitions
+        // to infer slot types from the bindings array (e.g. ['&kp','&kp'] → [keycode, keycode]).
+        function resolveParamSlots(behaviorVal) {
+            if (BEHAVIOR_PARAMS[behaviorVal]) return BEHAVIOR_PARAMS[behaviorVal];
+
+            const htDef = (config.holdTaps || []).find(h => h.name === behaviorVal);
+            if (htDef && Array.isArray(htDef.bindings)) {
+                const LAYER_BEHAVIORS = new Set(['&mo', '&sl', '&to', '&tog']);
+                const slotLabels = ['Hold', 'Tap'];
+                return htDef.bindings.slice(0, 2).map((b, i) => ({
+                    label: slotLabels[i] || `Param ${i + 1}`,
+                    // Layer-class behaviors are definitively layer-indexed; everything else
+                    // (including HRM hold sub-behaviors, sticky-key variants, &kp, etc.)
+                    // takes a keycode/modifier as its parameter.
+                    type: LAYER_BEHAVIORS.has(b) ? 'layer' : 'keycode',
+                    idx: i
+                }));
+            }
+
+            const macroDef = (config.macros || []).find(m => m.name === behaviorVal);
+            if (macroDef && Array.isArray(macroDef.params) && macroDef.params.length > 0) {
+                return macroDef.params.map((pName, i) => ({
+                    label: pName || `Param ${i + 1}`,
+                    type: 'raw',
+                    idx: i
+                }));
+            }
+
+            return [];
+        }
+
+        // Renders one param slot widget into the given container.
+        function renderParamSlot(bindingObj, slot, container) {
+            const currentVal = bindingObj.params?.[slot.idx];
+            const currentStr = (typeof currentVal === 'object' ? currentVal?.value : currentVal) ?? '';
+            const slotId = `be-slot-${slot.idx}`;
+
+            const wrap = document.createElement('div');
+            wrap.className = 'bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-inner';
+            wrap.innerHTML = `<label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">${slot.label}</label><div id="${slotId}"></div>`;
+            container.appendChild(wrap);
+            const inner = document.getElementById(slotId);
+
+            const commit = (newVal) => {
+                pushHistory();
+                const oldVal = currentStr;
+                if (!bindingObj.params) bindingObj.params = [];
+                bindingObj.params[slot.idx] = { value: newVal };
+                // For optional BT index slot: if the value is empty, drop slot 1 entirely
+                if (slot.optional && (newVal === '' || newVal === undefined)) {
+                    bindingObj.params.splice(slot.idx, 1);
+                }
+                // Sync decoration.label if it was derived from the old keycode value --
+                // e.g. an HRM key whose label is "F" should become "T" when the tap param changes.
+                syncDecorationLabel(bindingObj, String(oldVal), String(newVal));
+                renderAll();
+            };
+
+            const commitFromPicker = (newVal) => {
+                // Called from openPicker callback -- pushHistory() already fired in the picker
+                // button's own onclick handler, so we must NOT call it again here.
+                const oldVal = currentStr;
+                if (!bindingObj.params) bindingObj.params = [];
+                bindingObj.params[slot.idx] = { value: newVal };
+                syncDecorationLabel(bindingObj, String(oldVal), String(newVal));
+                renderAll();
+            };
+
+            if (slot.type === 'keycode') {
+                inner.innerHTML = `
+                    <button id="btn-pick-${slot.idx}" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[color:var(--accent)] text-[color:var(--accent)] font-mono text-xl font-bold py-5 rounded-xl transition-all flex items-center justify-center gap-3 shadow-sm">
+                        ${currentStr || '?'}
+                        <svg class="w-5 h-5 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"></path></svg>
+                    </button>`;
+                document.getElementById(`btn-pick-${slot.idx}`).onclick = () => {
+                    openPicker((val) => {
+                        // pushHistory() is already called by the physical picker button click handler
+                        // before it invokes activePickerTarget(key.c) -- don't duplicate it here.
+                        commitFromPicker(val);
+                    });
+                };
+            }
+            else if (slot.type === 'modifier') {
+                let chips = ZMK_MODS.map(m => `<button class="mod-chip ${currentStr === m ? 'active' : ''}" data-val="${m}">${m.replace('MOD_', '').replace('LSHFT','L⇧').replace('RSHFT','R⇧').replace('LCTRL','L⌃').replace('RCTRL','R⌃').replace('LALT','L⌥').replace('RALT','R⌥').replace('LGUI','L⌘').replace('RGUI','R⌘')}</button>`).join('');
+                inner.innerHTML = `<div class="grid grid-cols-4 gap-2" id="mod-grid-${slot.idx}">${chips}</div>`;
+                document.getElementById(`mod-grid-${slot.idx}`).querySelectorAll('button').forEach(b => {
+                    b.onclick = () => commit(b.dataset.val);
+                });
+            }
+            else if (slot.type === 'layer') {
+                const layerNames = config.layer_names || config.layers.map((_,i) => `Layer ${i}`);
+                let chips = layerNames.map((n, i) => `<button class="mod-chip text-left ${currentStr == i ? 'active' : ''}" data-val="${i}"><span class="opacity-50 mr-1 text-[9px]">${i}</span>${n}</button>`).join('');
+                inner.innerHTML = `<div class="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto" id="layer-grid-${slot.idx}">${chips}</div>`;
+                document.getElementById(`layer-grid-${slot.idx}`).querySelectorAll('button').forEach(b => {
+                    b.onclick = () => commit(parseInt(b.dataset.val));
+                });
+            }
+            else if (slot.type === 'ms' || slot.type === 'number') {
+                inner.innerHTML = `<input type="number" id="num-${slot.idx}" min="0" step="${slot.type === 'ms' ? 10 : 1}" class="input-field font-mono" value="${currentStr}">`;
+                document.getElementById(`num-${slot.idx}`).onchange = (e) => {
+                    commit(parseInt(e.target.value, 10) || 0);
+                };
+            }
+            else if (ENUM_OPTIONS[slot.type]) {
+                const enumDef = ENUM_OPTIONS[slot.type];
+                let chips = enumDef.options.map(o => `<button class="mod-chip ${currentStr === o ? 'active' : ''}" data-val="${o}">${o.replace(/^(BT|OUT|RGB|EP)_/, '')}</button>`).join('');
+                inner.innerHTML = `<div class="grid grid-cols-2 gap-2" id="enum-grid-${slot.idx}">${chips}</div>`;
+                // For bt_cmd with indexed commands (BT_SEL / BT_DISC), show an index input
+                if (slot.type === 'bt_cmd' && enumDef.indexed?.includes(currentStr)) {
+                    const idxVal = bindingObj.params?.[1]?.value ?? 0;
+                    inner.insertAdjacentHTML('beforeend', `
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-4 mb-2">Profile Index</label>
+                        <input type="number" id="bt-idx" min="0" max="4" class="input-field font-mono" value="${idxVal}">`);
+                    document.getElementById('bt-idx').onchange = (e) => {
+                        pushHistory();
+                        if (!bindingObj.params) bindingObj.params = [];
+                        bindingObj.params[1] = { value: parseInt(e.target.value, 10) || 0 };
+                        renderAll();
+                    };
+                }
+                document.getElementById(`enum-grid-${slot.idx}`).querySelectorAll('button').forEach(b => {
+                    b.onclick = () => {
+                        commit(b.dataset.val);
+                        // After a cmd change, remove stale index slot if new cmd doesn't need one
+                        if (!enumDef.indexed?.includes(b.dataset.val) && bindingObj.params?.length > 1) {
+                            bindingObj.params.splice(1, 1);
+                        }
+                    };
+                });
+            }
+            else {
+                // 'raw' fallback: editable text for any unknown or macro param type
+                inner.innerHTML = `<input type="text" id="raw-${slot.idx}" class="input-field font-mono text-[color:var(--accent)] font-bold" value="${currentStr}" placeholder="value">`;
+                document.getElementById(`raw-${slot.idx}`).onchange = (e) => {
+                    if (e.target.value === currentStr) return;
+                    commit(e.target.value);
+                };
+            }
+        }
+
+        // --- 10. GENERIC BINDING EDITOR UI ---
+        function renderGenericBindingEditor(bindingObj, context) {
+            if (!bindingObj) return;
+            
+            let behaviorVal = bindingObj.value || (typeof bindingObj === 'string' ? bindingObj : "&none");
+            let baseType = getBaseType(behaviorVal);
+
+            // Custom-behavior names from the file shown as selectable options
+            const customBehaviorNames = [
+                ...(config.holdTaps || []).map(b => b.name),
+                ...(config.macros || []).map(b => b.name),
+                ...(config.modMorphs || []).map(b => b.name),
+                ...(config.tapDances || []).map(b => b.name),
+            ].filter(Boolean);
+            const isCustomBehaviorName = customBehaviorNames.includes(behaviorVal);
+
+            let html = `
+                <div class="mb-6">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 px-1">Behavior</label>
+                    <select id="be-select" class="input-field cursor-pointer font-bold">
+                        <option value="&kp" ${behaviorVal === '&kp' ? 'selected' : ''}>${T[termMode].kp}</option>
+                        <option value="&mt" ${behaviorVal === '&mt' ? 'selected' : ''}>${T[termMode].mt}</option>
+                        <option value="&lt" ${behaviorVal === '&lt' ? 'selected' : ''}>${T[termMode].lt}</option>
+                        <option value="&mo" ${behaviorVal === '&mo' ? 'selected' : ''}>${T[termMode].mo}</option>
+                        <option value="&to" ${behaviorVal === '&to' ? 'selected' : ''}>${T[termMode].to}</option>
+                        <option value="&tog" ${behaviorVal === '&tog' ? 'selected' : ''}>${T[termMode].tog}</option>
+                        <option value="&sk" ${behaviorVal === '&sk' ? 'selected' : ''}>${T[termMode].sk}</option>
+                        <option value="&sl" ${behaviorVal === '&sl' ? 'selected' : ''}>${T[termMode].sl}</option>
+                        <option value="&trans" ${behaviorVal === '&trans' ? 'selected' : ''}>${T[termMode].trans}</option>
+                        <option value="&none" ${(behaviorVal === '&none' || behaviorVal === 'none') ? 'selected' : ''}>${T[termMode].none}</option>
+                        <optgroup label="System">
+                            <option value="&bt" ${behaviorVal === '&bt' ? 'selected' : ''}>${T[termMode].bt}</option>
+                            <option value="&out" ${behaviorVal === '&out' ? 'selected' : ''}>${T[termMode].out}</option>
+                            <option value="&rgb_ug" ${behaviorVal === '&rgb_ug' ? 'selected' : ''}>${T[termMode].rgb_ug}</option>
+                            <option value="&ext_power" ${behaviorVal === '&ext_power' ? 'selected' : ''}>${T[termMode].ext_power}</option>
+                            <option value="&caps_word" ${behaviorVal === '&caps_word' ? 'selected' : ''}>${T[termMode].caps_word}</option>
+                            <option value="&key_repeat" ${behaviorVal === '&key_repeat' ? 'selected' : ''}>${T[termMode].key_repeat}</option>
+                            <option value="&bootloader" ${behaviorVal === '&bootloader' ? 'selected' : ''}>${T[termMode].bootloader}</option>
+                            <option value="&sys_reset" ${behaviorVal === '&sys_reset' ? 'selected' : ''}>${T[termMode].sys_reset}</option>
+                        </optgroup>
+                        ${context.group === 'macros' ? `
+                        <optgroup label="Macro Controls">
+                            <option value="&macro_press" ${behaviorVal === '&macro_press' ? 'selected' : ''}>${BEHAVIOR_DEF['&macro_press'].name}</option>
+                            <option value="&macro_release" ${behaviorVal === '&macro_release' ? 'selected' : ''}>${BEHAVIOR_DEF['&macro_release'].name}</option>
+                            <option value="&macro_tap" ${behaviorVal === '&macro_tap' ? 'selected' : ''}>${BEHAVIOR_DEF['&macro_tap'].name}</option>
+                            <option value="&macro_wait_time" ${behaviorVal === '&macro_wait_time' ? 'selected' : ''}>${BEHAVIOR_DEF['&macro_wait_time'].name}</option>
+                            <option value="&macro_param_1to1" ${behaviorVal === '&macro_param_1to1' ? 'selected' : ''}>${BEHAVIOR_DEF['&macro_param_1to1'].name}</option>
+                            <option value="&macro_param_2to1" ${behaviorVal === '&macro_param_2to1' ? 'selected' : ''}>${BEHAVIOR_DEF['&macro_param_2to1'].name}</option>
+                        </optgroup>` : ''}
+                        ${customBehaviorNames.length > 0 ? `
+                        <optgroup label="${T[termMode].behaviors}">
+                            ${customBehaviorNames.map(n => `<option value="${n}" ${behaviorVal === n ? 'selected' : ''}>${n}</option>`).join('')}
+                        </optgroup>` : ''}
+                        <option value="Custom" ${baseType === 'custom' && !isCustomBehaviorName ? 'selected' : ''}>${T[termMode].custom}</option>
+                    </select>
+                </div>
+                <div id="be-params" class="flex flex-col gap-4"></div>
+            `;
+            els.inspContent.innerHTML = html;
+
+            document.getElementById('be-select').addEventListener('change', (e) => {
+                pushHistory();
+                let v = e.target.value;
+                const wasCustomBehaviorName = customBehaviorNames.includes(bindingObj.value);
+                // Before mutating, capture what the old binding's primary display value was,
+                // so we can update a matching decoration.label to keep the matrix label in sync.
+                const oldDisplayVal = String(bindingObj.params?.[resolveParamSlots(bindingObj.value).find(s => s.type==='keycode'||s.type==='modifier')?.idx ?? 1]?.value || '');
+                bindingObj.value = v;
+
+                // Set default params based on behavior type
+                const slots = resolveParamSlots(v);
+                if (v === '&kp') bindingObj.params = [{value: 'A'}];
+                else if (v === '&sk') bindingObj.params = [{value: 'LSHFT'}];
+                else if (v === '&mt') bindingObj.params = [{value: 'LSHFT'}, {value: 'A'}];
+                else if (v === '&lt') bindingObj.params = [{value: 1}, {value: 'A'}];
+                else if (v === '&mo' || v === '&to' || v === '&tog' || v === '&sl') bindingObj.params = [{value: 1}];
+                else if (v === '&bt') bindingObj.params = [{value: 'BT_SEL'}, {value: 0}];
+                else if (ENUM_OPTIONS[BEHAVIOR_DEF[v]?.type]) {
+                    const enumKey = BEHAVIOR_DEF[v].type;
+                    bindingObj.params = [{value: ENUM_OPTIONS[enumKey].options[0]}];
+                }
+                else if (BEHAVIOR_DEF[v]?.type === 'macro-timing') bindingObj.params = [{value: 30}];
+                else if (v === 'Custom') bindingObj.params = [{value: '&my_behavior'}];
+                else if (customBehaviorNames.includes(v)) {
+                    if (!wasCustomBehaviorName) bindingObj.params = slots.map(() => ({value: ''}));
+                }
+                else { delete bindingObj.params; }
+
+                // Sync decoration.label to the new behavior's tap/keycode param if it was
+                // derived from the old one. This prevents stale labels after type switches
+                // (e.g. &HRM LSHFT F -> &kp A should update "F" label to "A").
+                const newTapSlot = resolveParamSlots(v).find(s => s.type === 'keycode' || s.type === 'modifier');
+                const newDisplayVal = newTapSlot ? String(bindingObj.params?.[newTapSlot.idx]?.value || '') : '';
+                if (oldDisplayVal && newDisplayVal) syncDecorationLabel(bindingObj, oldDisplayVal, newDisplayVal);
+
+                closePicker(); renderAll();
+            });
+
+            const paramsContainer = document.getElementById('be-params');
+
+            // ---- Custom literal wrapper: show behavior reference name (no params UI needed) ----
+            if (baseType === 'custom' && !isCustomBehaviorName) {
+                let isLiteralCustomWrapper = (behaviorVal === 'Custom');
+                let customVal = isLiteralCustomWrapper ? (bindingObj.params?.[0]?.value || '') : behaviorVal;
+                paramsContainer.innerHTML = `
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-inner">
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Behavior Reference</label>
+                        <input type="text" id="be-custom-val" class="input-field font-mono text-[color:var(--accent)] font-bold" value="${customVal}" placeholder="&my_behavior">
+                    </div>`;
+                document.getElementById('be-custom-val').onchange = (e) => {
+                    if (e.target.value === customVal) return;
+                    pushHistory();
+                    if (isLiteralCustomWrapper) { bindingObj.value = 'Custom'; bindingObj.params = [{value: e.target.value}]; }
+                    else { bindingObj.value = e.target.value; }
+                    renderAll();
+                };
+                return;
+            }
+
+            // ---- Unified param slots: render widget per slot ----
+            const slots = resolveParamSlots(behaviorVal);
+
+            if (slots.length === 0 && (bindingObj.params?.length > 0)) {
+                // Fallback: behavior unknown but has params — show all as raw editable text
+                (bindingObj.params || []).forEach((p, i) => {
+                    const syntheticSlot = { label: `Param ${i + 1}`, type: 'raw', idx: i };
+                    renderParamSlot(bindingObj, syntheticSlot, paramsContainer);
+                });
+            } else {
+                // Filter out optional BT index slot when the current command doesn't need it
+                const activeSlots = slots.filter(s => {
+                    if (!s.optional) return true;
+                    const cmd = bindingObj.params?.[0]?.value;
+                    return ENUM_OPTIONS['bt_cmd']?.indexed?.includes(cmd);
+                });
+                activeSlots.forEach(slot => renderParamSlot(bindingObj, slot, paramsContainer));
+            }
+
+            // ---- Enhancement 1: Decoration Editor ----
+            // decoration.label, decoration.background, and decoration.color are visible in the
+            // matrix display but were previously invisible and uneditable in the inspector.
+            // Ghost Label rule (LLM2.txt §10): &trans keys must never carry a manual label override
+            // since the editor looks down to Layer 0 at the same physical index to generate a
+            // translucent ghost label automatically. Explicit overrides break this feature.
+            const isTrans = behaviorVal === '&trans';
+            const deco = bindingObj.decoration || {};
+            const decoCard = document.createElement('div');
+            decoCard.className = 'mt-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-sm dark:shadow-inner overflow-hidden';
+            decoCard.innerHTML = `
+                <button id="deco-toggle" class="w-full flex items-center justify-between px-6 py-4 text-left hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                    <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
+                        Appearance
+                    </span>
+                    <span id="deco-badge" class="text-[9px] font-bold px-2 py-0.5 rounded-full ${Object.keys(deco).length > 0 ? 'bg-[color:var(--accent-soft)] text-[color:var(--accent)]' : 'bg-slate-100 dark:bg-slate-900 text-slate-400'}">${Object.keys(deco).length > 0 ? 'Custom' : 'Default'}</span>
+                </button>
+                <div id="deco-body" class="hidden px-6 pb-6 flex flex-col gap-4">
+
+                    ${isTrans ? `
+                    <div class="text-[11px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg px-3 py-2.5 leading-relaxed">
+                        <strong>Ghost Label active.</strong> &trans keys inherit their label from Layer 0 at this position — a manual label override would break that feature. To show something different, change the binding to something other than &trans.
+                    </div>` : `
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Label Override</label>
+                        <div class="flex gap-2">
+                            <input type="text" id="deco-label" class="input-field flex-1 font-mono" 
+                                value="${deco.label || ''}" 
+                                placeholder="${generateMatrixLabel(bindingObj) || 'auto'}">
+                            <button id="deco-label-clear" title="Clear label override (use auto)" class="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors text-xs font-bold ${deco.label ? '' : 'opacity-30 cursor-default'}">✕</button>
+                        </div>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">Overrides the auto-generated matrix label. Leave empty to use auto.</p>
+                    </div>`}
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Background Color</label>
+                        <div class="flex gap-2 items-center">
+                            <input type="color" id="deco-bg-picker" class="w-10 h-10 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer bg-transparent p-0.5 shrink-0" value="${deco.background || '#1e293b'}">
+                            <input type="text" id="deco-bg-hex" class="input-field font-mono flex-1" value="${deco.background || ''}" placeholder="#1e293b (default)">
+                            <button id="deco-bg-clear" title="Clear background color" class="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors text-xs font-bold ${deco.background ? '' : 'opacity-30 cursor-default'}">✕</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">Text Color</label>
+                        <div class="flex gap-2 items-center">
+                            <input type="color" id="deco-fg-picker" class="w-10 h-10 rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer bg-transparent p-0.5 shrink-0" value="${deco.color || (deco.background ? getContrastColor(deco.background) : '#f8fafc')}">
+                            <input type="text" id="deco-fg-hex" class="input-field font-mono flex-1" value="${deco.color || ''}" placeholder="auto-contrast">
+                            <button id="deco-fg-clear" title="Clear text color (use auto-contrast)" class="px-3 py-2 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg border border-slate-200 dark:border-slate-700 transition-colors text-xs font-bold ${deco.color ? '' : 'opacity-30 cursor-default'}">✕</button>
+                        </div>
+                        <p class="text-[10px] text-slate-400 dark:text-slate-500 mt-1.5">Leave empty to auto-calculate contrast against the background.</p>
+                    </div>
+
+                    ${Object.keys(deco).length > 0 ? `
+                    <button id="deco-clear-all" class="text-[11px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 border border-red-200 dark:border-red-800 py-2 rounded-lg transition-colors">
+                        Remove All Appearance Overrides
+                    </button>` : ''}
+                </div>
+            `;
+            paramsContainer.appendChild(decoCard);
+
+            // Toggle expand/collapse
+            const decoBody = document.getElementById('deco-body');
+            // Auto-open if there's existing decoration
+            if (Object.keys(deco).length > 0) decoBody.classList.remove('hidden');
+            document.getElementById('deco-toggle').onclick = () => decoBody.classList.toggle('hidden');
+
+            const setDeco = (field, value) => {
+                pushHistory();
+                if (!bindingObj.decoration) bindingObj.decoration = {};
+                if (value === null || value === '') {
+                    delete bindingObj.decoration[field];
+                    if (Object.keys(bindingObj.decoration).length === 0) delete bindingObj.decoration;
+                } else {
+                    bindingObj.decoration[field] = value;
+                }
+                renderAll();
+            };
+
+            if (!isTrans) {
+                const labelInput = document.getElementById('deco-label');
+                const labelClear = document.getElementById('deco-label-clear');
+                labelInput.onchange = (e) => setDeco('label', e.target.value.trim() || null);
+                labelClear.onclick = () => { if (deco.label) setDeco('label', null); };
+            }
+
+            // Background color — keep color picker and hex input in sync
+            const bgPicker = document.getElementById('deco-bg-picker');
+            const bgHex = document.getElementById('deco-bg-hex');
+            const bgClear = document.getElementById('deco-bg-clear');
+            bgPicker.oninput = (e) => { bgHex.value = e.target.value; };
+            bgPicker.onchange = (e) => {
+                const hex = e.target.value;
+                bgHex.value = hex;
+                // Auto-update text color to contrast if no manual override
+                if (!bindingObj.decoration?.color) {
+                    const fgPicker = document.getElementById('deco-fg-picker');
+                    const fgHex = document.getElementById('deco-fg-hex');
+                    const auto = getContrastColor(hex);
+                    if (fgPicker) fgPicker.value = auto;
+                    if (fgHex) fgHex.value = '';
+                }
+                setDeco('background', hex);
+            };
+            bgHex.onchange = (e) => {
+                const hex = e.target.value.trim();
+                if (/^#[0-9a-fA-F]{3,6}$/.test(hex)) { bgPicker.value = hex; setDeco('background', hex); }
+                else if (!hex) setDeco('background', null);
+            };
+            bgClear.onclick = () => { if (deco.background) setDeco('background', null); };
+
+            // Text color
+            const fgPicker = document.getElementById('deco-fg-picker');
+            const fgHex = document.getElementById('deco-fg-hex');
+            const fgClear = document.getElementById('deco-fg-clear');
+            fgPicker.oninput = (e) => { fgHex.value = e.target.value; };
+            fgPicker.onchange = (e) => setDeco('color', e.target.value);
+            fgHex.onchange = (e) => {
+                const hex = e.target.value.trim();
+                if (/^#[0-9a-fA-F]{3,6}$/.test(hex)) { fgPicker.value = hex; setDeco('color', hex); }
+                else if (!hex) setDeco('color', null);
+            };
+            fgClear.onclick = () => { if (deco.color) setDeco('color', null); };
+
+            // Clear all
+            const clearAll = document.getElementById('deco-clear-all');
+            if (clearAll) clearAll.onclick = () => {
+                pushHistory();
+                delete bindingObj.decoration;
+                renderAll();
+            };
+
+            // ---- Enhancement 2a: Jump-to-Behavior ----
+            // When the binding references a named custom behavior defined in this file
+            // (holdTap, macro, modMorph, tapDance), show an inline summary of its most
+            // important properties and a Jump button that navigates directly to it —
+            // closing the disconnect between key-level editing and behavior-definition editing.
+            const BEHAVIOR_GROUPS = {
+                holdTaps: config.holdTaps || [],
+                macros: config.macros || [],
+                modMorphs: config.modMorphs || [],
+                tapDances: config.tapDances || [],
+            };
+            let matchedGroup = null, matchedIndex = -1, matchedBehavior = null;
+            for (const [grp, arr] of Object.entries(BEHAVIOR_GROUPS)) {
+                const idx = arr.findIndex(b => b.name === behaviorVal);
+                if (idx !== -1) { matchedGroup = grp; matchedIndex = idx; matchedBehavior = arr[idx]; break; }
+            }
+
+            if (matchedBehavior) {
+                // Build a summary of the most useful properties inline
+                const TIMING_LABELS = { tappingTermMs: 'Term', quickTapMs: 'Quick', requirePriorIdleMs: 'Idle', flavor: 'Flavor', waitMs: 'Wait', tapMs: 'Tap' };
+                const summaryChips = Object.entries(TIMING_LABELS)
+                    .filter(([k]) => matchedBehavior[k] !== undefined)
+                    .map(([k, label]) => {
+                        const v = matchedBehavior[k];
+                        const display = typeof v === 'number' ? `${v}ms` : v;
+                        return `<span class="inline-flex items-center gap-1 text-[10px] font-mono bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2 py-1 rounded-md"><span class="text-slate-400">${label}</span><span class="text-slate-900 dark:text-white font-bold">${display}</span></span>`;
+                    }).join('');
+
+                const jumpCard = document.createElement('div');
+                jumpCard.className = 'mt-4 bg-[color:var(--accent-soft)] border border-[color:var(--accent)] rounded-xl p-4';
+                jumpCard.innerHTML = `
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                            <div class="text-[9px] font-bold text-[color:var(--accent)] uppercase tracking-widest mb-0.5">Defined In ${T[termMode][matchedGroup] || matchedGroup}</div>
+                            <div class="font-mono text-sm font-bold text-slate-900 dark:text-white">${matchedBehavior.name}</div>
+                        </div>
+                        <button id="btn-jump-behavior" class="shrink-0 flex items-center gap-1.5 bg-[color:var(--accent)] hover:brightness-110 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all shadow-sm">
+                            Edit
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+                        </button>
+                    </div>
+                    ${summaryChips ? `<div class="flex flex-wrap gap-1.5">${summaryChips}</div>` : '<div class="text-[10px] text-slate-400">No timing properties set.</div>'}
+                `;
+                paramsContainer.appendChild(jumpCard);
+
+                document.getElementById('btn-jump-behavior').onclick = () => {
+                    // Push the behavior's path onto inspectorPath so the breadcrumb trail reads:
+                    // "Key 38 › &HRM_left_index_v1B_TKZ" and Back returns to the key.
+                    inspectorPath.push({ type: 'behaviorList', group: matchedGroup });
+                    inspectorPath.push({ type: 'behavior', group: matchedGroup, index: matchedIndex });
+                    renderAll();
+                };
+            }
+        }
+
+        // --- 11. GENERIC BEHAVIOR ENGINE ---
+        // Tier 5: Collect all behavior names that currently exist (user-created + built-in recognized ones)
+        // so the validation engine can flag Custom bindings that reference something that doesn't exist.
+        function getKnownBehaviorNames() {
+            const known = new Set(Object.keys(BEHAVIOR_DEF));
+            ['holdTaps','macros','modMorphs','tapDances'].forEach(g => {
+                (config[g] || []).forEach(b => { if (b.name) known.add(b.name); });
+            });
+            // custom_defined_behaviors are raw devicetree text -- try to extract defined behavior names
+            // from it by looking for the "name: label {" devicetree node pattern.
+            const cdb = config.custom_defined_behaviors || '';
+            const nameMatches = cdb.match(/^\s*\w+:/gm);
+            if (nameMatches) nameMatches.forEach(m => known.add('&' + m.trim().replace(':', '')));
+            return known;
+        }
+
+        function findInvalidCustomRefs(behavior) {
+            const known = getKnownBehaviorNames();
+            const invalid = [];
+            function walk(obj) {
+                if (!obj || typeof obj !== 'object') return;
+                if (obj.value === 'Custom') {
+                    const ref = obj.params?.[0]?.value;
+                    if (ref && !known.has(ref)) invalid.push(ref);
+                }
+                (obj.params || []).forEach(walk);
+                (obj.bindings || []).forEach(walk);
+                if (obj.cases) obj.cases.forEach(c => walk(c.binding));
+            }
+            walk(behavior);
+            if (behavior.binding) walk(behavior.binding);
+            return invalid;
+        }
+
+        function renderBehaviorList(group) {
+            els.inspContent.innerHTML = `
+                <div class="flex gap-2 mb-4">
+                    <button id="btn-create-beh" class="flex-1 bg-white dark:bg-slate-800 hover:border-[color:var(--accent)] border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold py-3 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4 text-[color:var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        New
+                    </button>
+                </div>
+                <div class="mb-4 relative">
+                    <input type="text" id="beh-search" placeholder="Filter by name…" class="input-field text-xs pl-8">
+                    <svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+                <div id="beh-list-container" class="flex flex-col gap-3"></div>
+            `;
+            
+            document.getElementById('btn-create-beh').onclick = () => {
+                pushHistory();
+                if (!config[group]) config[group] = [];
+                let newItem = JSON.parse(JSON.stringify(SKELETONS[group]));
+                newItem.name += `_${config[group].length}`;
+                config[group].push(newItem);
+                inspectorPath.push({ type: 'behavior', group: group, index: config[group].length - 1 });
+                renderAll();
+            };
+
+            const arr = config[group] || [];
+            const container = document.getElementById('beh-list-container');
+
+            const renderFiltered = (filter) => {
+                container.innerHTML = '';
+                const filtered = arr.map((item, idx) => ({ item, idx })).filter(({ item }) =>
+                    !filter || item.name?.toLowerCase().includes(filter.toLowerCase())
+                );
+
+                if (filtered.length === 0) {
+                    container.innerHTML = `<div class="text-slate-500 text-sm italic text-center p-8 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl">${filter ? 'No matches.' : 'No behaviors configured.'}</div>`;
+                    return;
+                }
+
+                filtered.forEach(({ item, idx }) => {
+                    const invalidRefs = findInvalidCustomRefs(item);
+                    const hasWarning = invalidRefs.length > 0;
+
+                    let card = document.createElement('div');
+                    card.className = `bg-white dark:bg-slate-800 border rounded-xl p-4 group cursor-pointer transition-all shadow-sm ${hasWarning ? 'border-amber-400 dark:border-amber-600' : 'border-slate-200 dark:border-slate-700 hover:border-[color:var(--accent)]'}`;
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <span class="text-[color:var(--accent)] font-mono text-sm font-bold truncate flex-1 mr-2">${item.name}</span>
+                            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                                <button class="btn-clone text-slate-400 hover:text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] px-2 py-1 rounded text-[10px] font-bold" title="Clone">⎘ Clone</button>
+                                <button class="btn-del text-slate-400 hover:text-white hover:bg-red-500 dark:hover:bg-red-600 px-2 py-1 rounded text-[10px] font-bold" title="Delete">✕</button>
+                            </div>
+                        </div>
+                        ${hasWarning ? `<div class="mt-2 text-[10px] text-amber-600 dark:text-amber-400 flex items-start gap-1"><span>⚠</span><span>Unresolved Custom reference${invalidRefs.length > 1 ? 's' : ''}: <span class="font-mono">${invalidRefs.join(', ')}</span> — not found in defined behaviors or custom_defined_behaviors. This will likely fail ZMK compilation.</span></div>` : ''}
+                    `;
+
+                    card.onclick = (e) => {
+                        if (e.target.classList.contains('btn-del') || e.target.classList.contains('btn-clone')) return;
+                        inspectorPath.push({ type: 'behavior', group: group, index: idx }); renderAll();
+                    };
+
+                    card.querySelector('.btn-clone').onclick = () => {
+                        pushHistory();
+                        const cloned = JSON.parse(JSON.stringify(item));
+                        cloned.name = item.name + '_copy';
+                        config[group].push(cloned);
+                        inspectorPath.push({ type: 'behavior', group: group, index: config[group].length - 1 });
+                        renderAll();
+                    };
+
+                    card.querySelector('.btn-del').onclick = () => {
+                        if (confirm(`Delete "${item.name}"?`)) { pushHistory(); config[group].splice(idx, 1); renderAll(); }
+                    };
+                    container.appendChild(card);
+                });
+            };
+
+            renderFiltered('');
+            document.getElementById('beh-search').oninput = (e) => renderFiltered(e.target.value);
+        }
+
+        function renderGenericBehaviorProperties(behavior, context) {
+            let html = `
+                <div class="mb-8 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-inner">
+                    <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">Behavior Name</label>
+                    <input type="text" id="prop-name" class="input-field font-mono text-emerald-600 dark:text-emerald-400 font-bold" value="${behavior.name}">
+                </div>
+                <div id="dynamic-props" class="space-y-6 mb-8"></div>
+                <div id="dynamic-slots" class="flex flex-col gap-2 relative"></div>
+            `;
+            els.inspContent.innerHTML = html;
+            document.getElementById('prop-name').onchange = (e) => { if (e.target.value === behavior.name) return; pushHistory(); behavior.name = e.target.value; renderAll(); };
+
+            const propsContainer = document.getElementById('dynamic-props');
+            const slotsContainer = document.getElementById('dynamic-slots');
+
+            // Optional properties relevant to this behavior group, that the user can opt into adding
+            // even if the loaded/created behavior doesn't already have them set. Scoped per-group since
+            // e.g. holdTriggerKeyPositions only makes sense on a hold-tap, not a tap-dance.
+            const OPTIONAL_PROPS_BY_GROUP = {
+                holdTaps: ['holdTriggerKeyPositions', 'holdTriggerOnRelease', 'retroTap'],
+                combos: ['slowRelease'],
+            };
+            const optionalProps = (OPTIONAL_PROPS_BY_GROUP[context.group] || []).filter(k => !(k in behavior));
+
+            // 1. Render Properties based on Generic Schema
+            Object.keys(behavior).forEach(key => {
+                const schema = PROPERTY_SCHEMA[key];
+                if (!schema) return;
+
+                let wrapper = document.createElement('div');
+                wrapper.className = "bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-inner";
+                let labelText = T[termMode][key] || key;
+
+                if (schema.type === 'slider') {
+                    wrapper.innerHTML = `
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+                            ${labelText}
+                            <span id="prop-${key}-val" class="text-slate-900 dark:text-white font-mono bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">${behavior[key]}ms</span>
+                        </label>
+                        <input type="range" id="prop-${key}" min="${schema.min}" max="${schema.max}" step="${schema.step}" value="${behavior[key]}">
+                    `;
+                } 
+                else if (schema.type === 'select') {
+                    let opts = schema.options.map(o => `<option value="${o}" ${behavior[key] === o ? 'selected' : ''}>${o}</option>`).join('');
+                    wrapper.innerHTML = `
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">${labelText}</label>
+                        <select id="prop-${key}" class="input-field cursor-pointer font-bold">${opts}</select>
+                    `;
+                }
+                else if (schema.type === 'boolean') {
+                    wrapper.innerHTML = `
+                        <label class="flex items-center justify-between cursor-pointer">
+                            <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">${labelText}</span>
+                            <input type="checkbox" id="prop-${key}" class="w-5 h-5 rounded cursor-pointer accent-[color:var(--accent)]" ${behavior[key] ? 'checked' : ''}>
+                        </label>
+                        <button class="prop-remove-btn text-[10px] text-slate-400 hover:text-red-500 mt-2" data-key="${key}">− Remove property</button>
+                    `;
+                }
+                else if (schema.type === 'keyPositionList') {
+                    wrapper.innerHTML = `
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">${labelText}</label>
+                        <p class="text-[11px] text-slate-400 dark:text-slate-500 mb-3 leading-relaxed">Physical matrix indices, comma separated (e.g. the bilateral-combo opposite-hand keys this hold-tap should trigger against).</p>
+                        <input type="text" id="prop-${key}" class="input-field font-mono" value="${(behavior[key] || []).join(', ')}" placeholder="0, 1, 2, 3">
+                        <button class="prop-remove-btn text-[10px] text-slate-400 hover:text-red-500 mt-2" data-key="${key}">− Remove property</button>
+                    `;
+                }
+                propsContainer.appendChild(wrapper);
+
+                let el = document.getElementById(`prop-${key}`);
+                if (schema.type === 'slider') {
+                    el.oninput = (e) => document.getElementById(`prop-${key}-val`).textContent = e.target.value + 'ms';
+                    el.onchange = (e) => { pushHistory(); behavior[key] = parseInt(e.target.value); renderAll(); };
+                } else if (schema.type === 'boolean') {
+                    el.onchange = (e) => { pushHistory(); behavior[key] = e.target.checked; renderAll(); };
+                } else if (schema.type === 'keyPositionList') {
+                    el.onchange = (e) => {
+                        pushHistory();
+                        behavior[key] = e.target.value.split(',').map(s => s.trim()).filter(s => s !== '').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
+                        renderAll();
+                    };
+                } else {
+                    el.onchange = (e) => { pushHistory(); behavior[key] = e.target.value; renderAll(); };
+                }
+
+                const removeBtn = wrapper.querySelector('.prop-remove-btn');
+                if (removeBtn) removeBtn.onclick = () => { pushHistory(); delete behavior[key]; renderAll(); };
+            });
+
+            // Affordance to opt into optional properties not currently present on this behavior
+            if (optionalProps.length > 0) {
+                let addPropWrapper = document.createElement('div');
+                addPropWrapper.className = "flex flex-wrap gap-2";
+                addPropWrapper.innerHTML = optionalProps.map(k => `<button class="prop-add-btn text-[11px] font-bold text-[color:var(--accent)] border border-dashed border-[color:var(--accent)] rounded-lg px-3 py-1.5 hover:bg-[var(--accent-soft)] transition-all" data-key="${k}">+ ${T[termMode][k] || k}</button>`).join('');
+                propsContainer.appendChild(addPropWrapper);
+                addPropWrapper.querySelectorAll('.prop-add-btn').forEach(b => {
+                    b.onclick = () => {
+                        pushHistory();
+                        const k = b.dataset.key;
+                        const schema = PROPERTY_SCHEMA[k];
+                        behavior[k] = schema.type === 'boolean' ? false : (schema.type === 'keyPositionList' ? [] : '');
+                        renderAll();
+                    };
+                });
+            }
+
+            // 2. Render Action Slots
+            slotsContainer.insertAdjacentHTML('beforeend', `<label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 px-1 mt-4">Nested Actions</label>`);
+
+            if (behavior.cases) { // Mod-Morph
+                ['baseAction', 'shiftAction'].forEach((lblKey, i) => {
+                    let b = behavior.cases[i].binding;
+                    let btn = document.createElement('div');
+                    btn.className = "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl mb-2.5 cursor-pointer hover:border-[color:var(--accent)] transition-all flex justify-between items-center shadow-sm relative ml-5";
+                    btn.innerHTML = `<div class="tree-line"></div><span class="text-xs font-bold text-slate-500 dark:text-slate-400">${T[termMode][lblKey]}</span> <span class="font-mono text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 shadow-sm">${getBeautifulLabel(b) || '&none'}</span>`;
+                    btn.onclick = () => { inspectorPath.push({ type: 'binding', group: context.group, index: i }); renderAll(); };
+                    slotsContainer.appendChild(btn);
+                });
+
+                let chips = ZMK_MODS.map(m => {
+                    let isActive = behavior.cases[1].mods?.includes(m);
+                    return `<button class="mod-chip ${isActive ? 'active' : ''}" data-val="${m}">${m.replace('MOD_', '')}</button>`;
+                }).join('');
+                slotsContainer.insertAdjacentHTML('beforeend', `
+                    <div class="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-inner mt-4">
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">Trigger Modifiers</label>
+                        <div class="grid grid-cols-4 gap-2" id="prop-mods-grid">${chips}</div>
+                    </div>
+                `);
+                document.getElementById('prop-mods-grid').querySelectorAll('button').forEach(b => {
+                    b.onclick = () => {
+                        pushHistory();
+                        let m = b.dataset.val;
+                        if (!behavior.cases[1].mods) behavior.cases[1].mods = [];
+                        let idx = behavior.cases[1].mods.indexOf(m);
+                        if (idx > -1) behavior.cases[1].mods.splice(idx, 1); else behavior.cases[1].mods.push(m);
+                        // keep-mods can only reference mods that are actually part of the trigger set;
+                        // if a trigger mod was just removed, drop it from keepMods too so it never goes stale.
+                        if (idx > -1 && behavior.cases[1].keepMods) {
+                            const kIdx = behavior.cases[1].keepMods.indexOf(m);
+                            if (kIdx > -1) behavior.cases[1].keepMods.splice(kIdx, 1);
+                        }
+                        renderAll();
+                    };
+                });
+
+                // keep-mods: a subset of the trigger mods above that stays held while the "with mod"
+                // binding fires. Only offered when there's at least one trigger mod selected.
+                const triggerMods = behavior.cases[1].mods || [];
+                if (triggerMods.length > 0) {
+                    let keepChips = triggerMods.map(m => {
+                        let isActive = behavior.cases[1].keepMods?.includes(m);
+                        return `<button class="mod-chip ${isActive ? 'active' : ''}" data-val="${m}">${m.replace('MOD_', '')}</button>`;
+                    }).join('');
+                    slotsContainer.insertAdjacentHTML('beforeend', `
+                        <div class="bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-inner mt-4">
+                            <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">${T[termMode].keepMods}</label>
+                            <p class="text-[11px] text-slate-400 dark:text-slate-500 mb-4 leading-relaxed">Selected modifiers stay held even while the morphed (shifted) key is sent.</p>
+                            <div class="grid grid-cols-4 gap-2" id="prop-keepmods-grid">${keepChips}</div>
+                        </div>
+                    `);
+                    document.getElementById('prop-keepmods-grid').querySelectorAll('button').forEach(b => {
+                        b.onclick = () => {
+                            pushHistory();
+                            let m = b.dataset.val;
+                            if (!behavior.cases[1].keepMods) behavior.cases[1].keepMods = [];
+                            let idx = behavior.cases[1].keepMods.indexOf(m);
+                            if (idx > -1) behavior.cases[1].keepMods.splice(idx, 1); else behavior.cases[1].keepMods.push(m);
+                            renderAll();
+                        };
+                    });
+                }
+            }
+            else if (behavior.bindings) { // Hold-Taps, Macros, Tap-Dances
+                if (context.group === 'holdTaps') {
+                    ['holdAction', 'tapAction'].forEach((lblKey, i) => {
+                        // holdTaps[].bindings entries are always plain behavior-class strings
+                        // (e.g. "&kp", "&mo") in MoErgo's real schema -- display directly,
+                        // never mutate into an object just to render a label.
+                        let slotVal = typeof behavior.bindings[i] === 'string' ? behavior.bindings[i] : (behavior.bindings[i]?.value || '&kp');
+                        let btn = document.createElement('div');
+                        btn.className = "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl mb-2.5 cursor-pointer hover:border-[color:var(--accent)] transition-all flex justify-between items-center shadow-sm relative ml-5";
+                        btn.innerHTML = `<div class="tree-line"></div><span class="text-xs font-bold text-slate-500 dark:text-slate-400">${T[termMode][lblKey]}</span> <span class="font-mono text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 shadow-sm">${slotVal || '&none'}</span>`;
+                        btn.onclick = () => { inspectorPath.push({ type: 'binding', group: context.group, index: i }); renderAll(); };
+                        slotsContainer.appendChild(btn);
+                    });
+                } else {
+                    behavior.bindings.forEach((b, i) => {
+                        let btn = document.createElement('div');
+                        btn.className = "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl mb-2.5 cursor-pointer hover:border-[color:var(--accent)] transition-all flex justify-between items-center shadow-sm group relative ml-5";
+                        let stepLabel = termMode === 'friendly' ? `Step ${i+1}` : `[${i}]`;
+                        btn.innerHTML = `
+                            <div class="tree-line"></div>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[10px] font-bold text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-900/30 border border-sky-200 dark:border-sky-800 px-2 py-1 rounded uppercase tracking-wider shadow-sm">${stepLabel}</span> 
+                                <span class="font-mono text-sm font-bold text-slate-900 dark:text-white">${getBeautifulLabel(b) || '&none'}</span>
+                            </div>
+                            <button class="text-slate-400 hover:text-white hover:bg-red-500 dark:hover:bg-red-600 px-3 py-1.5 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-all font-bold btn-del-step">Del</button>
+                        `;
+                        btn.onclick = (e) => { 
+                            if(e.target.classList.contains('btn-del-step')) return;
+                            inspectorPath.push({ type: 'binding', group: context.group, index: i }); renderAll(); 
+                        };
+                        btn.querySelector('.btn-del-step').onclick = () => { pushHistory(); behavior.bindings.splice(i, 1); renderAll(); };
+                        slotsContainer.appendChild(btn);
+                    });
+
+                    let addBtn = document.createElement('button');
+                    addBtn.className = "w-full py-4 mt-2 border-2 border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-sm font-bold rounded-xl hover:border-[color:var(--accent)] hover:text-[color:var(--accent)] transition-all shadow-sm";
+                    addBtn.textContent = "+ Add Sequence Step";
+                    addBtn.onclick = () => { pushHistory(); behavior.bindings.push({value: "&none"}); renderAll(); };
+                    slotsContainer.appendChild(addBtn);
+                }
+            }
+            else if (context.group === 'combos') {
+                let btn = document.createElement('div');
+                btn.className = "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl mb-2.5 cursor-pointer hover:border-[color:var(--accent)] transition-all flex justify-between items-center shadow-sm relative ml-5";
+                btn.innerHTML = `<div class="tree-line"></div><span class="text-xs font-bold text-slate-500 dark:text-slate-400">Combo Binding</span> <span class="font-mono text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 shadow-sm">${getBeautifulLabel(behavior.binding) || '&none'}</span>`;
+                btn.onclick = () => { inspectorPath.push({ type: 'binding', group: context.group, index: 0 }); renderAll(); };
+                slotsContainer.appendChild(btn);
+            }
+        }
+
+        // Boot UI
+        document.getElementById('empty-state').classList.remove('hidden');
+    </script>
+</body>
+</html>
