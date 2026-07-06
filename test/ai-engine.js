@@ -1,5 +1,4 @@
-// --- 1. LOCAL STORAGE PERSISTENCE ENGINE ---
-
+// --- 1. LOCAL STORAGE PERSISTENCE SYNC ENGINE ---
 function syncCachedApiKeyOnMount() {
     const savedKey = localStorage.getItem('moergo_studio_openai_key');
     const badge = document.getElementById('api-status-badge');
@@ -31,68 +30,58 @@ function flushCachedApiKey() {
     syncCachedApiKeyOnMount();
 }
 
-// --- 2. DETERMINISTIC GENERATIVE INTERFACE CORE ---
+// --- 2. ASYNCHRONOUS INTENT TRANSFORMATION COMPILER ---
 async function synthesizeLayoutIntent() {
     const userInput = document.getElementById('ai-intent-input').value.trim();
     const finalKey = document.getElementById('ai-api-key-input').value.trim() || localStorage.getItem('moergo_studio_openai_key');
 
-    if (!userInput) return alert("Please express your ergonomic intention or layout needs first.");
-    if (!finalKey) return alert("An OpenAI Token is needed. Input it securely in the key box above.");
+    if (!userInput) return alert("Please express your layout transmutation requirements first.");
+    if (!finalKey) return alert("An OpenAI Token is missing. Provide it securely in the key box input container above.");
 
-    const btn = document.getElementById('btn-generate-layout');
-    const origHTML = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = `⚡ Compiling...`;
-    
+    const btn = document.getElementById('btn-generate-layout'); const origHTML = btn.innerHTML;
+    btn.disabled = true; btn.innerHTML = `⚡ Transmuting...`;
     const geoCount = config.layers[0].length;
 
-    const systemRule = `You are a professional ZMK layout configuration synthesis algorithm. 
-Analyze the user's software workflows, thumb clusters, and physical rest comfort requests.
-Mutate the workspace structure map and return a clean array topology.
+    const systemRule = `You are a professional ZMK firmware layout architect mapping user requests onto physical matrix configurations.
+Interpret user anatomical requirements, software developer preferences, and macro behaviors.
+Mutate the matrix array layout map parameter nodes and return optimized code structures.
 
-CRITICAL INSTRUCTIONS:
-1. Return ONLY pure minified structural executable JSON. Never wrap it in markdown code fences like \`\`\`json.
-2. The payload object shape must follow this schema definition precisely:
+CRITICAL DIRECTIVES:
+1. Return ONLY pure minified raw executable structural JSON. Do not include descriptions, warnings, or backtick markdown fencings like \`\`\`json.
+2. The payload configuration layout structure must strictly match this exact blueprint shape:
 {"layers": [[{"value": "&kp", "params": [{"value": "A"}]},{"value": "&trans", "params": []}]]}
-3. Generate exactly ${geoCount} active parameter key nodes per matrix tier layer list block.`;
+3. Generate precisely ${geoCount} matching functional elements inside each array block tier layer.`;
 
     try {
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json', 
-                'Authorization': `Bearer ${finalKey}` 
-            },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${finalKey}` },
             body: JSON.stringify({
                 model: 'gpt-4o',
                 messages: [
                     { role: 'system', content: systemRule },
-                    { role: 'user', content: `Physical Matrix Geometry Requirement Count: ${geoCount}. Current Structure Context Map: ${JSON.stringify(config.layers)}. Target Intent Profile: ${userInput}` }
+                    { role: 'user', content: `Geometry Targets Count: ${geoCount}. Current Layers Context State: ${JSON.stringify(config.layers)}. Intent: ${userInput}` }
                 ],
                 temperature: 0.1
             })
         });
 
-        if (!response.ok) throw new Error("The API endpoint was unauthenticated or ran out of operational credits.");
-        
+        if (!response.ok) throw new Error("The API connection was rejected or has run out of tokens.");
         const payload = await response.json();
-        let rawText = payload.choices[0].message.content.trim();
-        rawText = rawText.replace(/^```json/, '').replace(/```$/, '').trim();
-
+        
+        let rawText = payload.choices[0].message.content.trim().replace(/^```json/, '').replace(/```$/, '').trim();
         const parsed = JSON.parse(rawText);
+        
         if (parsed && parsed.layers) {
-            pushHistory();
-            config.layers = parsed.layers;
-            renderAll();
+            pushHistory(); config.layers = parsed.layers; renderAll();
             document.getElementById('ai-intent-input').value = "";
         }
     } catch (err) {
-        alert(`AI Architect Exception: ${err.message}`);
+        alert(`AI Sync Failure: ${err.message}`);
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = origHTML;
+        btn.disabled = false; btn.innerHTML = origHTML;
     }
 }
 
-// Attach listeners cleanly to runtime state frames
+// Bind runtime validation checks directly to document scope frames
 window.addEventListener('DOMContentLoaded', () => syncCachedApiKeyOnMount());
