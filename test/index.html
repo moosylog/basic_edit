@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoErgo Studio | AI Visual Intent Engine</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] } } }
+        }
+    </script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="antialiased h-screen w-screen flex">
+
+    <div class="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 p-5 z-30 shadow-lg relative transition-colors">
+        <div class="mb-5 shrink-0">
+            <div class="flex justify-between items-center mb-1">
+                <h1 class="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">MoErgo Studio</h1>
+                <button onclick="toggleTheme()" class="text-slate-400 hover:text-[color:var(--accent)] transition-colors" title="Toggle Theme">
+                    <svg class="w-5 h-5 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    <svg class="w-5 h-5 block dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                </button>
+            </div>
+            <p class="text-[11px] font-mono text-slate-500 mb-4">Visual Behavior Engine</p>
+            
+            <label class="block w-full bg-[color:var(--accent)] hover:brightness-110 border border-[color:var(--accent)] text-white text-center py-2.5 rounded-lg cursor-pointer transition-all text-sm font-bold shadow-md">
+                Load JSON Layout
+                <input type="file" id="file-upload" accept=".json" class="hidden" />
+            </label>
+        </div>
+        
+        <div id="sidebar-ui" class="flex-1 flex flex-col hidden overflow-y-auto hide-scrollbar pr-1">
+            <div class="mb-5">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1" id="lbl-layers">Matrix Layers</h3>
+                <div id="layer-list" class="flex flex-col gap-1.5"></div>
+            </div>
+            <div class="mb-5">
+                <button id="btn-settings-nav" onclick="inspectorPath=[{type:'settings'}]; closePicker(); renderAll();"
+                    class="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-bold border transition-all bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:border-[color:var(--accent)]">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span id="lbl-settings-nav">Settings</span>
+                </button>
+            </div>
+            <div class="mb-5">
+                <h3 class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2 px-1" id="lbl-behaviors">Behaviors</h3>
+                <div id="behavior-nav-list" class="flex flex-col gap-1.5"></div>
+            </div>
+
+            <div class="mb-5 bg-slate-50 dark:bg-slate-950/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-inner shrink-0 transition-all">
+                <label class="block text-[10px] font-bold text-purple-500 dark:text-purple-400 uppercase tracking-widest mb-2 flex items-center justify-between">
+                    <span class="flex items-center gap-1.5">
+                        <span class="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
+                        AI Layout Architect
+                    </span>
+                    <span id="api-status-badge" class="text-[8px] tracking-normal font-mono bg-slate-200 dark:bg-slate-900 text-slate-400 dark:text-slate-500 px-1.5 py-0.5 rounded">NO KEY</span>
+                </label>
+                
+                <div class="relative mb-2">
+                    <input type="password" id="ai-api-key-input" oninput="cacheApiKeyChange()" class="w-full text-[11px] py-1.5 pl-2 pr-7 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md outline-none placeholder-slate-400 dark:placeholder-slate-600 text-slate-800 dark:text-slate-100 font-mono transition-colors focus:border-purple-500" placeholder="OpenAI API Key (sk-...)">
+                    <button id="btn-clear-key" onclick="flushCachedApiKey()" class="absolute right-1.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 text-xs transition-colors p-0.5 hidden" title="Delete Saved Key">✕</button>
+                </div>
+                
+                <textarea id="ai-intent-input" class="w-full text-xs p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md outline-none resize-none h-16 placeholder-slate-400 dark:placeholder-slate-600 text-slate-800 dark:text-slate-100 transition-colors focus:border-purple-500" placeholder="Describe your layout requirements here..."></textarea>
+                <button id="btn-generate-layout" onclick="synthesizeLayoutIntent()" class="w-full mt-2 bg-purple-600 hover:bg-purple-700 dark:bg-purple-600 dark:hover:bg-purple-500 text-white font-bold py-2 rounded-lg text-xs transition-all shadow-md flex items-center justify-center gap-1.5">
+                    Synthesize Layout
+                </button>
+            </div>
+
+            <div class="flex gap-2 mt-auto">
+                <button id="btn-undo" onclick="undo()" title="Undo (Ctrl+Z)" disabled
+                    class="flex-1 flex items-center justify-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2 rounded-lg text-xs transition-all opacity-30 cursor-not-allowed">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a5 5 0 015 5v1m-15-6l4-4m-4 4l4 4"></path></svg>
+                    Undo
+                </button>
+                <button id="btn-redo" onclick="redo()" title="Redo (Ctrl+Shift+Z)" disabled
+                    class="flex-1 flex items-center justify-center gap-1.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2 rounded-lg text-xs transition-all opacity-30 cursor-not-allowed">
+                    Redo
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 10H11a5 5 0 00-5 5v1m15-6l-4-4m4 4l-4 4"></path></svg>
+                </button>
+            </div>
+            <button id="btn-export" class="w-full mt-2 bg-slate-800 dark:bg-emerald-600 hover:brightness-110 text-white font-bold py-2.5 rounded-lg text-xs transition-all shadow-md">
+                Export Layout
+            </button>
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col relative z-10 overflow-hidden">
+        <div id="matrix-wrapper">
+            <div id="zoom-controls" class="absolute top-6 right-6 flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm z-20 hidden transition-colors">
+                <button id="btn-zoom-out" class="p-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors" title="Zoom Out">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
+                </button>
+                <span id="zoom-level-text" class="text-[11px] font-mono font-bold w-12 text-center text-slate-700 dark:text-slate-300">100%</span>
+                <button id="btn-zoom-in" class="p-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors" title="Zoom In">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                </button>
+                <div class="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+                <button id="btn-zoom-auto" class="p-2.5 text-[color:var(--accent)] hover:brightness-110 transition-colors" title="Auto Fit">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg>
+                </button>
+            </div>
+
+            <div id="empty-state" class="text-slate-400 flex flex-col items-center gap-4 absolute">
+                <svg class="w-16 h-16 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                <span class="text-sm font-medium">Upload a MoErgo JSON layout to begin.</span>
+            </div>
+            
+            <div id="matrix-banner" class="absolute top-6 left-1/2 transform -translate-x-1/2 bg-purple-100 dark:bg-purple-900/90 border border-purple-500 text-purple-700 dark:text-purple-100 px-6 py-2.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-md hidden z-20 transition-all flex items-center gap-2">
+                <svg class="w-4 h-4 text-purple-500 dark:text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
+                Combo Mode: Click physical keys to chord them together.
+            </div>
+
+            <div id="matrix-container" class="hidden"></div>
+        </div>
+
+        <div id="picker-drawer" class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-[340px] shrink-0 p-8 flex flex-col items-center transition-transform duration-300 transform translate-y-full absolute bottom-0 left-0 right-0 z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_50px_rgba(0,0,0,0.5)]">
+            <div class="w-full max-w-[850px]">
+                <div class="flex justify-between items-end mb-6">
+                    <div>
+                        <h4 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                            <svg class="w-4 h-4 text-[color:var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                            Physical Key Picker
+                        </h4>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Select a keycode to apply to the current parameter.</p>
+                    </div>
+                    <button onclick="closePicker()" class="text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-2.5 rounded-lg transition-all shadow-sm">Done / Close</button>
+                </div>
+                <div id="phys-keyboard" class="w-full flex flex-col gap-1.5"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="inspector" class="w-[420px] bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col shrink-0 z-30 shadow-2xl transition-all hidden">
+        <div class="px-6 py-5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/50 flex flex-wrap items-center gap-1.5" id="breadcrumbs"></div>
+        <div class="flex flex-col items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <div class="flex w-full justify-between items-center bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 p-1.5 rounded-2xl">
+                <span class="text-[10px] font-bold text-slate-400 pl-2 uppercase tracking-widest">Terminology</span>
+                <div class="toggle-bg">
+                    <div class="toggle-pill" id="toggle-pill" style="left: 3px; width: 68px;"></div>
+                    <div class="toggle-btn active" id="btn-friendly" onclick="setTerminology('friendly')">Friendly</div>
+                    <div class="toggle-btn" id="btn-zmk" onclick="setTerminology('zmk')">Technical</div>
+                </div>
+            </div>
+        </div>
+        <div class="flex-1 overflow-y-auto p-8 custom-scrollbar" id="inspector-content"></div>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="ai-engine.js"></script>
+</body>
+</html>
