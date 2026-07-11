@@ -1,6 +1,8 @@
 # ⌨️ Basic Edit
 
-[![Live Demo](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/)
+[![Basic version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/)
+[![More advanced version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/)
+https://moosylog.github.io/basic_edit/v3.html
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Zero Build](https://img.shields.io/badge/Zero_Dependencies-HTML5-orange?style=for-the-badge&logo=html5)](#)
 
