@@ -94,6 +94,11 @@
         .matrix-key.trans { background: repeating-linear-gradient(45deg, var(--accent-soft) 0px, var(--accent-soft) 4px, transparent 4px, transparent 8px); }
         .matrix-key.dead { background: transparent; opacity: 0.4; }
         .matrix-key.dead::after { content: ''; position: absolute; width: 4px; height: 4px; border-radius: 50%; background: var(--key-dashed); }
+        .matrix-key.dragging { opacity: 0.35; }
+        .matrix-key.drop-target { border-color: var(--accent) !important; box-shadow: 0 0 0 4px var(--accent-glow) !important; transform: scale(1.06); z-index: 15; }
+        .drop-target-layer { outline: 2px solid var(--accent); outline-offset: -2px; }
+        .drag-ghost { position: fixed; pointer-events: none; z-index: 60; transform: translate(-50%, -140%); background: var(--key-bg, #fff); border: 1px solid var(--accent); color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 8px; box-shadow: 0 6px 16px rgba(0,0,0,0.25); white-space: nowrap; }
+        #layer-list > div.dragging { opacity: 0.4; }
 
         .text-clamp { font-size: 11px; font-weight: 700; line-height: 1.2; word-break: break-word; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .dark .text-clamp { text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
@@ -233,25 +238,54 @@
             
             <div id="matrix-banner" class="absolute top-6 left-1/2 transform -translate-x-1/2 bg-purple-100 dark:bg-purple-900/90 border border-purple-500 text-purple-700 dark:text-purple-100 px-6 py-2.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-md hidden z-20 transition-all flex items-center gap-2">
                 <svg class="w-4 h-4 text-purple-500 dark:text-purple-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path></svg>
-                Combo Mode: Click physical keys to chord them together.
+                <span>Combo Mode: Click physical keys to chord them together.</span>
+            </div>
+
+            <div id="matrix-banner-warning" class="absolute top-[4.25rem] left-1/2 transform -translate-x-1/2 bg-amber-100 dark:bg-amber-900/90 border border-amber-500 text-amber-700 dark:text-amber-100 px-6 py-2 rounded-full text-[11px] font-bold shadow-lg backdrop-blur-md hidden z-20 transition-all flex items-center gap-2">
+                <span>⚠ This chord spans both keyboard halves — adds BLE latency, can be unreliable.</span>
+            </div>
+
+            <div id="clipboard-indicator" class="absolute top-6 left-6 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 pl-4 pr-2 py-2 rounded-full text-xs font-bold shadow-lg backdrop-blur-md hidden z-20 transition-all flex items-center gap-2 text-slate-700 dark:text-slate-200">
+                <span>📋</span>
+                <span id="clipboard-indicator-label" class="font-mono text-[color:var(--accent)]"></span>
+                <button id="clipboard-clear-btn" title="Clear clipboard" class="text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full w-5 h-5 flex items-center justify-center transition-colors">✕</button>
             </div>
 
             <div id="matrix-container" class="hidden"></div>
         </div>
 
-        <div id="picker-drawer" class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-[340px] shrink-0 p-8 flex flex-col items-center transition-transform duration-300 transform translate-y-full absolute bottom-0 left-0 right-0 z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_50px_rgba(0,0,0,0.5)]">
-            <div class="w-full max-w-[850px]">
-                <div class="flex justify-between items-end mb-6">
+        <div id="picker-drawer" class="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 h-[460px] shrink-0 p-6 flex flex-col items-center transition-transform duration-300 transform translate-y-full absolute bottom-0 left-0 right-0 z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] dark:shadow-[0_-10px_50px_rgba(0,0,0,0.5)]">
+            <div class="w-full max-w-[850px] flex flex-col h-full">
+                <div class="flex justify-between items-start mb-3 shrink-0">
                     <div>
                         <h4 class="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
                             <svg class="w-4 h-4 text-[color:var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                             Physical Key Picker
                         </h4>
-                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Select a keycode to apply to the current parameter.</p>
+                        <p class="text-[11px] text-slate-500 dark:text-slate-400 mt-1">Arm modifiers below for a combo, then pick a key — or search for anything.</p>
                     </div>
-                    <button onclick="closePicker()" class="text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-2.5 rounded-lg transition-all shadow-sm">Done / Close</button>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <div class="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 text-[10px] font-bold" title="Changes how the GUI/Cmd key is labeled — doesn't change the underlying keycode">
+                            <button id="os-toggle-mac">🍎 Mac</button>
+                            <button id="os-toggle-win">🪟 Win</button>
+                        </div>
+                        <button onclick="closePicker()" class="text-[11px] font-bold text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-5 py-2.5 rounded-lg transition-all shadow-sm">Done / Close</button>
+                    </div>
                 </div>
-                <div id="phys-keyboard" class="w-full flex flex-col gap-1.5"></div>
+
+                <div class="flex items-center gap-2 mb-3 shrink-0 flex-wrap">
+                    <div id="mod-arm-row" class="flex gap-1.5 flex-wrap"></div>
+                    <div id="mod-arm-preview" class="text-[11px] font-mono text-[color:var(--accent)] font-bold"></div>
+                </div>
+
+                <div class="relative mb-3 shrink-0">
+                    <input type="text" id="picker-search" placeholder="Search any key — &quot;volume&quot;, &quot;F5&quot;, &quot;left&quot;…" class="input-field text-xs pl-8">
+                    <svg class="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                </div>
+
+                <div id="picker-tabs" class="flex gap-1.5 mb-3 shrink-0 text-[11px] font-bold flex-wrap"></div>
+
+                <div id="phys-keyboard" class="w-full flex flex-col gap-1.5 overflow-y-auto flex-1"></div>
             </div>
         </div>
     </div>
@@ -271,6 +305,21 @@
         <div class="flex-1 overflow-y-auto p-8 custom-scrollbar" id="inspector-content"></div>
     </div>
 
+    <div id="toast-container" class="fixed bottom-8 left-1/2 -translate-x-1/2 z-50 flex flex-col-reverse items-center gap-2 pointer-events-none"></div>
+    <div id="context-menu" class="hidden fixed z-50 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl py-1.5 min-w-[170px] text-xs font-bold"></div>
+    <div id="help-popover" class="hidden fixed z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-medium leading-snug rounded-lg shadow-2xl px-3 py-2.5 max-w-[220px]"></div>
+
+    <div id="confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
+        <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-sm w-full border border-slate-200 dark:border-slate-700">
+            <h3 id="confirm-modal-title" class="text-base font-bold text-slate-900 dark:text-white mb-2"></h3>
+            <p id="confirm-modal-message" class="text-sm text-slate-500 dark:text-slate-400 mb-6 leading-relaxed"></p>
+            <div class="flex gap-3">
+                <button id="confirm-modal-cancel" class="flex-1 py-2.5 rounded-lg text-sm font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition-all">Cancel</button>
+                <button id="confirm-modal-confirm" class="flex-1 py-2.5 rounded-lg text-sm font-bold text-white transition-all"></button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- 1. THEME ENGINE ---
         function toggleTheme() {
@@ -280,23 +329,40 @@
 
         // --- 2. CORE DICTIONARIES ---
         let termMode = 'friendly';
+
+        // GUI key (LGUI/RGUI) is Cmd on macOS and the Windows key on Windows/Linux -- same ZMK
+        // keycode either way (the OS itself decides what the HID modifier means), so this is a
+        // display-only preference, never a different keycode. Auto-detected as a sensible default,
+        // user-overridable via the picker's Mac/Win toggle.
+        let osMode = /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '') ? 'mac' : 'win';
+        function guiSymbol() { return osMode === 'mac' ? '⌘' : '⊞'; }
+        function guiLabel() { return osMode === 'mac' ? 'Cmd' : 'Win'; }
+        // Shared symbol formatter for modifier chip grids (mod-morph trigger mods, sticky-key
+        // modifier param, etc.) -- keeps GUI's OS-aware symbol consistent everywhere it appears.
+        function modChipLabel(m) {
+            const code = m.replace('MOD_', '');
+            if (code === 'LGUI' || code === 'RGUI') return `${code[0]}${guiSymbol()}`;
+            return code.replace('LSHFT','L⇧').replace('RSHFT','R⇧').replace('LCTRL','L⌃').replace('RCTRL','R⌃').replace('LALT','L⌥').replace('RALT','R⌥');
+        }
         
         const T = {
             friendly: {
                 layers: "Matrix Layers", behaviors: "Global Behaviors", 
-                holdTaps: "Hold-Taps", tapDances: "Multi-Taps", modMorphs: "Modifier Rules", combos: "Chords / Combos", macros: "Macros",
+                holdTaps: "Hold-Taps", tapDances: "Multi-Taps", modMorphs: "Modifier Rules", combos: "Chords / Combos", macros: "Macros", stickyKeys: "Sticky Keys",
                 kp: "Standard Keypress", mo: "Momentary Layer", mt: "Mod-Tap", lt: "Layer-Tap", sl: "Sticky Layer", sk: "Sticky Modifier", trans: "Transparent", none: "Dead Key", custom: "Custom Reference",
                 to: "Switch To Layer", tog: "Toggle Layer", bt: "Bluetooth", out: "Output Select", rgb_ug: "RGB Underglow", ext_power: "External Power", bootloader: "Bootloader", sys_reset: "Reset", caps_word: "Caps Word", key_repeat: "Repeat Last Key",
                 flavor: "Interaction Flavor", tappingTermMs: "Max Tap Delay", quickTapMs: "Quick Tap Timeout", requirePriorIdleMs: "Require Idle Time", waitMs: "Wait Delay", tapMs: "Tap Duration", timeoutMs: "Chord Timeout",
+                releaseAfterMs: "Release After", quickRelease: "Quick Release", lazy: "Lazy Release", ignoreModifiers: "Ignore Modifiers While Active", wrappedBehavior: "Wrapped Behavior",
                 holdAction: "Hold Action", tapAction: "Tap Action", baseAction: "Base Action", shiftAction: "Shifted Action", step: "Step",
                 settings: "Settings", holdTriggerKeyPositions: "Bilateral Combo Keys", holdTriggerOnRelease: "Trigger On Release", retroTap: "Retro Tap", keepMods: "Keep Modifiers", slowRelease: "Slow Release"
             },
             zmk: {
                 layers: ".layers", behaviors: "ZMK Behaviors", 
-                holdTaps: "&hold_tap", tapDances: "&tap_dance", modMorphs: "&mod_morph", combos: "combos", macros: "&amp;macro", 
+                holdTaps: "&hold_tap", tapDances: "&tap_dance", modMorphs: "&mod_morph", combos: "combos", macros: "&amp;macro", stickyKeys: "&sticky_key",
                 kp: "&kp", mo: "&mo", mt: "&mt", lt: "&lt", sl: "&sl", sk: "&sk", trans: "&trans", none: "&none", custom: "Raw String",
                 to: "&to", tog: "&tog", bt: "&bt", out: "&out", rgb_ug: "&rgb_ug", ext_power: "&ext_power", bootloader: "&bootloader", sys_reset: "&sys_reset", caps_word: "&caps_word", key_repeat: "&key_repeat",
                 flavor: "flavor", tappingTermMs: "tapping-term-ms", quickTapMs: "quick-tap-ms", requirePriorIdleMs: "require-prior-idle-ms", waitMs: "wait-ms", tapMs: "tap-ms", timeoutMs: "timeout-ms",
+                releaseAfterMs: "release-after-ms", quickRelease: "quick-release", lazy: "lazy", ignoreModifiers: "ignore-modifiers", wrappedBehavior: "bindings[0]",
                 holdAction: "bindings[0]", tapAction: "bindings[1]", baseAction: "bindings[0]", shiftAction: "bindings[1]", step: "bindings[",
                 settings: "Root Config", holdTriggerKeyPositions: "hold-trigger-key-positions", holdTriggerOnRelease: "hold-trigger-on-release", retroTap: "retro-tap", keepMods: "keep-mods", slowRelease: "slow-release"
             }
@@ -306,17 +372,21 @@
         // LAYERS removed: layer chips now read config.layer_names at render time.
 
         const PROPERTY_SCHEMA = {
-            tappingTermMs: { type: 'slider', min: 100, max: 500, step: 10 },
-            quickTapMs: { type: 'slider', min: -1, max: 500, step: 1 },
-            requirePriorIdleMs: { type: 'slider', min: 0, max: 500, step: 10 },
-            timeoutMs: { type: 'slider', min: 10, max: 200, step: 5 },
-            waitMs: { type: 'slider', min: 0, max: 200, step: 5 },
-            tapMs: { type: 'slider', min: 0, max: 200, step: 5 },
-            flavor: { type: 'select', options: ['hold-preferred', 'tap-preferred', 'tap-unless-interrupted', 'balanced'] },
-            holdTriggerOnRelease: { type: 'boolean' },
-            retroTap: { type: 'boolean' },
-            slowRelease: { type: 'boolean' },
-            holdTriggerKeyPositions: { type: 'keyPositionList' },
+            tappingTermMs: { type: 'slider', min: 100, max: 500, step: 10, help: "How long you can hold the key before it counts as 'held' instead of 'tapped.' Higher = more time to decide." },
+            quickTapMs: { type: 'slider', min: -1, max: 500, step: 1, help: "Tap this key twice quickly and the second tap acts like a normal press instead of triggering the hold action. -1 turns this off." },
+            requirePriorIdleMs: { type: 'slider', min: 0, max: 500, step: 10, help: "Waits for this much stillness in your typing before letting this key act as a hold — helps prevent accidental holds while typing fast." },
+            timeoutMs: { type: 'slider', min: 10, max: 200, step: 5, help: "How long you have to press all the chorded keys together for this combo to trigger." },
+            waitMs: { type: 'slider', min: 0, max: 200, step: 5, help: "Pause, in milliseconds, between each step of this macro." },
+            tapMs: { type: 'slider', min: 0, max: 200, step: 5, help: "How long each key press in this macro is held down." },
+            flavor: { type: 'select', options: ['hold-preferred', 'tap-preferred', 'tap-unless-interrupted', 'balanced'], help: "Controls how this key decides between its 'hold' and 'tap' action when the timing is ambiguous." },
+            holdTriggerOnRelease: { type: 'boolean', help: "Wait until you release the key before deciding whether it was a hold or a tap." },
+            retroTap: { type: 'boolean', help: "If this key already timed out as a hold but you were actually trying to tap it, retroactively treat it as a tap." },
+            slowRelease: { type: 'boolean', help: "Wait for every chorded key in this combo to be released together, instead of the instant the first one is released." },
+            holdTriggerKeyPositions: { type: 'keyPositionList', help: "Only treat this as a hold if one of these other keys is pressed at the same time — keeps typing fast everywhere else on the board." },
+            releaseAfterMs: { type: 'slider', min: 100, max: 2000, step: 50, help: "Automatically releases this sticky key after this many milliseconds if nothing else is pressed." },
+            quickRelease: { type: 'boolean', help: "Releases this sticky modifier as soon as the next key is tapped, instead of waiting." },
+            lazy: { type: 'boolean', help: "Only applies this sticky modifier to the very next key press, then turns off automatically." },
+            ignoreModifiers: { type: 'boolean', help: "Keeps this sticky key active even if you press another modifier key, like Shift or Ctrl, first." },
         };
 
         const SKELETONS = {
@@ -324,7 +394,43 @@
             tapDances: { name: "&new_td", tappingTermMs: 200, bindings: [{ value: "&kp", params: [{value: "A"}] }] },
             modMorphs: { name: "&new_morph", cases: [ { binding: { value: "&kp", params: [{value: "A"}] }, mods: [], keepMods: [] }, { binding: { value: "&kp", params: [{value: "B"}] }, mods: ["LSHFT"], keepMods: [] } ] },
             combos: { name: "new_combo", binding: { value: "&kp", params: [{ value: "ESC" }] }, keyPositions: [], layers: [-1], timeoutMs: 50 },
-            macros: { name: "&new_macro", waitMs: 30, tapMs: 30, bindings: [{ value: "&macro_tap" }, { value: "&kp", params: [{value: "A"}] }] }
+            macros: { name: "&new_macro", waitMs: 30, tapMs: 30, bindings: [{ value: "&macro_tap" }, { value: "&kp", params: [{value: "A"}] }] },
+            stickyKeys: { name: "&new_sk", bindings: ["&kp"], releaseAfterMs: 500, quickRelease: false, lazy: false, ignoreModifiers: false }
+        };
+
+        // Curated one-click starting points for the multi-property behaviors that are genuinely
+        // hard to get right from a blank skeleton (getting Home Row Mods' timing correct, for
+        // instance, is one of the most common sources of confusion for people new to ZMK). These
+        // are deliberately real, sensible presets, not just relabeled versions of SKELETONS.
+        const BEHAVIOR_TEMPLATES = {
+            holdTaps: [
+                { label: "Home Row Mod", desc: "Tap for a letter, hold for a modifier — the classic home-row-mod setup, tuned to avoid firing accidentally while typing fast.",
+                  make: () => ({ name: "&hrm", bindings: ["&kp", "&kp"], tappingTermMs: 280, quickTapMs: 175, requirePriorIdleMs: 150, flavor: "balanced" }) },
+                { label: "Layer + Tap", desc: "Tap for a normal key, hold to jump to another layer while held.",
+                  make: () => ({ name: "&lt_custom", bindings: ["&mo", "&kp"], tappingTermMs: 200, flavor: "tap-preferred" }) },
+            ],
+            tapDances: [
+                { label: "Single / Double Tap", desc: "One tap does one thing, a quick double-tap does another — great for packing an extra action onto a key you rarely hold.",
+                  make: () => ({ name: "&td_custom", tappingTermMs: 200, bindings: [{ value: "&kp", params: [{value: "A"}] }, { value: "&kp", params: [{value: "B"}] }] }) },
+            ],
+            modMorphs: [
+                { label: "Shift-Swapped Symbol", desc: "Sends one symbol normally, a different one when Shift is held — e.g. ( becomes ) while shifted.",
+                  make: () => ({ name: "&morph_paren", cases: [ { binding: { value: "&kp", params: [{value:"LPRN"}] }, mods: [], keepMods: [] }, { binding: { value: "&kp", params: [{value:"RPRN"}] }, mods: ["LSHFT"], keepMods: [] } ] }) },
+            ],
+            combos: [
+                { label: "Escape Chord", desc: "Chord two keys together to send Escape. Pick which two keys after adding it, using the matrix.",
+                  make: () => ({ name: "combo_esc", binding: { value: "&kp", params: [{value:"ESC"}] }, keyPositions: [], layers: [-1], timeoutMs: 50 }) },
+                { label: "Bluetooth Clear Chord", desc: "Chord to clear the current Bluetooth pairing — useful as a rarely-hit emergency reset, out of the way of normal typing.",
+                  make: () => ({ name: "combo_bt_clr", binding: { value: "&bt", params: [{value:"BT_CLR"}] }, keyPositions: [], layers: [-1], timeoutMs: 50 }) },
+            ],
+            macros: [
+                { label: "Bluetooth Profile Switch", desc: "Switches straight to Bluetooth profile 0 in a single tap, instead of holding a modifier combo.",
+                  make: () => ({ name: "&macro_bt0", waitMs: 30, tapMs: 30, bindings: [{ value: "&bt", params: [{value:"BT_SEL"}, {value: 0}] }] }) },
+            ],
+            stickyKeys: [
+                { label: "Sticky Shift", desc: "Tap once and the very next key you press is Shifted — no need to hold Shift down for one capital letter.",
+                  make: () => ({ name: "&sk_shift", bindings: ["&kp"], releaseAfterMs: 500, quickRelease: true, lazy: false, ignoreModifiers: false }) },
+            ],
         };
 
         const BEHAVIOR_DEF = {
@@ -367,13 +473,82 @@
         // the wrapped key's actual modifier symbol can be looked up from ZMK_MAP. Shared by both
         // generateMatrixLabel and getBeautifulLabel.
         const MOD_WRAPPER_TO_FULL = { LS: 'LSHFT', RS: 'RSHFT', LC: 'LCTRL', RC: 'RCTRL', LA: 'LALT', RA: 'RALT', LG: 'LGUI', RG: 'RGUI' };
+        const FULL_TO_MOD_WRAPPER = Object.fromEntries(Object.entries(MOD_WRAPPER_TO_FULL).map(([k, v]) => [v, k]));
 
-        const LAYOUT_US_EN = [
+        // Recursively unwraps a chain of stacked modifier wraps -- e.g. LC(LS(A)) --
+        // into { mods: ['LCTRL','LSHFT'], keyVal: 'A' }. The physical picker can now author
+        // multi-modifier combos (Ctrl+Shift+A), so display logic needs to read arbitrarily deep
+        // nesting, not just the single level the file format originally only ever contained.
+        function unwrapModChain(node) {
+            const mods = [];
+            while (node && typeof node === 'object' && MOD_WRAPPER_TO_FULL[node.value] && node.params?.[0]) {
+                mods.push(MOD_WRAPPER_TO_FULL[node.value]);
+                node = node.params[0];
+            }
+            const keyVal = (node && typeof node === 'object') ? node.value : node;
+            return { mods, keyVal };
+        }
+
+        const LAYOUT_ALPHA = [
             [{ c: 'GRAVE', m:'`', s:'~' }, { c: 'N1', m:'1', s:'!' }, { c: 'N2', m:'2', s:'@' }, { c: 'N3', m:'3', s:'#' }, { c: 'N4', m:'4', s:'$' }, { c: 'N5', m:'5', s:'%' }, { c: 'N6', m:'6', s:'^' }, { c: 'N7', m:'7', s:'&' }, { c: 'N8', m:'8', s:'*' }, { c: 'N9', m:'9', s:'(' }, { c: 'N0', m:'0', s:')' }, { c: 'MINUS', m:'-', s:'_' }, { c: 'EQUAL', m:'=', s:'+' }, { c: 'BSPC', l: 'Backspace', w: 'k-2' }],
             [{ c: 'TAB', l: 'Tab', w: 'k-1-5' }, { c: 'Q', m:'Q' }, { c: 'W', m:'W' }, { c: 'E', m:'E' }, { c: 'R', m:'R' }, { c: 'T', m:'T' }, { c: 'Y', m:'Y' }, { c: 'U', m:'U' }, { c: 'I', m:'I' }, { c: 'O', m:'O' }, { c: 'P', m:'P' }, { c: 'LBKT', m:'[', s:'{' }, { c: 'RBKT', m:']', s:'}' }, { c: 'BSLH', m:'\\', s:'|', w:'k-1-5' }],
             [{ c: 'CAPS', l: 'Caps', w: 'k-1-75' }, { c: 'A', m:'A' }, { c: 'S', m:'S' }, { c: 'D', m:'D' }, { c: 'F', m:'F' }, { c: 'G', m:'G' }, { c: 'H', m:'H' }, { c: 'J', m:'J' }, { c: 'K', m:'K' }, { c: 'L', m:'L' }, { c: 'SEMI', m:';', s:':' }, { c: 'SQT', m:"'", s:'"' }, { c: 'RET', l: 'Enter', w: 'k-2-25' }],
-            [{ c: 'LSHFT', l: 'Shift', w: 'k-2-25', isMod:true }, { c: 'Z', m:'Z' }, { c: 'X', m:'X' }, { c: 'C', m:'C' }, { c: 'V', m:'V' }, { c: 'B', m:'B' }, { c: 'N', m:'N' }, { c: 'M', m:'M' }, { c: 'COMMA', m:',', s:'<' }, { c: 'DOT', m:'.', s:'>' }, { c: 'FSLH', m:'/', s:'?' }, { c: 'RSHFT', l: 'Shift', w: 'k-2-75', isMod:true }]
+            [{ c: 'LSHFT', l: 'Shift', w: 'k-2-25', isMod:true }, { c: 'Z', m:'Z' }, { c: 'X', m:'X' }, { c: 'C', m:'C' }, { c: 'V', m:'V' }, { c: 'B', m:'B' }, { c: 'N', m:'N' }, { c: 'M', m:'M' }, { c: 'COMMA', m:',', s:'<' }, { c: 'DOT', m:'.', s:'>' }, { c: 'FSLH', m:'/', s:'?' }, { c: 'RSHFT', l: 'Shift', w: 'k-2-75', isMod:true }],
+            [{ c: 'LCTRL', l: 'Ctrl', w: 'k-1-25', isMod:true }, { c: 'LGUI', l: 'GUI_L', w: 'k-1-25', isMod:true }, { c: 'LALT', l: 'Alt', w: 'k-1-25', isMod:true }, { c: 'SPACE', l: 'Space', w: 'k-space' }, { c: 'RALT', l: 'Alt', w: 'k-1-25', isMod:true }, { c: 'RGUI', l: 'GUI_R', w: 'k-1-25', isMod:true }, { c: 'RCTRL', l: 'Ctrl', w: 'k-1-25', isMod:true }],
         ];
+
+        const PICKER_LAYOUTS = {
+            alpha: LAYOUT_ALPHA,
+            nav: [
+                [{ c: 'PSCRN', l: 'Print Scrn', w: 'k-1-75' }, { c: 'SLCK', l: 'Scroll Lock', w: 'k-1-75' }, { c: 'PAUSE_BREAK', l: 'Pause', w: 'k-1-75' }],
+                [{ c: 'INS', l: 'Insert', w: 'k-1-75' }, { c: 'HOME', l: 'Home', w: 'k-1-75' }, { c: 'PG_UP', l: 'Page Up', w: 'k-1-75' }],
+                [{ c: 'DEL', l: 'Delete', w: 'k-1-75' }, { c: 'END', l: 'End', w: 'k-1-75' }, { c: 'PG_DN', l: 'Page Down', w: 'k-1-75' }],
+                [{ spacer: true, w: 'k-1-75' }, { c: 'UP', l: '↑', w: 'k-1-75' }, { spacer: true, w: 'k-1-75' }],
+                [{ c: 'LEFT', l: '←', w: 'k-1-75' }, { c: 'DOWN', l: '↓', w: 'k-1-75' }, { c: 'RIGHT', l: '→', w: 'k-1-75' }],
+            ],
+            fn: [
+                [{ c: 'F1', m:'F1' }, { c: 'F2', m:'F2' }, { c: 'F3', m:'F3' }, { c: 'F4', m:'F4' }, { c: 'F5', m:'F5' }, { c: 'F6', m:'F6' }],
+                [{ c: 'F7', m:'F7' }, { c: 'F8', m:'F8' }, { c: 'F9', m:'F9' }, { c: 'F10', m:'F10' }, { c: 'F11', m:'F11' }, { c: 'F12', m:'F12' }],
+            ],
+            numpad: [
+                [{ c: 'KP_NUM', l: 'Num Lock', w: 'k-1-75' }, { c: 'KP_DIVIDE', m:'/' }, { c: 'KP_MULTIPLY', m:'*' }, { c: 'KP_MINUS', m:'-' }],
+                [{ c: 'KP_N7', m:'7' }, { c: 'KP_N8', m:'8' }, { c: 'KP_N9', m:'9' }, { c: 'KP_PLUS', m:'+' }],
+                [{ c: 'KP_N4', m:'4' }, { c: 'KP_N5', m:'5' }, { c: 'KP_N6', m:'6' }, { spacer: true, w: 'k-1' }],
+                [{ c: 'KP_N1', m:'1' }, { c: 'KP_N2', m:'2' }, { c: 'KP_N3', m:'3' }, { c: 'KP_ENTER', l:'Enter', w:'k-1' }],
+                [{ c: 'KP_N0', l:'0', w: 'k-2' }, { c: 'KP_DOT', m:'.' }, { spacer: true, w: 'k-1' }],
+            ],
+            media: [
+                [{ c: 'C_VOL_UP', l: 'Vol +', w: 'k-1-75' }, { c: 'C_VOL_DN', l: 'Vol −', w: 'k-1-75' }, { c: 'C_MUTE', l: 'Mute', w: 'k-1-75' }],
+                [{ c: 'C_PP', l: 'Play / Pause', w: 'k-1-75' }, { c: 'C_NEXT', l: 'Next Track', w: 'k-1-75' }, { c: 'C_PREV', l: 'Prev Track', w: 'k-1-75' }],
+                [{ c: 'C_STOP', l: 'Stop', w: 'k-1-75' }, { c: 'C_EJECT', l: 'Eject', w: 'k-1-75' }, { spacer: true, w: 'k-1-75' }],
+                [{ c: 'C_BRI_UP', l: 'Brightness +', w: 'k-1-75' }, { c: 'C_BRI_DN', l: 'Brightness −', w: 'k-1-75' }, { spacer: true, w: 'k-1-75' }],
+            ],
+            other: [
+                [{ c: 'K_APP', l: 'Menu / App', w: 'k-1-75' }, { c: 'CAPS', l: 'Caps Lock', w: 'k-1-75' }, { c: 'SLCK', l: 'Scroll Lock', w: 'k-1-75' }],
+            ],
+        };
+
+        const PICKER_TABS = [
+            { id: 'alpha', label: 'Letters & Symbols' },
+            { id: 'nav', label: 'Navigation' },
+            { id: 'fn', label: 'Function Keys' },
+            { id: 'numpad', label: 'Numpad' },
+            { id: 'media', label: 'Media & System' },
+            { id: 'other', label: 'Other' },
+        ];
+
+        // Flattened once at load (layouts are static) for the picker's search box, so typing
+        // "volume" or "F5" or "left" finds the key regardless of which tab it lives on. Labels are
+        // generic here (not OS-specific) -- the render path applies the live OS-aware GUI label,
+        // and the search filter itself adds "cmd"/"win" as extra match keywords for LGUI/RGUI so
+        // search works correctly regardless of the current OS toggle state.
+        const PICKER_SEARCH_INDEX = Object.entries(PICKER_LAYOUTS).flatMap(([tabId, rows]) =>
+            rows.flatMap(row => row.filter(k => !k.spacer).map(k => ({
+                code: k.c,
+                label: (k.c === 'LGUI' || k.c === 'RGUI') ? `${k.c[0]} GUI` : (k.l || k.m || k.c),
+                tab: tabId
+            })))
+        );
 
         const GLOVE80_GEO = [
             {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:910,y:0},{x:980,y:0},{x:1050,y:0},{x:1120,y:35},{x:1190,y:35},
@@ -410,6 +585,7 @@
         const formatKeycode = (val) => {
             if (!val || val === 'none' || val === '&none') return '';
             const normalized = val.toUpperCase().replace('&', '');
+            if (normalized === 'LGUI' || normalized === 'RGUI') return guiSymbol();
             if (ZMK_MAP[normalized]) return ZMK_MAP[normalized];
             if (val.length === 2 && val.startsWith('N') && '0123456789'.includes(val[1])) return val[1];
             return val;
@@ -468,8 +644,9 @@
                 let p0 = params[0];
                 let pVal = p0?.value;
                 if (typeof pVal === 'string' && MOD_WRAPPER_TO_FULL[pVal] && p0.params) {
-                    let modSymbol = formatKeycode(MOD_WRAPPER_TO_FULL[pVal]);
-                    return `${modSymbol}+${formatKeycode(p0.params[0]?.value)}`;
+                    const { mods, keyVal } = unwrapModChain(p0);
+                    const modSymbols = mods.map(m => formatKeycode(m)).join('+');
+                    return `${modSymbols}+${formatKeycode(keyVal)}`;
                 }
                 return formatKeycode(pVal);
             }
@@ -512,12 +689,13 @@
 
             if (val === '&kp') {
                 if (MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
-                    let modSymbol = formatKeycode(MOD_WRAPPER_TO_FULL[p1]);
-                    return `<span class="key-shift">${modSymbol}</span><span class="key-main">${formatKeycode(binding.params[0].params[0].value)}</span>`;
+                    const { mods, keyVal } = unwrapModChain(binding.params[0]);
+                    const modSymbols = mods.map(m => formatKeycode(m)).join('+');
+                    return `<span class="key-shift">${modSymbols}</span><span class="key-main">${formatKeycode(keyVal)}</span>`;
                 }
                 let mapped = formatKeycode(p1);
                 let layoutKey = null;
-                for (let r of LAYOUT_US_EN) { let f = r.find(k => k.c === p1.replace('MOD_', '')); if (f) layoutKey = f; }
+                for (let r of LAYOUT_ALPHA) { let f = r.find(k => k.c === p1.replace('MOD_', '')); if (f) layoutKey = f; }
                 if (layoutKey && layoutKey.s && !layoutKey.l) {
                     return `<span class="key-shift">${layoutKey.s}</span><span class="key-main">${layoutKey.m}</span>`;
                 }
@@ -620,18 +798,62 @@
             btnRedo.classList.toggle('cursor-not-allowed', redoStack.length === 0);
         }
 
+        // --- CLIPBOARD & DRAG STATE (consumer-friendly copy/paste + drag-to-move) ---
+        let bindingClipboard = null; // deep clone of a binding, ready to paste elsewhere
+
+        // Tap-to-reveal help: a single delegated listener handles every .help-badge, since these
+        // are re-created on every render -- avoids re-binding per-field on every renderAll().
+        document.addEventListener('click', (e) => {
+            const badge = e.target.closest('.help-badge');
+            if (badge) {
+                e.stopPropagation();
+                const rect = badge.getBoundingClientRect();
+                els.helpPopover.textContent = badge.dataset.help;
+                els.helpPopover.classList.remove('hidden');
+                // Position after showing (so offsetWidth is measurable), and keep it on-screen.
+                const popW = els.helpPopover.offsetWidth;
+                let left = rect.left;
+                if (left + popW > window.innerWidth - 12) left = window.innerWidth - popW - 12;
+                els.helpPopover.style.left = `${Math.max(12, left)}px`;
+                els.helpPopover.style.top = `${rect.bottom + 6}px`;
+                return;
+            }
+            els.helpPopover.classList.add('hidden');
+        });
+
         window.addEventListener('keydown', (e) => {
             const isMod = e.ctrlKey || e.metaKey;
             if (!isMod) return;
             const key = e.key.toLowerCase();
-            if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
-            else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); redo(); }
+            if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+            if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); redo(); return; }
+
+            // Clipboard shortcuts only apply while a matrix key is the active selection, and never
+            // hijack Ctrl/Cmd+C/V while the user is actually typing into a text field.
+            const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+            if (typing) return;
+            const sel = inspectorPath[0];
+            if (!sel || sel.type !== 'matrix') return;
+            if (key === 'c') { e.preventDefault(); copyBindingToClipboard(config.layers[sel.layer][sel.index]); }
+            else if (key === 'v') { e.preventDefault(); pasteBindingFromClipboard(sel.layer, sel.index); }
         });
 
         const els = {
             matrixWrap: document.getElementById('matrix-wrapper'),
             matrix: document.getElementById('matrix-container'),
             matrixBanner: document.getElementById('matrix-banner'),
+            matrixBannerWarning: document.getElementById('matrix-banner-warning'),
+            clipboardIndicator: document.getElementById('clipboard-indicator'),
+            clipboardIndicatorLabel: document.getElementById('clipboard-indicator-label'),
+            clipboardClearBtn: document.getElementById('clipboard-clear-btn'),
+            toastContainer: document.getElementById('toast-container'),
+            contextMenu: document.getElementById('context-menu'),
+            helpPopover: document.getElementById('help-popover'),
+            confirmModal: document.getElementById('confirm-modal'),
+            confirmModalTitle: document.getElementById('confirm-modal-title'),
+            confirmModalMessage: document.getElementById('confirm-modal-message'),
+            confirmModalCancel: document.getElementById('confirm-modal-cancel'),
+            confirmModalConfirm: document.getElementById('confirm-modal-confirm'),
             layerList: document.getElementById('layer-list'),
             behaviorNav: document.getElementById('behavior-nav-list'),
             inspector: document.getElementById('inspector'),
@@ -699,6 +921,21 @@
         document.getElementById('btn-zoom-in').onclick = () => { autoZoom = false; updateZoomUI(); applyScale(currentScale + 0.1); };
         document.getElementById('btn-zoom-out').onclick = () => { autoZoom = false; updateZoomUI(); applyScale(Math.max(0.2, currentScale - 0.1)); };
         els.btnZoomAuto.onclick = () => { autoZoom = true; updateZoomUI(); triggerAutoZoom(); };
+
+        els.clipboardClearBtn.onclick = (e) => { e.stopPropagation(); bindingClipboard = null; updateClipboardIndicator(); showToast('Clipboard cleared'); };
+
+        function updateOsToggleUI() {
+            const macBtn = document.getElementById('os-toggle-mac');
+            const winBtn = document.getElementById('os-toggle-win');
+            if (!macBtn || !winBtn) return;
+            macBtn.className = `px-2.5 py-1 rounded-md transition-all ${osMode === 'mac' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400'}`;
+            winBtn.className = `px-2.5 py-1 rounded-md transition-all ${osMode === 'win' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400'}`;
+        }
+        document.getElementById('os-toggle-mac').onclick = () => { osMode = 'mac'; updateOsToggleUI(); renderModArmRow(); renderPhysicalKeyboard(); renderAll(); };
+        document.getElementById('os-toggle-win').onclick = () => { osMode = 'win'; updateOsToggleUI(); renderModArmRow(); renderPhysicalKeyboard(); renderAll(); };
+        updateOsToggleUI();
+
+        document.getElementById('picker-search').oninput = () => renderPhysicalKeyboard();
         
         function updateZoomUI() {
             if(autoZoom) {
@@ -753,10 +990,15 @@
 
         // --- 7. SIDEBAR & MATRIX ---
         // --- LAYER MUTATION ENGINE (LLM2.txt section 6) ---
-        // Re-indexing whitelist per spec: ONLY &mo/&to/&tog/&sl/&lt are adjusted when layers shift.
-        // Never touch &kp, &bt, millisecond params, or any other behavior -- those are keycodes or
-        // timings, not layer indices, even if they happen to contain small integers.
-        const LAYER_REMAP_BEHAVIORS = new Set(['&mo','&to','&tog','&sl','&lt']);
+        // Re-indexing whitelist per spec: ONLY layer-index-carrying behaviors are adjusted when
+        // layers shift. Never touch &kp, &bt, millisecond params, or any other behavior -- those
+        // are keycodes or timings, not layer indices, even if they happen to contain small integers.
+        // Note: the spec whitelist explicitly names &ltt and &layer alongside the standard &mo/&to/
+        // &tog/&sl/&lt. &ltt isn't a standard ZMK behavior (likely an alias some configs define via
+        // custom_defined_behaviors, or a spec typo for &lt) and &layer likewise isn't built-in ZMK --
+        // both are included defensively so any file that does use them still gets remapped correctly.
+        // &lt (the real, standard layer-tap behavior) is always included regardless.
+        const LAYER_REMAP_BEHAVIORS = new Set(['&mo','&to','&tog','&sl','&lt','&ltt','&layer']);
 
         function walkLayerRefs(fn) {
             // Walk every binding across all layer matrices
@@ -784,6 +1026,56 @@
         function getLayerParam(binding) {
             // For &lt the layer is param[0]; for all other whitelist behaviors it's param[0] too.
             return binding.params?.[0];
+        }
+
+        // Combo Drop Protection: a combo's `.layers` array (which layers it's active on -- NOT
+        // the same as combo.binding, which walkLayerRefs already handles) is a plain array of
+        // layer-index integers, structurally different from the nested binding objects everything
+        // else uses, so it needs its own re-indexing pass on both delete and reorder.
+        // Combo spatial validation: chording keys across both physical halves of a split keyboard
+        // is a known latency/reliability risk over BLE (each half reports independently), so the
+        // spec calls for flagging it. Boundary is derived from the active geometry rather than
+        // hardcoded, so it works for Glove80 (0-39 left / 40-79 right) and Go60 (0-29 / 30-59) alike.
+        function getHalfBoundary() {
+            const total = getKeyboardGeo().length;
+            return total > 0 ? Math.floor(total / 2) : 40;
+        }
+
+        function comboSpansHalves(keyPositions) {
+            if (!Array.isArray(keyPositions) || keyPositions.length < 2) return false;
+            const boundary = getHalfBoundary();
+            const hasLeft = keyPositions.some(p => p < boundary);
+            const hasRight = keyPositions.some(p => p >= boundary);
+            return hasLeft && hasRight;
+        }
+
+        function remapComboLayersOnDelete(targetIdx) {
+            if (!config.combos) return;
+            config.combos = config.combos.filter(c => {
+                if (!Array.isArray(c.layers) || c.layers.length === 0) return true; // unscoped/global, nothing to remap
+                c.layers = c.layers
+                    .filter(l => l !== targetIdx)                                   // drop the deleted layer
+                    .map(l => (typeof l === 'number' && l > targetIdx) ? l - 1 : l); // shift everything above it down (-1 stays -1, untouched)
+                // If every layer this combo was scoped to just got removed, it would otherwise
+                // silently fail open into global scope -- purge it instead per spec.
+                return c.layers.length > 0;
+            });
+        }
+
+        function remapComboLayersOnReorder(fromIdx, toIdx) {
+            if (!config.combos) return;
+            const lo = Math.min(fromIdx, toIdx);
+            const hi = Math.max(fromIdx, toIdx);
+            const dir = fromIdx < toIdx ? -1 : +1;
+            config.combos.forEach(c => {
+                if (!Array.isArray(c.layers)) return;
+                c.layers = c.layers.map(l => {
+                    if (typeof l !== 'number') return l;
+                    if (l === fromIdx) return toIdx;
+                    if (l >= lo && l <= hi) return l + dir;
+                    return l;
+                });
+            });
         }
 
         function addLayer(name) {
@@ -821,6 +1113,10 @@
                 }
             });
 
+            // Combo Drop Protection: re-index (or purge) each combo's .layers scoping array too --
+            // this is separate from the binding-reference walk above.
+            remapComboLayersOnDelete(targetIdx);
+
             config.layers.splice(targetIdx, 1);
             config.layer_names?.splice(targetIdx, 1);
 
@@ -850,6 +1146,10 @@
                 else if (idx >= lo && idx <= hi) set(idx + dir);
             });
 
+            // Re-index each combo's .layers scoping array the same way (reorder never removes a
+            // layer, so no purge is needed here -- only shifting).
+            remapComboLayersOnReorder(fromIdx, toIdx);
+
             // Splice the arrays
             const [removedLayer] = config.layers.splice(fromIdx, 1);
             config.layers.splice(toIdx, 0, removedLayer);
@@ -874,9 +1174,11 @@
 
                 let row = document.createElement('div');
                 row.className = `flex items-center gap-1 group rounded-lg transition-all ${isActive ? 'bg-[color:var(--accent-soft)] border border-[color:var(--accent)]' : 'border border-transparent hover:border-slate-200 dark:hover:border-slate-700'}`;
+                row.dataset.layerIdx = i;
 
                 row.innerHTML = `
-                    <button class="flex-1 text-left px-3 py-2.5 text-xs font-bold transition-colors truncate ${isActive ? 'text-[color:var(--accent)]' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}" data-layersel="${i}">
+                    <span title="${isBase ? 'Base layer position is fixed' : 'Drag to reorder'}" class="layer-drag-handle pl-1.5 pr-0.5 text-slate-300 dark:text-slate-600 text-[11px] leading-none select-none ${isBase ? 'opacity-30' : 'cursor-grab opacity-0 group-hover:opacity-100 transition-opacity'}">⠿</span>
+                    <button class="flex-1 text-left px-2 py-2.5 text-xs font-bold transition-colors truncate ${isActive ? 'text-[color:var(--accent)]' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}" data-layersel="${i}">
                         <span class="text-[9px] font-mono opacity-60 mr-1">${i}</span>${name}
                     </button>
                     <div class="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pr-1 shrink-0">
@@ -887,6 +1189,30 @@
                         <button title="${isMagic ? 'Magic layer cannot be deleted' : isBase ? 'Base layer (0) cannot be deleted' : 'Delete layer'}" data-layerdel="${i}" class="text-slate-400 hover:text-red-400 hover:bg-red-900/30 p-1 rounded text-[10px] ${(isMagic || isBase) ? 'opacity-20 cursor-not-allowed' : ''}">✕</button>
                     </div>
                 `;
+
+                // Drag-and-drop reordering, initiated only from the ⠿ handle (not the whole row) so
+                // tapping the layer name to select it never gets misread as a drag attempt. The ▲/▼
+                // buttons remain as the accessible/keyboard-friendly fallback. Base layer (0) never
+                // moves and is never a drop target, matching the existing rule in reorderLayer().
+                if (!isBase) {
+                    makeDraggable(row.querySelector('.layer-drag-handle'), {
+                        getGhostLabel: () => name,
+                        dropClass: 'drop-target-layer',
+                        visualEl: row,
+                        findDropTarget: (x, y) => {
+                            const el = document.elementFromPoint(x, y)?.closest('[data-layer-idx]');
+                            if (!el || parseInt(el.dataset.layerIdx, 10) === 0) return null; // base layer isn't a valid drop target
+                            return el;
+                        },
+                        onDrop: (targetEl) => {
+                            const toIdx = parseInt(targetEl.dataset.layerIdx, 10);
+                            if (Number.isNaN(toIdx) || toIdx === i) return;
+                            pushHistory();
+                            reorderLayer(i, toIdx);
+                            showToast(`Moved "${name}" to position ${toIdx}`);
+                        }
+                    });
+                }
 
                 row.querySelector(`[data-layersel="${i}"]`).onclick = () => { activeLayer = i; inspectorPath = []; renderAll(); };
 
@@ -924,9 +1250,12 @@
                 const delBtn = row.querySelector(`[data-layerdel="${i}"]`);
                 if (delBtn && !isMagic && !isBase) {
                     delBtn.onclick = () => {
-                        if (!confirm(`Delete layer ${i}: "${name}"? All bindings on this layer will be lost, and all layer pointers above index ${i} will be shifted down.`)) return;
-                        pushHistory();
-                        deleteLayer(i);
+                        showConfirmModal({
+                            title: `Delete "${name}"?`,
+                            message: `All key bindings on this layer will be lost, and layer references above position ${i} will shift down automatically to stay correct.`,
+                            confirmLabel: "Delete Layer",
+                            onConfirm: () => { pushHistory(); deleteLayer(i); }
+                        });
                     };
                 }
 
@@ -947,7 +1276,7 @@
 
             // --- Behavior nav ---
             els.behaviorNav.innerHTML = "";
-            [ 'holdTaps', 'tapDances', 'modMorphs', 'macros', 'combos' ].forEach(g => {
+            [ 'holdTaps', 'tapDances', 'modMorphs', 'macros', 'combos', 'stickyKeys' ].forEach(g => {
                 let count = config[g] ? config[g].length : 0;
                 let btn = document.createElement('button');
                 let isActive = inspectorPath.length > 0 && inspectorPath[0].group === g;
@@ -956,6 +1285,216 @@
                 btn.innerHTML = `<span>${T[termMode][g]}</span> <span class="bg-white dark:bg-slate-950 px-2 py-0.5 rounded text-[10px] text-slate-500 border border-slate-200 dark:border-transparent">${count}</span>`;
                 btn.onclick = () => { inspectorPath = [{ type: 'behaviorList', group: g }]; closePicker(); renderAll(); };
                 els.behaviorNav.appendChild(btn);
+            });
+        }
+
+        // --- 7a. CONSUMER UX: TOASTS, CLIPBOARD, CONTEXT MENU ---
+        // Lightweight, self-dismissing confirmation bubble so every copy/paste/drag action gets
+        // visible feedback -- silent success reads as "did that even work?" to non-technical users.
+        function showToast(msg, kind = 'default') {
+            if (!els.toastContainer) return;
+            const el = document.createElement('div');
+            const kindClass = kind === 'error'
+                ? 'bg-red-100 dark:bg-red-900/90 border-red-500 text-red-700 dark:text-red-100'
+                : kind === 'warn'
+                ? 'bg-amber-100 dark:bg-amber-900/90 border-amber-500 text-amber-700 dark:text-amber-100'
+                : 'bg-slate-900 dark:bg-white border-slate-700 dark:border-slate-200 text-white dark:text-slate-900';
+            el.className = `pointer-events-none px-4 py-2.5 rounded-full text-xs font-bold shadow-lg backdrop-blur-md border transition-all duration-300 opacity-0 translate-y-2 ${kindClass}`;
+            el.textContent = msg;
+            els.toastContainer.appendChild(el);
+            requestAnimationFrame(() => { el.classList.remove('opacity-0', 'translate-y-2'); });
+            setTimeout(() => {
+                el.classList.add('opacity-0');
+                setTimeout(() => el.remove(), 300);
+            }, 1600);
+        }
+
+        // Keeps the "📋 Copied: X" pill in sync with clipboard state -- called every render so it
+        // never goes stale, and so it disappears automatically once a file is closed/reloaded.
+        function updateClipboardIndicator() {
+            if (!els.clipboardIndicator) return;
+            if (bindingClipboard) {
+                els.clipboardIndicator.classList.remove('hidden');
+                els.clipboardIndicatorLabel.textContent = getBeautifulLabel(bindingClipboard) || '&none';
+            } else {
+                els.clipboardIndicator.classList.add('hidden');
+            }
+        }
+
+        function copyBindingToClipboard(binding, announce = true) {
+            bindingClipboard = JSON.parse(JSON.stringify(binding || { value: '&none', params: [] }));
+            updateClipboardIndicator();
+            if (announce) showToast(`Copied ${getBeautifulLabel(bindingClipboard) || '&none'}`);
+        }
+
+        function pasteBindingFromClipboard(layerIdx, keyIdx) {
+            if (!bindingClipboard) { showToast('Clipboard is empty — copy a key first', 'warn'); return; }
+            pushHistory();
+            config.layers[layerIdx][keyIdx] = JSON.parse(JSON.stringify(bindingClipboard));
+            renderAll();
+            showToast(`Pasted onto Key ${keyIdx}`);
+        }
+
+        // Swap (default) or move-and-clear (Alt/Option-drag) a binding between two matrix positions
+        // -- the drag-and-drop counterpart to copy/paste, for physically rearranging a layer. Swap
+        // is the default because it never loses data: both keys keep a binding either way, so it's
+        // the safer/more intuitive behavior for rearranging an already-filled layer.
+        function moveOrSwapBinding(layerIdx, fromIdx, toIdx, swap) {
+            if (fromIdx === toIdx) return;
+            pushHistory();
+            const layer = config.layers[layerIdx];
+            const fromBind = layer[fromIdx] || { value: '&none', params: [] };
+            const toBind = layer[toIdx] || { value: '&none', params: [] };
+            if (swap) {
+                layer[fromIdx] = toBind;
+                layer[toIdx] = fromBind;
+                showToast(`Swapped Key ${fromIdx} ↔ Key ${toIdx}`);
+            } else {
+                layer[toIdx] = fromBind;
+                layer[fromIdx] = { value: '&none', params: [] };
+                showToast(`Moved Key ${fromIdx} → Key ${toIdx}`);
+            }
+            renderAll();
+        }
+
+        // Simple right-click context menu: Copy / Paste / Clear / Make Transparent, so the most
+        // common single-key actions never require opening the full inspector at all.
+        // Branded confirm dialog replacing native confirm() -- consistent styling/tone with the
+        // rest of the app instead of the browser's own "This page says..." dialog, and touch-friendly.
+        function showConfirmModal({ title = "Are you sure?", message = "", confirmLabel = "Delete", danger = true, onConfirm }) {
+            if (!els.confirmModal) { if (confirm(message || title)) onConfirm(); return; } // safety fallback
+            els.confirmModalTitle.textContent = title;
+            els.confirmModalMessage.textContent = message;
+            els.confirmModalConfirm.textContent = confirmLabel;
+            els.confirmModalConfirm.className = `flex-1 py-2.5 rounded-lg text-sm font-bold text-white transition-all ${danger ? 'bg-red-500 hover:bg-red-600' : 'bg-[color:var(--accent)] hover:brightness-110'}`;
+            els.confirmModal.classList.remove('hidden');
+
+            const close = () => els.confirmModal.classList.add('hidden');
+            els.confirmModalCancel.onclick = close;
+            els.confirmModalConfirm.onclick = () => { close(); onConfirm(); };
+            els.confirmModal.onclick = (e) => { if (e.target === els.confirmModal) close(); };
+        }
+
+        // One-click curated presets (BEHAVIOR_TEMPLATES) for the behaviors that are genuinely hard
+        // to configure correctly from a blank skeleton -- reuses the same popover element as the
+        // key context menu, just wider to fit each preset's one-line explanation.
+        function showTemplateMenu(anchorEl, group) {
+            const menu = els.contextMenu;
+            if (!menu) return;
+            const templates = BEHAVIOR_TEMPLATES[group] || [];
+            menu.style.minWidth = '260px';
+            menu.style.maxWidth = '300px';
+            menu.innerHTML = templates.map((t, i) => `
+                <button data-tpl="${i}" class="tpl-item w-full text-left px-4 py-2.5 hover:bg-slate-100 dark:hover:bg-slate-700 border-b border-slate-100 dark:border-slate-700 last:border-0">
+                    <div class="text-slate-900 dark:text-white font-bold text-xs mb-0.5">${t.label}</div>
+                    <div class="text-slate-500 dark:text-slate-400 font-normal text-[10px] leading-snug normal-case">${t.desc}</div>
+                </button>
+            `).join('');
+            const rect = anchorEl.getBoundingClientRect();
+            menu.style.left = `${rect.left}px`;
+            menu.style.top = `${rect.bottom + 6}px`;
+            menu.classList.remove('hidden');
+
+            const close = () => { menu.classList.add('hidden'); menu.style.minWidth = ''; menu.style.maxWidth = ''; document.removeEventListener('click', close); };
+            menu.querySelectorAll('.tpl-item').forEach(btn => {
+                btn.onclick = () => {
+                    const t = templates[parseInt(btn.dataset.tpl, 10)];
+                    pushHistory();
+                    if (!config[group]) config[group] = [];
+                    const newItem = t.make();
+                    // Avoid silent name collisions if the same template's added more than once.
+                    if (config[group].some(b => b.name === newItem.name)) newItem.name += `_${config[group].length}`;
+                    config[group].push(newItem);
+                    inspectorPath.push({ type: 'behavior', group, index: config[group].length - 1 });
+                    renderAll();
+                    showToast(`Added "${t.label}"`);
+                    close();
+                };
+            });
+            setTimeout(() => document.addEventListener('click', close), 0);
+        }
+
+        function showKeyContextMenu(x, y, layerIdx, keyIdx) {
+            const menu = els.contextMenu;
+            if (!menu) return;
+            const hasClipboard = !!bindingClipboard;
+            menu.innerHTML = `
+                <button data-act="copy" class="ctx-item w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200">📋 Copy</button>
+                <button data-act="paste" class="ctx-item w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 ${hasClipboard ? 'text-slate-700 dark:text-slate-200' : 'text-slate-300 dark:text-slate-600 cursor-not-allowed'}" ${hasClipboard ? '' : 'disabled'}>📥 Paste</button>
+                <div class="my-1 border-t border-slate-100 dark:border-slate-700"></div>
+                <button data-act="trans" class="ctx-item w-full text-left px-4 py-2 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200">▽ Make Transparent</button>
+                <button data-act="clear" class="ctx-item w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-900/30 text-red-500">✕ Clear Key</button>
+            `;
+            menu.style.left = `${x}px`;
+            menu.style.top = `${y}px`;
+            menu.classList.remove('hidden');
+
+            const close = () => { menu.classList.add('hidden'); document.removeEventListener('click', close); };
+            menu.querySelectorAll('.ctx-item').forEach(btn => {
+                btn.onclick = () => {
+                    const act = btn.dataset.act;
+                    if (act === 'copy') copyBindingToClipboard(config.layers[layerIdx][keyIdx]);
+                    else if (act === 'paste' && hasClipboard) pasteBindingFromClipboard(layerIdx, keyIdx);
+                    else if (act === 'trans') { pushHistory(); config.layers[layerIdx][keyIdx] = { value: '&trans', params: [] }; renderAll(); showToast('Made Transparent'); }
+                    else if (act === 'clear') { pushHistory(); config.layers[layerIdx][keyIdx] = { value: '&none', params: [] }; renderAll(); showToast('Key cleared'); }
+                    close();
+                };
+            });
+            // Defer attaching the dismiss listener so the same click that opened the menu doesn't
+            // immediately close it.
+            setTimeout(() => document.addEventListener('click', close), 0);
+        }
+
+        // Unified pointer-based drag-and-drop: works identically for mouse, touch, and pen, unlike
+        // native HTML5 drag-and-drop (dragstart/dragover/drop), which is unreliable on touch devices
+        // -- iOS Safari in particular doesn't support it on arbitrary elements at all. This is the
+        // single drag implementation used by both the matrix keys and the sidebar layer rows.
+        function makeDraggable(el, opts) {
+            // opts: { getGhostLabel(): string, findDropTarget(clientX, clientY): HTMLElement|null,
+            //         dropClass?: string, onDrop(dropTargetEl, altKey): void, visualEl?: HTMLElement }
+            // visualEl defaults to el itself -- pass a different element (e.g. the parent row) when
+            // the drag should be initiated from a small handle but the "dragging" feedback should
+            // apply to a larger surrounding element.
+            const THRESHOLD = 6; // px of movement before a press counts as a drag, not a tap/click
+            const dropClass = opts.dropClass || 'drop-target';
+            const visualEl = opts.visualEl || el;
+            el.style.touchAction = 'none'; // prevents the browser from scrolling while dragging on touch
+
+            el.addEventListener('pointerdown', (e) => {
+                if (e.button !== undefined && e.button !== 0) return; // primary touch / left click only
+                const startX = e.clientX, startY = e.clientY;
+                let dragging = false, ghost = null, lastTarget = null;
+
+                const onMove = (e2) => {
+                    const dx = e2.clientX - startX, dy = e2.clientY - startY;
+                    if (!dragging && Math.hypot(dx, dy) > THRESHOLD) {
+                        dragging = true;
+                        visualEl.classList.add('dragging');
+                        ghost = document.createElement('div');
+                        ghost.className = 'drag-ghost';
+                        ghost.textContent = opts.getGhostLabel();
+                        document.body.appendChild(ghost);
+                    }
+                    if (!dragging) return;
+                    if (ghost) { ghost.style.left = `${e2.clientX}px`; ghost.style.top = `${e2.clientY}px`; }
+                    if (lastTarget) lastTarget.classList.remove(dropClass);
+                    lastTarget = opts.findDropTarget(e2.clientX, e2.clientY);
+                    if (lastTarget) lastTarget.classList.add(dropClass);
+                };
+
+                const onUp = (e2) => {
+                    document.removeEventListener('pointermove', onMove);
+                    document.removeEventListener('pointerup', onUp);
+                    document.removeEventListener('pointercancel', onUp);
+                    visualEl.classList.remove('dragging');
+                    if (ghost) { ghost.remove(); ghost = null; }
+                    if (lastTarget) lastTarget.classList.remove(dropClass);
+                    if (dragging && lastTarget) opts.onDrop(lastTarget, !!e2.altKey);
+                };
+
+                document.addEventListener('pointermove', onMove);
+                document.addEventListener('pointerup', onUp);
+                document.addEventListener('pointercancel', onUp);
             });
         }
 
@@ -969,6 +1508,11 @@
 
             if (isComboMode) els.matrixBanner.classList.remove('hidden');
             else els.matrixBanner.classList.add('hidden');
+
+            if (isComboMode && comboSpansHalves(activeCombo.keyPositions)) els.matrixBannerWarning.classList.remove('hidden');
+            else els.matrixBannerWarning.classList.add('hidden');
+
+            updateClipboardIndicator();
 
             geo.forEach((g, idx) => {
                 let bind = bindings[idx] || { value: '&none' };
@@ -1002,6 +1546,27 @@
                         closePicker(); renderAll(); 
                     }
                 };
+
+                // Drag-to-move/swap and right-click copy/paste are disabled in Combo Mode, where
+                // clicking a key means something entirely different (toggling chord membership).
+                if (!isComboMode) {
+                    keyNode.dataset.keyIdx = idx;
+                    keyNode.oncontextmenu = (e) => {
+                        e.preventDefault();
+                        showKeyContextMenu(e.clientX, e.clientY, activeLayer, idx);
+                    };
+                    makeDraggable(keyNode, {
+                        getGhostLabel: () => generateMatrixLabel(config.layers[activeLayer][idx] || { value: '&none' }) || '&none',
+                        findDropTarget: (x, y) => document.elementFromPoint(x, y)?.closest('.matrix-key') || null,
+                        onDrop: (targetEl, altKey) => {
+                            const toIdx = parseInt(targetEl.dataset.keyIdx, 10);
+                            if (Number.isNaN(toIdx) || toIdx === idx) return;
+                            // Default drag = swap (never loses data). Alt/Option-drag = move-and-
+                            // clear-source instead, for when you actually want the source emptied.
+                            moveOrSwapBinding(activeLayer, idx, toIdx, !altKey);
+                        }
+                    });
+                }
                 
                 if (isTrans) {
                     // Ghost Label: a &trans key shows Layer 0's binding at the same physical index,
@@ -1019,35 +1584,156 @@
         }
 
         // --- 8. PHYSICAL KEYBOARD PICKER ---
+        // Currently "armed" modifier wrapper codes (e.g. 'LC','LS') while the picker is open --
+        // toggled via the Modifiers row, composed into a nested LC(LS(x)) binding when a base key
+        // is picked, then auto-cleared. Raw modifier tiles in the grid itself (Ctrl/Shift/Alt/GUI
+        // as literal keys someone wants a key to *send*) bypass this entirely and always commit flat.
+        let armedMods = new Set();
+        let activePickerTab = 'alpha';
+
+        const MOD_ARM_LIST = [
+            { w: 'LC', label: 'L Ctrl' }, { w: 'RC', label: 'R Ctrl' },
+            { w: 'LA', label: 'L Alt' },  { w: 'RA', label: 'R Alt' },
+            { w: 'LS', label: 'L Shift' }, { w: 'RS', label: 'R Shift' },
+            { w: 'LG', label: () => `L ${guiLabel()}` }, { w: 'RG', label: () => `R ${guiLabel()}` },
+        ];
+        // Fixed compose order (outermost -> innermost) purely for consistent output shape --
+        // functionally LC(LS(A)) and LS(LC(A)) behave identically to ZMK either way.
+        const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
+
+        function composeKeycodeValue(baseCode) {
+            if (armedMods.size === 0) return baseCode;
+            const active = MOD_ARM_ORDER.filter(w => armedMods.has(w));
+            let node = { value: baseCode };
+            for (let i = active.length - 1; i >= 0; i--) node = { value: active[i], params: [node] };
+            return node;
+        }
+
+        function renderModArmRow() {
+            const row = document.getElementById('mod-arm-row');
+            if (!row) return;
+            row.innerHTML = MOD_ARM_LIST.map(m => {
+                const lbl = typeof m.label === 'function' ? m.label() : m.label;
+                const active = armedMods.has(m.w);
+                return `<button data-w="${m.w}" class="mod-arm-chip px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${active ? 'bg-[color:var(--accent)] border-[color:var(--accent)] text-white' : 'bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-[color:var(--accent)]'}">${lbl}</button>`;
+            }).join('') + (armedMods.size ? `<button id="mod-arm-clear" class="px-2.5 py-1.5 rounded-lg text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-all">Clear</button>` : '');
+            row.querySelectorAll('.mod-arm-chip').forEach(b => {
+                b.onclick = () => {
+                    const w = b.dataset.w;
+                    if (armedMods.has(w)) armedMods.delete(w); else armedMods.add(w);
+                    renderModArmRow();
+                    updateModArmPreview();
+                };
+            });
+            const clearBtn = document.getElementById('mod-arm-clear');
+            if (clearBtn) clearBtn.onclick = () => { armedMods.clear(); renderModArmRow(); updateModArmPreview(); };
+        }
+
+        function updateModArmPreview() {
+            const el = document.getElementById('mod-arm-preview');
+            if (!el) return;
+            if (armedMods.size === 0) { el.textContent = ''; return; }
+            const parts = MOD_ARM_ORDER.filter(w => armedMods.has(w)).map(w => formatKeycode(MOD_WRAPPER_TO_FULL[w]));
+            el.textContent = parts.join(' + ') + ' + _';
+        }
+
+        function renderPickerTabs() {
+            const el = document.getElementById('picker-tabs');
+            if (!el) return;
+            el.innerHTML = PICKER_TABS.map(t => `<button data-tab="${t.id}" class="picker-tab-btn px-3 py-1.5 rounded-lg transition-all ${activePickerTab === t.id ? 'bg-[color:var(--accent)] text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'}">${t.label}</button>`).join('');
+            el.querySelectorAll('.picker-tab-btn').forEach(b => {
+                b.onclick = () => { activePickerTab = b.dataset.tab; renderPickerTabs(); renderPhysicalKeyboard(); };
+            });
+        }
+
+        // Single commit path shared by the tab grid, search results, and the raw-code fallback --
+        // avoids re-deriving the "is this a literal modifier tile vs. a combo base key" logic in
+        // three different places.
+        function commitPickerKey(code, isModTile, btnEl) {
+            if (!activePickerTarget) return;
+            pushHistory();
+            const val = isModTile ? code : composeKeycodeValue(code);
+            if (!isModTile && armedMods.size > 0) { armedMods.clear(); renderModArmRow(); updateModArmPreview(); }
+            activePickerTarget(val);
+            if (btnEl) { btnEl.classList.add('active-press'); setTimeout(() => btnEl.classList.remove('active-press'), 150); }
+        }
+
+        function renderKeyTile(key) {
+            let btn = document.createElement('div');
+            if (key.spacer) { btn.className = key.w; return btn; }
+            btn.className = `phys-key ${key.w || 'k-1'} ${key.isMod ? 'opacity-80' : ''}`;
+            btn.title = key.isMod ? 'Sends this modifier as a standalone key. To build a combo (e.g. Ctrl+Shift+A), use the Modifiers row above instead.' : '';
+            const label = (key.c === 'LGUI' || key.c === 'RGUI') ? `${key.c[0]} ${guiLabel()}` : key.l;
+            if (label) btn.innerHTML = `<span class="key-center text-[11px]">${label}</span>`;
+            else if (key.s) btn.innerHTML = `<span class="key-shift">${key.s}</span><span class="key-main">${key.m}</span>`;
+            else btn.innerHTML = `<span class="key-center">${key.m}</span>`;
+            btn.onclick = () => commitPickerKey(key.c, !!key.isMod, btn);
+            return btn;
+        }
+
         function renderPhysicalKeyboard() {
             els.physKeyboard.innerHTML = "";
-            LAYOUT_US_EN.forEach(row => {
-                let rowDiv = document.createElement('div');
-                rowDiv.className = 'kbd-row';
-                row.forEach(key => {
-                    let btn = document.createElement('div');
-                    if (key.spacer) { btn.className = key.w; rowDiv.appendChild(btn); return; }
-                    btn.className = `phys-key ${key.w || 'k-1'}`;
-                    
-                    if (key.l) btn.innerHTML = `<span class="key-center text-[11px]">${key.l}</span>`;
-                    else if (key.s) btn.innerHTML = `<span class="key-shift">${key.s}</span><span class="key-main">${key.m}</span>`;
-                    else btn.innerHTML = `<span class="key-center">${key.m}</span>`;
+            const searchVal = (document.getElementById('picker-search')?.value || '').trim().toLowerCase();
 
-                    btn.onclick = () => {
-                        if (activePickerTarget) {
-                            pushHistory();
-                            activePickerTarget(key.c);
-                            btn.classList.add('active-press');
-                            setTimeout(() => btn.classList.remove('active-press'), 150);
-                        }
+            if (searchVal) {
+                const guiAliasHit = ['cmd', 'command', 'win', 'windows', 'super', 'meta', 'gui'].some(a => a.includes(searchVal) || searchVal.includes(a));
+                const matches = PICKER_SEARCH_INDEX.filter(k =>
+                    k.code.toLowerCase().includes(searchVal) ||
+                    k.label.toLowerCase().includes(searchVal) ||
+                    ((k.code === 'LGUI' || k.code === 'RGUI') && guiAliasHit)
+                );
+
+                if (matches.length === 0) {
+                    const wrap = document.createElement('div');
+                    wrap.className = 'text-center p-6';
+                    wrap.innerHTML = `
+                        <p class="text-xs text-slate-400 mb-3">No matching key found. You can still enter the exact ZMK code directly:</p>
+                        <div class="flex gap-2 max-w-xs mx-auto">
+                            <input type="text" id="picker-raw-input" class="input-field font-mono text-xs" placeholder="e.g. K_APP, C_BRI_UP">
+                            <button id="picker-raw-commit" class="bg-[color:var(--accent)] text-white text-xs font-bold px-4 rounded-lg shrink-0">Use</button>
+                        </div>`;
+                    els.physKeyboard.appendChild(wrap);
+                    document.getElementById('picker-raw-commit').onclick = () => {
+                        const v = document.getElementById('picker-raw-input').value.trim();
+                        if (v) commitPickerKey(v, false, null);
                     };
+                    return;
+                }
+
+                let rowDiv = document.createElement('div');
+                rowDiv.className = 'flex flex-wrap gap-1.5 content-start';
+                matches.slice(0, 60).forEach(k => {
+                    let btn = document.createElement('div');
+                    btn.className = 'phys-key k-1-5';
+                    const label = (k.code === 'LGUI' || k.code === 'RGUI') ? `${k.code[0]} ${guiLabel()}` : k.label;
+                    btn.innerHTML = `<span class="key-center text-[11px]">${label}</span>`;
+                    btn.onclick = () => commitPickerKey(k.code, k.code.includes('CTRL') || k.code.includes('SHFT') || k.code.includes('ALT') || k.code.includes('GUI') ? true : false, btn);
                     rowDiv.appendChild(btn);
                 });
+                els.physKeyboard.appendChild(rowDiv);
+                return;
+            }
+
+            (PICKER_LAYOUTS[activePickerTab] || []).forEach(row => {
+                let rowDiv = document.createElement('div');
+                rowDiv.className = 'kbd-row';
+                row.forEach(key => rowDiv.appendChild(renderKeyTile(key)));
                 els.physKeyboard.appendChild(rowDiv);
             });
         }
 
-        function openPicker(callback) { activePickerTarget = callback; els.pickerDrawer.classList.remove('translate-y-full'); }
+        function openPicker(callback) {
+            activePickerTarget = callback;
+            armedMods.clear();
+            activePickerTab = 'alpha';
+            const searchInput = document.getElementById('picker-search');
+            if (searchInput) searchInput.value = '';
+            els.pickerDrawer.classList.remove('translate-y-full');
+            renderModArmRow();
+            updateModArmPreview();
+            renderPickerTabs();
+            renderPhysicalKeyboard();
+        }
         function closePicker() { activePickerTarget = null; els.pickerDrawer.classList.add('translate-y-full'); }
 
         // --- 9. DEEP-DIVE INSPECTOR ---
@@ -1062,8 +1748,8 @@
                 else if (p.type === 'binding') {
                     if (p.group === 'tapDances' || p.group === 'macros') target = target.bindings[p.index];
                     else if (p.group === 'modMorphs') target = target.cases[p.index].binding;
-                    else if (p.group === 'holdTaps') {
-                        if(!target.bindings) target.bindings = ["&kp", "&kp"];
+                    else if (p.group === 'holdTaps' || p.group === 'stickyKeys') {
+                        if(!target.bindings) target.bindings = p.group === 'holdTaps' ? ["&kp", "&kp"] : ["&kp"];
                         target = target.bindings;
                     }
                     else if (p.group === 'combos') target = target.binding;
@@ -1096,6 +1782,7 @@
                 else if (p.type === 'binding') {
                     if (p.group === 'modMorphs') crumb.textContent = p.index === 0 ? T[termMode].baseAction : T[termMode].shiftAction;
                     else if (p.group === 'holdTaps') crumb.textContent = p.index === 0 ? T[termMode].holdAction : T[termMode].tapAction;
+                    else if (p.group === 'stickyKeys') crumb.textContent = T[termMode].wrappedBehavior;
                     else if (p.group === 'combos') crumb.textContent = "Binding";
                     else crumb.textContent = `${T[termMode].step} ${p.index + 1}${termMode==='zmk'?']':''}`;
                 }
@@ -1111,7 +1798,7 @@
 
             const targetData = getTargetFromPath(inspectorPath);
 
-            if (currentContext.type === 'binding' && currentContext.group === 'holdTaps') renderHoldTapSlotEditor(targetData, currentContext);
+            if (currentContext.type === 'binding' && (currentContext.group === 'holdTaps' || currentContext.group === 'stickyKeys')) renderHoldTapSlotEditor(targetData, currentContext);
             else if (currentContext.type === 'matrix' || currentContext.type === 'binding') renderGenericBindingEditor(targetData, currentContext);
             else if (currentContext.type === 'behaviorList') renderBehaviorList(currentContext.group);
             else if (currentContext.type === 'behavior') renderGenericBehaviorProperties(targetData, currentContext);
@@ -1367,6 +2054,18 @@
             const currentStr = (typeof currentVal === 'object' ? currentVal?.value : currentVal) ?? '';
             const slotId = `be-slot-${slot.idx}`;
 
+            // For the keycode picker button specifically: a modifier-wrapped value's currentStr is
+            // just the outermost wrapper code (e.g. "LC"), which isn't meaningful on its own --
+            // this composes the full friendly label instead (e.g. "Ctrl+Shift+Y").
+            function friendlyParamPreview(val) {
+                if (val && typeof val === 'object' && MOD_WRAPPER_TO_FULL[val.value]) {
+                    const { mods, keyVal } = unwrapModChain(val);
+                    return `${mods.map(m => formatKeycode(m)).join('+')}+${formatKeycode(keyVal)}`;
+                }
+                const flat = typeof val === 'object' ? val?.value : val;
+                return formatKeycode(flat) || flat || '';
+            }
+
             const wrap = document.createElement('div');
             wrap.className = 'bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-inner';
             wrap.innerHTML = `<label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4">${slot.label}</label><div id="${slotId}"></div>`;
@@ -1393,15 +2092,23 @@
                 // button's own onclick handler, so we must NOT call it again here.
                 const oldVal = currentStr;
                 if (!bindingObj.params) bindingObj.params = [];
-                bindingObj.params[slot.idx] = { value: newVal };
-                syncDecorationLabel(bindingObj, String(oldVal), String(newVal));
+                // The picker can hand back a fully-composed modifier-wrap object (e.g.
+                // { value: 'LC', params: [{ value: 'Y' }] } for Ctrl+Y) when modifiers were armed
+                // before picking a key -- that object IS the final param shape and must be stored
+                // as-is. Re-wrapping it as { value: newVal } would nest it one level too deep
+                // ({ value: { value: 'LC', ... } }), which breaks every downstream reader that
+                // expects params[i].value to be a string -- this is what was corrupting the matrix
+                // display for any key set to a modifier combo.
+                bindingObj.params[slot.idx] = (newVal && typeof newVal === 'object') ? newVal : { value: newVal };
+                const newValStr = (newVal && typeof newVal === 'object') ? (newVal.value || '') : String(newVal);
+                syncDecorationLabel(bindingObj, String(oldVal), newValStr);
                 renderAll();
             };
 
             if (slot.type === 'keycode') {
                 inner.innerHTML = `
                     <button id="btn-pick-${slot.idx}" class="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-[color:var(--accent)] text-[color:var(--accent)] font-mono text-xl font-bold py-5 rounded-xl transition-all flex items-center justify-center gap-3 shadow-sm">
-                        ${currentStr || '?'}
+                        ${friendlyParamPreview(currentVal) || '?'}
                         <svg class="w-5 h-5 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5"></path></svg>
                     </button>`;
                 document.getElementById(`btn-pick-${slot.idx}`).onclick = () => {
@@ -1413,7 +2120,7 @@
                 };
             }
             else if (slot.type === 'modifier') {
-                let chips = ZMK_MODS.map(m => `<button class="mod-chip ${currentStr === m ? 'active' : ''}" data-val="${m}">${m.replace('MOD_', '').replace('LSHFT','L⇧').replace('RSHFT','R⇧').replace('LCTRL','L⌃').replace('RCTRL','R⌃').replace('LALT','L⌥').replace('RALT','R⌥').replace('LGUI','L⌘').replace('RGUI','R⌘')}</button>`).join('');
+                let chips = ZMK_MODS.map(m => `<button class="mod-chip ${currentStr === m ? 'active' : ''}" data-val="${m}">${modChipLabel(m)}</button>`).join('');
                 inner.innerHTML = `<div class="grid grid-cols-4 gap-2" id="mod-grid-${slot.idx}">${chips}</div>`;
                 document.getElementById(`mod-grid-${slot.idx}`).querySelectorAll('button').forEach(b => {
                     b.onclick = () => commit(b.dataset.val);
@@ -1483,10 +2190,16 @@
                 ...(config.macros || []).map(b => b.name),
                 ...(config.modMorphs || []).map(b => b.name),
                 ...(config.tapDances || []).map(b => b.name),
+                ...(config.stickyKeys || []).map(b => b.name),
             ].filter(Boolean);
             const isCustomBehaviorName = customBehaviorNames.includes(behaviorVal);
 
             let html = `
+                ${context.type === 'matrix' ? `
+                <div class="flex gap-2 mb-6">
+                    <button id="btn-copy-key" class="flex-1 flex items-center justify-center gap-1.5 bg-white dark:bg-slate-800 hover:border-[color:var(--accent)] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-lg text-xs transition-all shadow-sm">📋 Copy</button>
+                    <button id="btn-paste-key" class="flex-1 flex items-center justify-center gap-1.5 bg-white dark:bg-slate-800 hover:border-[color:var(--accent)] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 font-bold py-2.5 rounded-lg text-xs transition-all shadow-sm ${bindingClipboard ? '' : 'opacity-40 cursor-not-allowed'}" ${bindingClipboard ? '' : 'disabled'}>📥 Paste</button>
+                </div>` : ''}
                 <div class="mb-6">
                     <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 px-1">Behavior</label>
                     <select id="be-select" class="input-field cursor-pointer font-bold">
@@ -1529,6 +2242,12 @@
                 <div id="be-params" class="flex flex-col gap-4"></div>
             `;
             els.inspContent.innerHTML = html;
+
+            if (context.type === 'matrix') {
+                document.getElementById('btn-copy-key').onclick = () => copyBindingToClipboard(bindingObj);
+                const pasteBtn = document.getElementById('btn-paste-key');
+                if (bindingClipboard) pasteBtn.onclick = () => pasteBindingFromClipboard(context.layer, context.index);
+            }
 
             document.getElementById('be-select').addEventListener('change', (e) => {
                 pushHistory();
@@ -1751,6 +2470,7 @@
                 macros: config.macros || [],
                 modMorphs: config.modMorphs || [],
                 tapDances: config.tapDances || [],
+                stickyKeys: config.stickyKeys || [],
             };
             let matchedGroup = null, matchedIndex = -1, matchedBehavior = null;
             for (const [grp, arr] of Object.entries(BEHAVIOR_GROUPS)) {
@@ -1801,7 +2521,7 @@
         // so the validation engine can flag Custom bindings that reference something that doesn't exist.
         function getKnownBehaviorNames() {
             const known = new Set(Object.keys(BEHAVIOR_DEF));
-            ['holdTaps','macros','modMorphs','tapDances'].forEach(g => {
+            ['holdTaps','macros','modMorphs','tapDances','stickyKeys'].forEach(g => {
                 (config[g] || []).forEach(b => { if (b.name) known.add(b.name); });
             });
             // custom_defined_behaviors are raw devicetree text -- try to extract defined behavior names
@@ -1810,6 +2530,45 @@
             const nameMatches = cdb.match(/^\s*\w+:/gm);
             if (nameMatches) nameMatches.forEach(m => known.add('&' + m.trim().replace(':', '')));
             return known;
+        }
+
+        // Directed Graph Dependency Evaluation: when a custom behavior is renamed, every binding
+        // anywhere in the file that references it by its old name string must be updated to the
+        // new name, or those bindings silently orphan (they'd fall back to being treated as an
+        // unresolved raw/custom reference the next time they're opened).
+        function renameBehaviorReferences(oldName, newName) {
+            if (!oldName || oldName === newName) return;
+
+            function walkBindingObj(obj) {
+                if (!obj || typeof obj !== 'object') return;
+                if (obj.value === oldName) obj.value = newName;
+                (obj.params || []).forEach(walkBindingObj);
+                (obj.bindings || []).forEach(walkBindingObj);
+                if (obj.cases) obj.cases.forEach(c => c.binding && walkBindingObj(c.binding));
+                if (obj.binding) walkBindingObj(obj.binding); // combos
+            }
+
+            // 1. Every key binding across every layer's matrix
+            (config.layers || []).forEach(layer => (layer || []).forEach(walkBindingObj));
+
+            // 2. Nested binding objects inside other behavior groups (tap-dance sequences,
+            // mod-morph cases, macro steps, combo bindings)
+            ['tapDances', 'modMorphs', 'macros', 'combos'].forEach(g => {
+                (config[g] || []).forEach(walkBindingObj);
+            });
+
+            // 3. holdTaps[].bindings and stickyKeys[].bindings are plain behavior-class STRINGS
+            // (e.g. "&kp"), not nested binding objects -- rename those separately.
+            (config.holdTaps || []).forEach(ht => {
+                if (Array.isArray(ht.bindings)) {
+                    ht.bindings = ht.bindings.map(b => b === oldName ? newName : b);
+                }
+            });
+            (config.stickyKeys || []).forEach(sk => {
+                if (Array.isArray(sk.bindings)) {
+                    sk.bindings = sk.bindings.map(b => b === oldName ? newName : b);
+                }
+            });
         }
 
         function findInvalidCustomRefs(behavior) {
@@ -1831,12 +2590,17 @@
         }
 
         function renderBehaviorList(group) {
+            const templates = BEHAVIOR_TEMPLATES[group] || [];
             els.inspContent.innerHTML = `
                 <div class="flex gap-2 mb-4">
                     <button id="btn-create-beh" class="flex-1 bg-white dark:bg-slate-800 hover:border-[color:var(--accent)] border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold py-3 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2">
                         <svg class="w-4 h-4 text-[color:var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
                         New
                     </button>
+                    ${templates.length ? `
+                    <button id="btn-templates-beh" class="flex-1 bg-white dark:bg-slate-800 hover:border-[color:var(--accent)] border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-bold py-3 rounded-xl text-sm transition-all shadow-sm flex items-center justify-center gap-2">
+                        ✨ Templates
+                    </button>` : ''}
                 </div>
                 <div class="mb-4 relative">
                     <input type="text" id="beh-search" placeholder="Filter by name…" class="input-field text-xs pl-8">
@@ -1855,6 +2619,14 @@
                 renderAll();
             };
 
+            const templatesBtn = document.getElementById('btn-templates-beh');
+            if (templatesBtn) {
+                templatesBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    showTemplateMenu(templatesBtn, group);
+                };
+            }
+
             const arr = config[group] || [];
             const container = document.getElementById('beh-list-container');
 
@@ -1871,7 +2643,8 @@
 
                 filtered.forEach(({ item, idx }) => {
                     const invalidRefs = findInvalidCustomRefs(item);
-                    const hasWarning = invalidRefs.length > 0;
+                    const spansHalves = group === 'combos' && comboSpansHalves(item.keyPositions);
+                    const hasWarning = invalidRefs.length > 0 || spansHalves;
 
                     let card = document.createElement('div');
                     card.className = `bg-white dark:bg-slate-800 border rounded-xl p-4 group cursor-pointer transition-all shadow-sm ${hasWarning ? 'border-amber-400 dark:border-amber-600' : 'border-slate-200 dark:border-slate-700 hover:border-[color:var(--accent)]'}`;
@@ -1883,7 +2656,8 @@
                                 <button class="btn-del text-slate-400 hover:text-white hover:bg-red-500 dark:hover:bg-red-600 px-2 py-1 rounded text-[10px] font-bold" title="Delete">✕</button>
                             </div>
                         </div>
-                        ${hasWarning ? `<div class="mt-2 text-[10px] text-amber-600 dark:text-amber-400 flex items-start gap-1"><span>⚠</span><span>Unresolved Custom reference${invalidRefs.length > 1 ? 's' : ''}: <span class="font-mono">${invalidRefs.join(', ')}</span> — not found in defined behaviors or custom_defined_behaviors. This will likely fail ZMK compilation.</span></div>` : ''}
+                        ${invalidRefs.length > 0 ? `<div class="mt-2 text-[10px] text-amber-600 dark:text-amber-400 flex items-start gap-1"><span>⚠</span><span>Unresolved Custom reference${invalidRefs.length > 1 ? 's' : ''}: <span class="font-mono">${invalidRefs.join(', ')}</span> — not found in defined behaviors or custom_defined_behaviors. This will likely fail ZMK compilation.</span></div>` : ''}
+                        ${spansHalves ? `<div class="mt-2 text-[10px] text-amber-600 dark:text-amber-400 flex items-start gap-1"><span>⚠</span><span>Key positions span both keyboard halves — cross-half chords add BLE latency and can be unreliable.</span></div>` : ''}
                     `;
 
                     card.onclick = (e) => {
@@ -1901,7 +2675,12 @@
                     };
 
                     card.querySelector('.btn-del').onclick = () => {
-                        if (confirm(`Delete "${item.name}"?`)) { pushHistory(); config[group].splice(idx, 1); renderAll(); }
+                        showConfirmModal({
+                            title: `Delete "${item.name}"?`,
+                            message: `This behavior will be permanently removed. Any keys still using it will need a new behavior assigned, or they'll show as unresolved.`,
+                            confirmLabel: "Delete",
+                            onConfirm: () => { pushHistory(); config[group].splice(idx, 1); renderAll(); }
+                        });
                     };
                     container.appendChild(card);
                 });
@@ -1921,7 +2700,15 @@
                 <div id="dynamic-slots" class="flex flex-col gap-2 relative"></div>
             `;
             els.inspContent.innerHTML = html;
-            document.getElementById('prop-name').onchange = (e) => { if (e.target.value === behavior.name) return; pushHistory(); behavior.name = e.target.value; renderAll(); };
+            document.getElementById('prop-name').onchange = (e) => {
+                const newName = e.target.value;
+                if (newName === behavior.name) return;
+                pushHistory();
+                const oldName = behavior.name;
+                behavior.name = newName;
+                renameBehaviorReferences(oldName, newName);
+                renderAll();
+            };
 
             const propsContainer = document.getElementById('dynamic-props');
             const slotsContainer = document.getElementById('dynamic-slots');
@@ -1943,11 +2730,15 @@
                 let wrapper = document.createElement('div');
                 wrapper.className = "bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm dark:shadow-inner";
                 let labelText = T[termMode][key] || key;
+                // Plain-language explanation, tap-to-reveal via a small "?" badge -- keeps the label
+                // itself uncluttered while still surfacing what these technical timing/flavor fields
+                // actually do, without requiring the user to already know ZMK terminology.
+                let helpBadge = schema.help ? `<button type="button" class="help-badge inline-flex items-center justify-center w-4 h-4 rounded-full bg-slate-200 dark:bg-slate-600 text-slate-500 dark:text-slate-300 text-[9px] font-bold ml-1.5 align-middle shrink-0" data-help="${schema.help.replace(/"/g, '&quot;')}">?</button>` : '';
 
                 if (schema.type === 'slider') {
                     wrapper.innerHTML = `
                         <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-4 flex items-center justify-between">
-                            ${labelText}
+                            <span class="flex items-center">${labelText}${helpBadge}</span>
                             <span id="prop-${key}-val" class="text-slate-900 dark:text-white font-mono bg-slate-100 dark:bg-slate-900 px-2 py-1 rounded border border-slate-200 dark:border-slate-700">${behavior[key]}ms</span>
                         </label>
                         <input type="range" id="prop-${key}" min="${schema.min}" max="${schema.max}" step="${schema.step}" value="${behavior[key]}">
@@ -1956,14 +2747,14 @@
                 else if (schema.type === 'select') {
                     let opts = schema.options.map(o => `<option value="${o}" ${behavior[key] === o ? 'selected' : ''}>${o}</option>`).join('');
                     wrapper.innerHTML = `
-                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3">${labelText}</label>
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 flex items-center">${labelText}${helpBadge}</label>
                         <select id="prop-${key}" class="input-field cursor-pointer font-bold">${opts}</select>
                     `;
                 }
                 else if (schema.type === 'boolean') {
                     wrapper.innerHTML = `
                         <label class="flex items-center justify-between cursor-pointer">
-                            <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">${labelText}</span>
+                            <span class="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center">${labelText}${helpBadge}</span>
                             <input type="checkbox" id="prop-${key}" class="w-5 h-5 rounded cursor-pointer accent-[color:var(--accent)]" ${behavior[key] ? 'checked' : ''}>
                         </label>
                         <button class="prop-remove-btn text-[10px] text-slate-400 hover:text-red-500 mt-2" data-key="${key}">− Remove property</button>
@@ -1971,7 +2762,7 @@
                 }
                 else if (schema.type === 'keyPositionList') {
                     wrapper.innerHTML = `
-                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2">${labelText}</label>
+                        <label class="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-2 flex items-center">${labelText}${helpBadge}</label>
                         <p class="text-[11px] text-slate-400 dark:text-slate-500 mb-3 leading-relaxed">Physical matrix indices, comma separated (e.g. the bilateral-combo opposite-hand keys this hold-tap should trigger against).</p>
                         <input type="text" id="prop-${key}" class="input-field font-mono" value="${(behavior[key] || []).join(', ')}" placeholder="0, 1, 2, 3">
                         <button class="prop-remove-btn text-[10px] text-slate-400 hover:text-red-500 mt-2" data-key="${key}">− Remove property</button>
@@ -2083,7 +2874,7 @@
                     });
                 }
             }
-            else if (behavior.bindings) { // Hold-Taps, Macros, Tap-Dances
+            else if (behavior.bindings) { // Hold-Taps, Sticky-Keys, Macros, Tap-Dances
                 if (context.group === 'holdTaps') {
                     ['holdAction', 'tapAction'].forEach((lblKey, i) => {
                         // holdTaps[].bindings entries are always plain behavior-class strings
@@ -2096,6 +2887,15 @@
                         btn.onclick = () => { inspectorPath.push({ type: 'binding', group: context.group, index: i }); renderAll(); };
                         slotsContainer.appendChild(btn);
                     });
+                } else if (context.group === 'stickyKeys') {
+                    // stickyKeys[].bindings wraps exactly ONE behavior-class string (e.g. "&kp"),
+                    // the same shape as a single Hold-Tap slot -- not a sequence like macros/tap-dances.
+                    let slotVal = typeof behavior.bindings[0] === 'string' ? behavior.bindings[0] : (behavior.bindings[0]?.value || '&kp');
+                    let btn = document.createElement('div');
+                    btn.className = "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-4 rounded-xl mb-2.5 cursor-pointer hover:border-[color:var(--accent)] transition-all flex justify-between items-center shadow-sm relative ml-5";
+                    btn.innerHTML = `<div class="tree-line"></div><span class="text-xs font-bold text-slate-500 dark:text-slate-400">${T[termMode].wrappedBehavior}</span> <span class="font-mono text-sm font-bold text-slate-900 dark:text-white bg-slate-50 dark:bg-slate-900 px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 shadow-sm">${slotVal || '&none'}</span>`;
+                    btn.onclick = () => { inspectorPath.push({ type: 'binding', group: context.group, index: 0 }); renderAll(); };
+                    slotsContainer.appendChild(btn);
                 } else {
                     behavior.bindings.forEach((b, i) => {
                         let btn = document.createElement('div');
