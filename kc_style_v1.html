@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoErgo Layout Engine | MoErgo Edition</title>
+   
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        MoErgo: {
+                            base: '#1a1a1a', surface: '#222222', panel: '#282828', sidebar: '#222327',
+                            card: '#333333', cardHover: '#444444', primary: '#e55f2e', textMain: '#ffffff',
+                            textMuted: '#9ca3af', tabActive: '#e5e5e5', tabBg: '#2a2a2a', menuActiveBg: '#2f303a'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }
+                }
+            }
+        }
+    </script>
+   
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+   
+    <style>
+        body { background-color: #1a1a1a; color: #ffffff; overflow: hidden; margin: 0; }
+       
+        /* Interactive Canvas */
+        .canvas-container {
+            background-color: #1a1a1a;
+            background-image: radial-gradient(circle, #333333 1px, transparent 1px);
+            background-size: 24px 24px;
+            cursor: grab; overflow: hidden;
+        }
+        .canvas-container:active { cursor: grabbing; }
+
+        /* Canvas Physical Key Styling */
+        .p-key {
+            position: absolute; width: 62px; height: 62px; border-radius: 6px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: all 0.1s; user-select: none;
+            background-color: #303030; border: 1px solid #111111;
+            box-shadow: inset 0 1px 1px rgba(255,255,255,0.08), 0 2px 4px rgba(0,0,0,0.5);
+            padding: 4px; text-align: center; overflow: hidden; color: #e5e5e5; z-index: 1;
+        }
+        .p-key:active { transform: scale(0.96) !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5) !important; background-color: #282828; }
+        .p-key:hover { border-color: #666666; background-color: #383838; color: #ffffff; z-index: 5; }
+        .p-key.selected { border-color: #e55f2e !important; color: #ffffff !important; box-shadow: 0 0 0 2px rgba(229, 95, 46, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.1) !important; z-index: 10; background-color: #4a342c; }
+        .p-key:not(.selected).has-bg:hover { filter: brightness(1.2); border-color: #ffffff !important; }
+
+        .key-center { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 11px; font-weight: 600; text-align: center; line-height: 1.2; word-break: break-word; color: inherit; }
+        .key-dual { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: inherit; }
+        .key-shift { position: absolute; top: 4px; left: 8px; font-size: 10px; opacity: 0.7; font-weight: 600; color: inherit; }
+        .key-main { position: absolute; bottom: 6px; left: 8px; font-weight: 700; font-size: 13px; color: inherit; }
+
+        /* Palette Button Styling (Dynamic Scale via CSS Var) */
+        .palette-btn {
+            min-width: calc(52px * var(--btn-scale, 1));
+            height: calc(52px * var(--btn-scale, 1));
+            background-color: #383838; border-radius: 6px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: calc(11px * var(--btn-scale, 1)); font-weight: 700; color: #ffffff;
+            cursor: pointer; transition: background-color 0.1s;
+            padding: 4px; border: 1px solid transparent; line-height: 1.2;
+        }
+        .palette-btn .key-dual { font-size: calc(11px * var(--btn-scale, 1)); gap: calc(4px * var(--btn-scale, 1)); }
+        .palette-btn:hover { background-color: #4a4a4a; border-color: #666666; }
+        .palette-tab-active { background-color: #e5e5e5; color: #000000; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.8); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body>
+    <div id="root" class="h-screen w-screen flex"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
+
+        // --- HARDWARE GEOMETRY ---
+        const GLOVE80_GEO = [
+            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:910,y:0},{x:980,y:0},{x:1050,y:0},{x:1120,y:35},{x:1190,y:35},
+            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:840,y:70},{x:910,y:70},{x:980,y:70},{x:1050,y:70},{x:1120,y:105},{x:1190,y:105},
+            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:840,y:140},{x:910,y:140},{x:980,y:140},{x:1050,y:140},{x:1120,y:175},{x:1190,y:175},
+            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:840,y:210},{x:910,y:210},{x:980,y:210},{x:1050,y:210},{x:1120,y:245},{x:1190,y:245},
+            {x:0,y:315},{x:70,y:315},{x:140,y:280},{x:210,y:280},{x:280,y:280},{x:350,y:280},
+            {x:448,y:280,r:20,o:"-168px 0px"},{x:546,y:231,r:30,o:"-266px 0px"},{x:707,y:105,r:45,o:"-427px 0px"},{x:490,y:105,r:-45,o:"490px 0px"},{x:651,y:231,r:-30,o:"329px 0px"},{x:749,y:280,r:-20,o:"231px 0px"},
+            {x:840,y:280},{x:910,y:280},{x:980,y:280},{x:1050,y:280},{x:1120,y:315},{x:1190,y:315},
+            {x:0,y:385},{x:70,y:385},{x:140,y:350},{x:210,y:350},{x:280,y:350},
+            {x:371,y:378,r:15,o:"-91px 0px"},{x:462,y:350,r:25,o:"-182px 0px"},{x:630,y:224,r:45,o:"-350px 0px"},{x:560,y:224,r:-45,o:"420px 0px"},{x:728,y:350,r:-25,o:"252px 0px"},{x:819,y:378,r:-15,o:"161px 0px"},
+            {x:910,y:350},{x:980,y:350},{x:1050,y:350},{x:1120,y:385},{x:1190,y:385}
+        ];
+
+        const GO60_GEO = [
+            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:350,y:0},{x:805,y:0},{x:875,y:0},{x:945,y:0},{x:1015,y:0},{x:1085,y:35},{x:1155,y:35},
+            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:805,y:70},{x:875,y:70},{x:945,y:70},{x:1015,y:70},{x:1085,y:105},{x:1155,y:105},
+            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:805,y:140},{x:875,y:140},{x:945,y:140},{x:1015,y:140},{x:1085,y:175},{x:1155,y:175},
+            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:805,y:210},{x:875,y:210},{x:945,y:210},{x:1015,y:210},{x:1085,y:245},{x:1155,y:245},
+            {x:140,y:280},{x:210,y:280},{x:280,y:280},{x:875,y:280},{x:945,y:280},{x:1015,y:280},
+            {x:364,y:287,r:12.5,o:"0px 0px"},{x:448,y:308,r:25,o:"0px 0px"},{x:525,y:346.5,r:37,o:"0px 0px"},
+            {x:640.5,y:385,r:-37,o:"0px 0px"},{x:710.5,y:336,r:-25,o:"0px 0px"},{x:791,y:301,r:-12.5,o:"0px 0px"}
+        ];
+
+        // --- PALETTE DATA (Fully Restored & Categorized) ---
+        const PALETTE_DATA = {
+            Basic: [
+                {
+                    category: "Letter Keys",
+                    items: [ { label: 'A', code: 'A' }, { label: 'B', code: 'B' }, { label: 'C', code: 'C' }, { label: 'D', code: 'D' }, { label: 'E', code: 'E' }, { label: 'F', code: 'F' }, { label: 'G', code: 'G' }, { label: 'H', code: 'H' }, { label: 'I', code: 'I' }, { label: 'J', code: 'J' }, { label: 'K', code: 'K' }, { label: 'L', code: 'L' }, { label: 'M', code: 'M' }, { label: 'N', code: 'N' }, { label: 'O', code: 'O' }, { label: 'P', code: 'P' }, { label: 'Q', code: 'Q' }, { label: 'R', code: 'R' }, { label: 'S', code: 'S' }, { label: 'T', code: 'T' }, { label: 'U', code: 'U' }, { label: 'V', code: 'V' }, { label: 'W', code: 'W' }, { label: 'X', code: 'X' }, { label: 'Y', code: 'Y' }, { label: 'Z', code: 'Z' } ]
+                },
+                {
+                    category: "Number Keys",
+                    items: [ { label: '1', code: 'N1' }, { label: '2', code: 'N2' }, { label: '3', code: 'N3' }, { label: '4', code: 'N4' }, { label: '5', code: 'N5' }, { label: '6', code: 'N6' }, { label: '7', code: 'N7' }, { label: '8', code: 'N8' }, { label: '9', code: 'N9' }, { label: '0', code: 'N0' } ]
+                },
+                {
+                    category: "Symbol Keys",
+                    items: [
+                        { top: '!', bottom: '1', code: 'N1' }, { top: '@', bottom: '2', code: 'N2' }, { top: '#', bottom: '3', code: 'N3' }, { top: '$', bottom: '4', code: 'N4' }, { top: '%', bottom: '5', code: 'N5' }, { top: '^', bottom: '6', code: 'N6' }, { top: '&', bottom: '7', code: 'N7' }, { top: '*', bottom: '8', code: 'N8' }, { top: '(', bottom: '9', code: 'N9' }, { top: ')', bottom: '0', code: 'N0' },
+                        { top: '_', bottom: '-', code: 'MINUS' }, { top: '+', bottom: '=', code: 'EQUAL' }, { top: '~', bottom: '`', code: 'GRAVE' }, { top: '{', bottom: '[', code: 'LBKT' }, { top: '}', bottom: ']', code: 'RBKT' }, { top: '|', bottom: '\\', code: 'BSLH' }, { top: ':', bottom: ';', code: 'SEMI' }, { top: '"', bottom: "'", code: 'SQT' }, { top: '<', bottom: ',', code: 'COMMA' }, { top: '>', bottom: '.', code: 'DOT' }, { top: '?', bottom: '/', code: 'FSLH' },
+                        { label: '=', code: 'KP_EQUAL' }, { label: ',', code: 'KP_COMMA' }, { label: '÷', code: 'KP_DIVIDE' }, { label: '×', code: 'KP_MULTIPLY' }, { label: '-', code: 'KP_MINUS' }, { label: '+', code: 'KP_PLUS' }, { label: '.', code: 'KP_DOT' }
+                    ]
+                },
+                {
+                    category: "Function Keys",
+                    items: [
+                        { label: '▽', type: '&trans' }, { label: '∅ None', type: '&none' }, { label: 'F1', code: 'F1' }, { label: 'F2', code: 'F2' }, { label: 'F3', code: 'F3' }, { label: 'F4', code: 'F4' }, { label: 'F5', code: 'F5' }, { label: 'F6', code: 'F6' }, { label: 'F7', code: 'F7' }, { label: 'F8', code: 'F8' }, { label: 'F9', code: 'F9' }, { label: 'F10', code: 'F10' }, { label: 'F11', code: 'F11' }, { label: 'F12', code: 'F12' },
+                        { label: 'L shift', code: 'LSHFT' }, { label: 'R shift', code: 'RSHFT' }, { label: 'L ctrl', code: 'LCTRL' }, { label: 'R ctrl', code: 'RCTRL' }, { label: 'L win', code: 'LGUI' }, { label: 'R win', code: 'RGUI' }, { label: 'L Alt', code: 'LALT' }, { label: 'R Alt', code: 'RALT' },
+                        { label: 'Caps Lock', code: 'CAPS' }, { label: 'Tab', code: 'TAB' }, { label: 'Backspac\ne', code: 'BSPC' }, { label: 'Enter', code: 'RET' }, { label: 'Space', code: 'SPACE' }, { label: 'Ins', code: 'INS' }, { label: 'Del', code: 'DEL' }, { label: 'Home', code: 'HOME' }, { label: 'End', code: 'END' }, { label: 'PgUp', code: 'PG_UP' }, { label: 'PgDn', code: 'PG_DN' }, { label: 'Esc', code: 'ESC' }, { label: 'Print', code: 'PRINTSCREEN' }, { label: 'Scroll', code: 'SLCK' }, { label: 'Pause', code: 'PAUSE_BREAK' }, { label: 'RApp', code: 'K_APP' }, { label: 'N.ent', code: 'KP_ENTER' }, { label: 'N.Lck', code: 'KP_NUM' }
+                    ]
+                }
+            ],
+            Media: [
+                { category: "", items: [{ label: 'Vol -', code: 'C_VOL_DN' }, { label: 'Vol +', code: 'C_VOL_UP' }, { label: 'Mute', code: 'C_MUTE' }, { label: 'Play', code: 'C_PP' }, { label: 'Mstp', code: 'C_STOP' }, { label: 'Prvs', code: 'C_PREV' }, { label: 'Next', code: 'C_NEXT' }, { label: 'Rewind', code: 'C_RW' }, { label: 'Mffd', code: 'C_FF' }, { label: 'Select', code: 'C_AL_SEL_TASK' }, { label: 'Eject', code: 'C_EJECT' }] }
+            ],
+            SpecialKeys: [
+                {
+                    category: "General",
+                    items: [
+                        { label: 'Nuhs', code: 'NON_US_HASH' }, { label: 'Nubs', code: 'NON_US_BSLH' }, { label: 'Ro', code: 'INT3' }, { label: '¥', code: 'INT1' }, { label: '無変換', code: 'INT5' }, { label: '漢字', code: 'INT4' }, { label: '한영', code: 'LANG1' }, { label: '変換', code: 'INT4' }, { label: 'かな', code: 'INT2' }, { label: 'Esc `', code: 'GRAVE' }, { label: 'LS (', type: '&kp', param1: 'LPAR' }, { label: 'RS )', type: '&kp', param1: 'RPAR' }, { label: 'LC (', type: '&kp', param1: 'LPAR' }, { label: 'RC )', type: '&kp', param1: 'RPAR' }, { label: 'LA (', type: '&kp', param1: 'LPAR' }, { label: 'RA )', type: '&kp', param1: 'RPAR' }, { label: 'SftEnt', type: '&kp', param1: 'RET' }, { label: 'Reset', type: '&sys_reset' }, { label: 'Boot', type: '&bootloader' },
+                        { label: 'F13', code: 'F13' }, { label: 'F14', code: 'F14' }, { label: 'F15', code: 'F15' }, { label: 'F16', code: 'F16' }, { label: 'F17', code: 'F17' }, { label: 'F18', code: 'F18' }, { label: 'F19', code: 'F19' }, { label: 'Mouse ↑', type: '&mmv', param1: 'MOVE_UP' }, { label: 'Mouse ↓', type: '&mmv', param1: 'MOVE_DOWN' }, { label: 'Mouse ←', type: '&mmv', param1: 'MOVE_LEFT' }, { label: 'Mouse →', type: '&mmv', param1: 'MOVE_RIGHT' }, { label: 'Mouse Btn1', type: '&mkp', param1: 'MB1' }, { label: 'Mouse Btn2', type: '&mkp', param1: 'MB2' }, { label: 'Mouse Btn3', type: '&mkp', param1: 'MB3' }
+                    ]
+                },
+                {
+                    category: "Windows",
+                    items: [ { label: 'Lock Win', code: 'LGUI' }, { label: 'Calc', code: 'C_AL_CALC' }, { label: 'Mail', code: 'C_AL_EMAIL' }, { label: 'My Comp', code: 'C_AL_MY_COMPUTER' }, { label: 'Home', code: 'C_AC_HOME' }, { label: 'Back', code: 'C_AC_BACK' }, { label: 'Forward', code: 'C_AC_FORWARD' }, { label: 'Stop', code: 'C_AC_STOP' }, { label: 'Refresh', code: 'C_AC_REFRESH' }, { label: 'Favorites', code: 'C_AL_BOOKMARKS' }, { label: 'Search', code: 'C_AC_SEARCH' }, { label: 'Power', code: 'C_PWR' }, { label: 'Sleep', code: 'C_SLEEP' } ]
+                },
+                {
+                    category: "Mac",
+                    items: [ { label: 'Power OSX', code: 'C_PWR' }, { label: 'MCtrl', code: 'LCTRL' }, { label: 'LPad', code: 'C_AL_LAUNCHPAD' }, { label: 'Wake', code: 'C_SLEEP' }, { label: 'Power', code: 'C_PWR' }, { label: 'Sleep', code: 'C_SLEEP' } ]
+                },
+                {
+                    category: "Linux",
+                    items: [ { label: 'Help', code: 'C_AL_CALC' }, { label: 'Menu', code: 'K_CMENU' }, { label: 'Undo', code: 'C_AC_UNDO' }, { label: 'Cut', code: 'C_AC_CUT' }, { label: 'Copy', code: 'C_AC_COPY' }, { label: 'Paste', code: 'C_AC_PASTE' } ]
+                }
+            ],
+            Lighting: [
+                { category: "", items: [{ label: 'RGB Tog', type: '&rgb_ug', param1: 'RGB_TOG' }, { label: 'Mode +', type: '&rgb_ug', param1: 'RGB_EFF' }, { label: 'Mode -', type: '&rgb_ug', param1: 'RGB_EFR' }, { label: 'Hue +', type: '&rgb_ug', param1: 'RGB_HUI' }, { label: 'Hue -', type: '&rgb_ug', param1: 'RGB_HUD' }, { label: 'Sat +', type: '&rgb_ug', param1: 'RGB_SAI' }, { label: 'Sat -', type: '&rgb_ug', param1: 'RGB_SAD' }, { label: 'Br +', type: '&rgb_ug', param1: 'RGB_BRI' }, { label: 'Br -', type: '&rgb_ug', param1: 'RGB_BRD' }] }
+            ],
+            Custom: [
+                { category: "Modifiers & Systems", items: [
+                    { label: 'L Opt', code: 'LALT' }, { label: 'R Opt', code: 'RALT' }, { label: 'L Cmd', code: 'LGUI' }, { label: 'R Cmd', code: 'RGUI' }, { label: 'MCtl', code: 'LCTRL' }, { label: 'LPad', code: 'C_AL_LAUNCHPAD' }, { label: 'Task', code: 'C_AL_SEL_TASK' }, { label: 'File', code: 'C_AL_FILES' }, { label: 'SShot', code: 'PRINTSCREEN' }, { label: 'Cortana', code: 'C_VOICE_COMMAND' }, { label: 'Siri', code: 'C_VOICE_COMMAND' }, { label: 'Any', type: 'Custom', param1: '' }
+                ]},
+                { category: "Connectivity", items: [
+                    { label: 'BTH1', type: '&bt', param1: 'BT_SEL', param2: 0 }, { label: 'BTH2', type: '&bt', param1: 'BT_SEL', param2: 1 }, { label: 'BTH3', type: '&bt', param1: 'BT_SEL', param2: 2 }, { label: '2.4G', type: '&out', param1: 'OUT_USB' }, { label: 'Batt', type: '&ext_power', param1: 'EP_TOG' }, { label: 'BT Clr', type: '&bt', param1: 'BT_CLR' }, { label: 'PROF1', type: '&none' }, { label: 'PROF2', type: '&none' }, { label: 'PROF3', type: '&none' }
+                ]}
+            ]
+        };
+
+        // --- DECORATION LOGIC ---
+        const getContrastColor = (hexcolor) => {
+            if (!hexcolor) return '#ffffff';
+            let cleanHex = hexcolor.replace("#", "");
+            if (cleanHex.length === 3) cleanHex = cleanHex.split('').map(c => c+c).join('');
+            const r = parseInt(cleanHex.substr(0,2),16); const g = parseInt(cleanHex.substr(2,2),16); const b = parseInt(cleanHex.substr(4,2),16);
+            return (((r*299)+(g*587)+(b*114))/1000 >= 128) ? '#000000' : '#ffffff';
+        };
+
+        const ZMK_MAP = {
+            LSHFT:'⇧', LCTRL:'Ctrl', LALT:'Alt', LGUI:'⌘', RSHFT:'⇧', RCTRL:'Ctrl', RALT:'Alt', RGUI:'⌘',
+            BSPC:'⌫', RET:'↵', PG_DN:'PgDn', PG_UP:'PgUp', UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→', ESC:'Esc', TAB:'Tab',
+            MINUS:'-', EQUAL:'=', GRAVE:'`', BSLH:'\\', SEMI:';', SQT:"'", FSLH:'/', LBKT:'[', RBKT:']', COMMA:',', DOT:'.', SPACE:'␣',
+            C_VOL_DN:'Vol -', C_VOL_UP:'Vol +', C_MUTE:'Mute', C_PP:'Play', C_NEXT:'Next', C_PREV:'Prev'
+        };
+        const MOD_WRAPPER_TO_FULL = { LS: 'LSHFT', RS: 'RSHFT', LC: 'LCTRL', RC: 'RCTRL', LA: 'LALT', RA: 'RALT', LG: 'LGUI', RG: 'RGUI' };
+
+        const formatKeycode = (val) => {
+            if (!val || val === 'none' || val === '&none') return '';
+            const normalized = val.toUpperCase().replace('&', '');
+            if (ZMK_MAP[normalized]) return ZMK_MAP[normalized];
+            if (val.length === 2 && val.startsWith('N') && '0123456789'.includes(val[1])) return val[1];
+            return val;
+        };
+
+const getBeautifulLabel = (binding) => {
+            if (!binding) return '';
+            let val = binding.value;
+           
+            if (!val || val === '&none' || val === 'none') return '';
+            if (val === '&trans') return `<span class="key-center text-[18px] font-bold text-white">▽</span>`;
+            if (binding.decoration?.label) return `<span class="key-center">${binding.decoration.label}</span>`;
+            if (val === 'Custom') return `<span class="key-center text-[10px] text-MoErgo-primary">${binding.params?.[0]?.value || 'Custom'}</span>`;
+
+            let p1 = binding.params?.[0]?.value || '?';
+            let p2 = binding.params?.[1]?.value || '?';
+
+            if (val === '&kp') {
+                if (MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
+                    let modSymbol = formatKeycode(MOD_WRAPPER_TO_FULL[p1]);
+                    return `<span class="key-shift">${modSymbol}</span><span class="key-main">${formatKeycode(binding.params[0].params[0].value)}</span>`;
+                }
+                return `<span class="key-center">${formatKeycode(p1)}</span>`;
+            }
+            if (val === '&mo' || val === '&tog' || val === '&to' || val === '&sl') return `<span class="key-center text-MoErgo-primary">L${p1}</span>`;
+            if (val === '&mt') return `<span class="key-shift">${formatKeycode(p1)}</span><span class="key-main">${formatKeycode(p2)}</span>`;
+            if (val === '&lt') return `<span class="key-shift text-MoErgo-primary">L${p1}</span><span class="key-main">${formatKeycode(p2)}</span>`;
+            if (val === '&rgb_ug') return `<span class="key-center">${formatKeycode(p1)}</span>`;
+            if (val === '&bt') return `<span class="key-center">BTH${p2}</span>`;
+            if (val.startsWith('&mac')) return `<span class="key-center text-[11px] font-bold text-amber-400">${val.replace('&','')}</span>`;
+            if (val.startsWith('&ht_auto_')) return `<span class="key-center text-[10px]">${val.split('_').pop()}</span>`;
+           
+            return `<span class="key-center">${val.replace('&', '')}</span>`;
+        };
+
+        const KeyComponent = memo(({ index, geo, binding, isSelected, onSelect }) => {
+            const labelHtml = getBeautifulLabel(binding);
+            const keyStyle = { left: `${geo.x}px`, top: `${geo.y}px`, transform: geo.r ? `rotate(${geo.r}deg)` : 'none', transformOrigin: geo.o || 'center' };
+           
+            const hasCustomBg = binding?.value !== '&trans' && binding?.value !== '&none' && binding?.decoration?.background;
+            if (hasCustomBg) {
+                keyStyle.backgroundColor = binding.decoration.background;
+                keyStyle.borderColor = binding.decoration.background;
+                keyStyle.color = binding.decoration.color || getContrastColor(binding.decoration.background);
+            }
+
+            return (
+                <div className={`p-key ${isSelected ? 'selected' : ''} ${hasCustomBg ? 'has-bg' : ''}`} style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }}>
+                    {labelHtml ? <div dangerouslySetInnerHTML={{ __html: labelHtml }} className="w-full h-full relative" /> : null}
+                </div>
+            );
+        });
+
+        const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, selectedKey, onSelectKey }) => {
+            const [pan, setPan] = useState({ x: 0, y: 0 });
+            const [scale, setScale] = useState(0.8);
+            const [isDragging, setIsDragging] = useState(false);
+            const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+
+            useEffect(() => { window.currentScale = scale; window.setScale = setScale; }, [scale]);
+
+            const handleMouseDown = (e) => {
+                if(e.target.closest('.p-key')) return;
+                setIsDragging(true);
+                setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+            };
+            const handleMouseMove = (e) => {
+                if(!isDragging) return;
+                setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+            };
+            const handleMouseUp = () => setIsDragging(false);
+
+            return (
+                <div className="canvas-container absolute inset-0 flex items-center justify-center" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onClick={() => onSelectKey(null)}>
+                   
+                    {/* CANVAS ZOOM OVERLAY */}
+                    <div className="absolute top-6 right-6 flex items-center gap-3 bg-MoErgo-tabBg p-1.5 rounded-full px-4 border border-[#333] shadow-lg z-20">
+                        <span className="text-xs text-gray-500 font-bold mr-2">CANVAS</span>
+                        <button onClick={() => window.setScale(s => Math.min(s + 0.1, 2))} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg></button>
+                        <span className="text-xs font-mono font-bold w-10 text-center">{Math.round(scale * 100)}%</span>
+                        <button onClick={() => window.setScale(s => Math.max(s - 0.1, 0.4))} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg></button>
+                    </div>
+
+                    <div className="relative w-[1260px] h-[450px] origin-center" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})` }}>
+                        {keyboardGeo.map((geo, index) => (
+                            <KeyComponent key={`matrix-key-${index}`} index={index} geo={geo} binding={activeLayerBindings[index] || { value: '&none' }} isSelected={selectedKey === index} onSelect={onSelectKey} />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [config, setConfig] = useState(null);
+            const [activeLayer, setActiveLayer] = useState(0);
+            const [selectedKey, setSelectedKey] = useState(null);
+            const [activeTab, setActiveTab] = useState('Basic');
+            const [activeMenu, setActiveMenu] = useState('Keymap');
+            const [paletteScale, setPaletteScale] = useState(1.0);
+           
+            const [jsonStr, setJsonStr] = useState("");
+            const [jsonError, setJsonError] = useState("");
+           
+            const [undoStack, setUndoStack] = useState([]);
+            const [redoStack, setRedoStack] = useState([]);
+
+            const keyboardGeo = useMemo(() => {
+                if (!config) return [];
+                if (config.keyboard?.toLowerCase() === 'go60') return GO60_GEO;
+                return GLOVE80_GEO;
+            }, [config]);
+
+            useEffect(() => {
+                if (activeTab === 'JSON' && config && selectedKey !== null) {
+                    setJsonStr(JSON.stringify(config.layers[activeLayer][selectedKey] || {value: "&none"}, null, 2));
+                    setJsonError("");
+                }
+            }, [selectedKey, activeLayer, config, activeTab]);
+
+            const pushHistory = useCallback((newConfig) => {
+                setUndoStack(prev => [...prev.slice(-99), structuredClone(config)]);
+                setRedoStack([]); setConfig(newConfig);
+            }, [config]);
+
+            const undo = () => { if (undoStack.length === 0) return; const prevConfig = undoStack[undoStack.length - 1]; setRedoStack(prev => [...prev, structuredClone(config)]); setUndoStack(prev => prev.slice(0, -1)); setConfig(prevConfig); };
+            const redo = () => { if (redoStack.length === 0) return; const nextConfig = redoStack[redoStack.length - 1]; setUndoStack(prev => [...prev, structuredClone(config)]); setRedoStack(prev => prev.slice(0, -1)); setConfig(nextConfig); };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        let parsed = JSON.parse(event.target.result);
+                        parsed = parsed.keymap !== undefined ? parsed.keymap : parsed;
+                        setConfig(parsed); setActiveLayer(0); setSelectedKey(null); setUndoStack([]); setRedoStack([]);
+                        if(window.setScale) window.setScale(0.8);
+                    } catch (err) { alert("Invalid Layout File"); }
+                };
+                reader.readAsText(file); e.target.value = '';
+            };
+
+            const handleExport = () => {
+                if (!config) return;
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+                const anchor = document.createElement('a');
+                anchor.href = dataStr; anchor.download = `layout_${config.keyboard || 'custom'}.json`;
+                document.body.appendChild(anchor); anchor.click(); anchor.remove();
+            };
+
+            const assignAction = (item) => {
+                if (selectedKey === null || !config) return;
+                const newConfig = structuredClone(config);
+                let newBinding = { value: '&none' }; // Omit params for zero-param tokens
+
+                if (item.code) {
+                    newBinding = { value: '&kp', params: [{ value: item.code, params: [] }] };
+                } else if (item.type) {
+                    newBinding.value = item.type;
+                    if (item.param1 !== undefined) {
+                        newBinding.params = [{ value: item.param1, params: [] }];
+                        if (item.param2 !== undefined) newBinding.params.push({ value: item.param2, params: [] });
+                    }
+                }
+
+                if (newConfig.layers[activeLayer][selectedKey]?.decoration) {
+                    newBinding.decoration = newConfig.layers[activeLayer][selectedKey].decoration;
+                }
+                newConfig.layers[activeLayer][selectedKey] = newBinding;
+                pushHistory(newConfig);
+            };
+
+            const saveCustomJson = () => {
+                if (selectedKey === null || !config) return;
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    if (!parsed.value) throw new Error("Missing 'value' attribute.");
+                    const newConfig = structuredClone(config);
+                    newConfig.layers[activeLayer][selectedKey] = parsed;
+                    pushHistory(newConfig); setJsonError("");
+                } catch (err) { setJsonError(err.message); }
+            };
+
+            const SIDEBAR_ITEMS = [
+                { id: 'Keymap', label: 'Keymap', icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h2M10 10h2M14 10h2M6 14h10M18 10h.01M18 14h.01"/></svg> },
+                { id: 'Backlight', label: 'Backlight', icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2m0 14v2m8-10h2M3 12h2m13.071-7.071l-1.414 1.414M6.343 17.657l-1.414 1.414M17.657 17.657l1.414 1.414M6.343 6.343L4.929 4.929M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> },
+                { id: 'Macro', label: 'Macro', icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path strokeLinecap="round" strokeLinejoin="round" d="M8 16V8l4 5 4-5v8"/></svg> },
+                { id: 'Quick Start', label: 'Quick Start', icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V4L9 14h2v6l4-10h-2z"/></svg> }
+            ];
+
+            return (
+                <div className="flex h-screen w-screen font-sans text-sm overflow-hidden">
+                    <aside className="w-[260px] bg-MoErgo-sidebar border-r border-MoErgo-card flex flex-col shrink-0 py-6 px-4 z-20 h-full">
+                        <div className="text-xl font-bold text-white mb-8 px-4">MoErgo Layout</div>
+                        <div className="flex flex-col gap-2 flex-1 pl-2">
+                            {SIDEBAR_ITEMS.map((item) => (
+                                <div key={item.id} onClick={() => setActiveMenu(item.id)} className={`sidebar-item flex items-center gap-4 px-4 py-3 rounded-lg cursor-pointer font-medium transition-colors ${activeMenu === item.id ? 'bg-MoErgo-menuActiveBg text-MoErgo-menuActiveText shadow-sm' : 'text-MoErgo-textMuted hover:bg-MoErgo-cardHover'}`}>
+                                    <div className={`${activeMenu === item.id ? 'text-blue-400' : 'text-gray-500'}`}>{item.icon}</div>
+                                    <span className="tracking-wide text-[14px] font-semibold">{item.label}</span>
+                                </div>
+                            ))}
+                        </div>
+                        <div className="mt-auto border-t border-MoErgo-card pt-6 space-y-3">
+                            <label className="block w-full bg-MoErgo-card hover:bg-MoErgo-cardHover border border-MoErgo-card text-white text-center py-3 rounded-full cursor-pointer transition-colors font-medium">Load JSON<input type="file" accept=".json" className="hidden" onChange={handleFileUpload} /></label>
+                            {config && <button onClick={handleExport} className="w-full bg-MoErgo-primary hover:bg-MoErgo-primaryHover text-white font-medium py-3 rounded-full transition-colors shadow-[0_0_10px_rgba(229,95,46,0.3)]">Export Layout</button>}
+                        </div>
+                    </aside>
+
+                    <main className="flex-1 flex flex-col bg-MoErgo-base relative z-10 h-full">
+                        <header className="h-[76px] shrink-0 border-b border-MoErgo-card flex items-center justify-between px-8 bg-MoErgo-surface z-20">
+                            <div className="flex items-center gap-4">
+                                <span className="text-MoErgo-textMuted text-xs uppercase font-semibold">Layer</span>
+                                <div className="flex bg-MoErgo-tabBg p-1 rounded-full">
+                                    {config ? (config.layer_names || Array.from({length: config.layers.length})).map((name, i) => (
+                                        <button key={i} onClick={() => { setActiveLayer(i); setSelectedKey(null); }} className={`px-5 py-1.5 rounded-full text-xs font-semibold transition-colors ${activeLayer === i ? 'palette-tab-active' : 'text-MoErgo-textMuted hover:text-white'}`}>
+                                            {typeof name === 'string' ? name : `Layer ${i}`}
+                                        </button>
+                                    )) : (<div className="px-5 py-1.5 text-xs text-MoErgo-textMuted">No Layout</div>)}
+                                </div>
+                            </div>
+                           
+                            <div className="flex items-center gap-2">
+                                <span className="text-xs text-gray-500 font-bold mr-2 tracking-widest">HISTORY</span>
+                                <button onClick={undo} disabled={undoStack.length === 0} className={`p-2 rounded-full border border-MoErgo-card flex items-center gap-2 px-4 font-bold text-xs ${undoStack.length > 0 ? 'text-white bg-MoErgo-card hover:bg-MoErgo-cardHover' : 'text-MoErgo-textMuted opacity-50 cursor-not-allowed'}`} title="Undo">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a5 5 0 015 5v1m-15-6l4-4m-4 4l4 4"></path></svg> Undo
+                                </button>
+                                <button onClick={redo} disabled={redoStack.length === 0} className={`p-2 rounded-full border border-MoErgo-card flex items-center gap-2 px-4 font-bold text-xs ${redoStack.length > 0 ? 'text-white bg-MoErgo-card hover:bg-MoErgo-cardHover' : 'text-MoErgo-textMuted opacity-50 cursor-not-allowed'}`} title="Redo">
+                                    Redo <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 10H11a5 5 0 00-5 5v1m15-6l-4-4m4 4l-4 4"></path></svg>
+                                </button>
+                            </div>
+                        </header>
+
+                        <section className="flex-1 flex relative overflow-hidden">
+                            {!config ? (
+                                <div className="m-auto text-MoErgo-textMuted flex flex-col items-center gap-4 bg-MoErgo-panel p-8 rounded-2xl border border-MoErgo-card shadow-2xl">
+                                    <span className="font-medium">Upload a MoErgo JSON layout to begin.</span>
+                                </div>
+                            ) : <KeyboardContainer keyboardGeo={keyboardGeo} activeLayerBindings={config.layers[activeLayer]} selectedKey={selectedKey} onSelectKey={setSelectedKey} />}
+                        </section>
+
+                        {config && (
+                            <section className="flex-[0.45] min-h-[250px] max-h-[500px] shrink-0 bg-[#222222] border-t border-[#333] flex flex-col z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+                                <div className="p-4 flex items-center">
+                                    <div className="bg-MoErgo-tabBg p-1.5 rounded-full inline-flex gap-2">
+                                        {['Basic', 'Media', 'Macro', 'Special Keys', 'Lighting', 'Custom', 'Layer', 'JSON'].map(tab => (
+                                            <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-1.5 rounded-full text-xs font-semibold transition-all ${activeTab === tab ? 'palette-tab-active' : 'text-gray-400 hover:text-white'}`}>
+                                                {tab}
+                                            </button>
+                                        ))}
+                                    </div>
+                                   
+                                    {/* PALETTE ZOOM CONTROLS */}
+                                    <div className="ml-auto flex items-center gap-3 bg-MoErgo-tabBg p-1.5 rounded-full px-4 border border-[#333]">
+                                        <span className="text-xs text-gray-500 font-bold mr-2 tracking-widest">PALETTE ZOOM</span>
+                                        <button onClick={() => setPaletteScale(s => Math.min(s + 0.2, 2))} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg></button>
+                                        <span className="text-xs font-mono font-bold w-10 text-center">{Math.round(paletteScale * 100)}%</span>
+                                        <button onClick={() => setPaletteScale(s => Math.max(s - 0.2, 0.6))} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg></button>
+                                    </div>
+                                </div>
+                               
+                                <div className="flex-1 px-6 pb-6 overflow-y-auto">
+                                    {selectedKey === null ? (
+                                        <div className="h-full flex items-center text-gray-500 italic">Select a key on the canvas to assign a new binding.</div>
+                                    ) : (
+                                        <div className="flex flex-col gap-4">
+                                            {activeTab === 'Macro' ? (
+                                                <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                    {(config.macros && config.macros.length > 0) ? (
+                                                        config.macros.map((m, i) => (
+                                                            <button key={i} onClick={() => assignAction({ type: m.name })} className="palette-btn">
+                                                                {m.name.replace('&', '')}
+                                                            </button>
+                                                        ))
+                                                    ) : <div className="text-gray-500 text-xs">No custom macros defined in layout file.</div>}
+                                                </div>
+                                            ) : activeTab === 'Layer' ? (
+                                                <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                    {(config.layer_names || config.layers).map((n, i) => (
+                                                        <React.Fragment key={i}>
+                                                            <button onClick={() => assignAction({ type: '&mo', param1: i })} className="palette-btn text-purple-300">MO {i}</button>
+                                                            <button onClick={() => assignAction({ type: '&tog', param1: i })} className="palette-btn text-emerald-300">TOG {i}</button>
+                                                        </React.Fragment>
+                                                    ))}
+                                                </div>
+                                            ) : activeTab === 'JSON' ? (
+                                                <div className="flex flex-col w-full max-w-2xl">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-xs text-gray-400">Raw JSON AST (Layer {activeLayer}, Key {selectedKey})</span>
+                                                        <button onClick={saveCustomJson} className="bg-MoErgo-primary text-white text-xs px-4 py-1.5 rounded hover:bg-[#c54a1f] transition-colors">Apply JSON</button>
+                                                    </div>
+                                                    <textarea className={`w-full bg-[#111] text-emerald-400 font-mono text-xs p-4 rounded-lg border outline-none resize-none min-h-[120px] ${jsonError ? 'border-red-500' : 'border-[#333] focus:border-gray-500'}`} value={jsonStr} onChange={(e) => setJsonStr(e.target.value)} spellCheck="false" />
+                                                    {jsonError && <div className="text-red-400 text-xs mt-2">{jsonError}</div>}
+                                                </div>
+                                            ) : (
+                                                (PALETTE_DATA[activeTab.replace(' ', '')] || PALETTE_DATA['Basic']).map((section, sIdx) => (
+                                                    <div key={sIdx} className="mb-4">
+                                                        {section.category && <div className="text-white text-sm font-bold flex items-center gap-2 mb-3">{section.category}</div>}
+                                                        <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                            {section.items.map((item, idx) => (
+                                                                <button key={idx} onClick={() => assignAction(item)} className="palette-btn">
+                                                                    {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : item.label}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
