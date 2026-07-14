@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLIDE — Graphical Layout & Intent Definition Editor</title>
+   
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        MoErgo: {
+                            base: '#1a1a1a', surface: '#222222', panel: '#282828', sidebar: '#222327',
+                            card: '#333333', cardHover: '#444444', primary: '#e55f2e', primaryHover: '#c9531f', textMain: '#ffffff',
+                            textMuted: '#9ca3af', tabActive: '#e5e5e5', tabBg: '#2a2a2a', menuActiveBg: '#2f303a'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }
+                }
+            }
+        }
+    </script>
+   
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+   
+    <style>
+        body { background-color: #1a1a1a; color: #ffffff; overflow: hidden; margin: 0; }
+       
+        /* Interactive Canvas */
+        .canvas-container {
+            background-color: #1a1a1a;
+            background-image: radial-gradient(circle, #333333 1px, transparent 1px);
+            background-size: 24px 24px;
+            cursor: grab; overflow: hidden;
+        }
+        .canvas-container:active { cursor: grabbing; }
+
+        /* Canvas Physical Key Styling */
+        .p-key {
+            position: absolute; width: 62px; height: 62px; border-radius: 6px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: pointer; transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s, border-color 0.1s; user-select: none;
+            background: linear-gradient(180deg, #3c3c3c 0%, #303030 55%, #2b2b2b 100%);
+            border: 1px solid #161616;
+            /* Keycap-style bottom shadow line: a thin top highlight for a slight bevel, a solid
+               bottom edge line for depth, and a soft drop shadow so keys read as physical caps
+               rather than flat rectangles. */
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -2px 0 rgba(0,0,0,0.35), 0 2px 3px rgba(0,0,0,0.45);
+            padding: 4px; text-align: center; overflow: hidden; color: #e5e5e5; z-index: 1;
+        }
+        .p-key:active { transform: scale(0.96) translateY(1px) !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5) !important; background: #282828; }
+        .p-key:hover { border-color: #6b6b6b; background: linear-gradient(180deg, #454545 0%, #383838 55%, #333333 100%); color: #ffffff; z-index: 5; }
+        .p-key.selected { border-color: #e55f2e !important; color: #ffffff !important; box-shadow: 0 0 0 2px rgba(229, 95, 46, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important; z-index: 10; background: linear-gradient(180deg, #593d30 0%, #4a342c 100%); }
+        .p-key:not(.selected).has-bg:hover { filter: brightness(1.2); border-color: #ffffff !important; }
+
+        .key-center { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 11px; font-weight: 600; text-align: center; line-height: 1.2; word-break: break-word; color: inherit; }
+        .key-dual { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: inherit; }
+        .key-shift { position: absolute; top: 4px; left: 8px; font-size: 10px; opacity: 0.7; font-weight: 600; color: inherit; }
+        .key-main { position: absolute; bottom: 6px; left: 8px; font-weight: 700; font-size: 13px; color: inherit; }
+
+        /* Palette Button Styling (Dynamic Scale via CSS Var) */
+        .palette-btn {
+            min-width: calc(52px * var(--btn-scale, 1));
+            height: calc(52px * var(--btn-scale, 1));
+            background-color: #383838; border-radius: 6px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: calc(11px * var(--btn-scale, 1)); font-weight: 700; color: #ffffff;
+            cursor: pointer; transition: background-color 0.1s;
+            padding: 4px; border: 1px solid transparent; line-height: 1.2;
+        }
+        .palette-btn .key-dual { font-size: calc(11px * var(--btn-scale, 1)); gap: calc(4px * var(--btn-scale, 1)); }
+        .palette-btn:hover { background-color: #4a4a4a; border-color: #666666; }
+        .palette-tab-active { background-color: #e5e5e5; color: #000000; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.8); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body>
+    <div id="root" class="h-screen w-screen flex"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
+
+        const GLOVE80_GEO = [
+            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:910,y:0},{x:980,y:0},{x:1050,y:0},{x:1120,y:35},{x:1190,y:35},
+            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:840,y:70},{x:910,y:70},{x:980,y:70},{x:1050,y:70},{x:1120,y:105},{x:1190,y:105},
+            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:840,y:140},{x:910,y:140},{x:980,y:140},{x:1050,y:140},{x:1120,y:175},{x:1190,y:175},
+            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:840,y:210},{x:910,y:210},{x:980,y:210},{x:1050,y:210},{x:1120,y:245},{x:1190,y:245},
+            {x:0,y:315},{x:70,y:315},{x:140,y:280},{x:210,y:280},{x:280,y:280},{x:350,y:280},
+            {x:448,y:280,r:20,o:"-168px 0px"},{x:546,y:231,r:30,o:"-266px 0px"},{x:707,y:105,r:45,o:"-427px 0px"},{x:490,y:105,r:-45,o:"490px 0px"},{x:651,y:231,r:-30,o:"329px 0px"},{x:749,y:280,r:-20,o:"231px 0px"},
+            {x:840,y:280},{x:910,y:280},{x:980,y:280},{x:1050,y:280},{x:1120,y:315},{x:1190,y:315},
+            {x:0,y:385},{x:70,y:385},{x:140,y:350},{x:210,y:350},{x:280,y:350},
+            {x:371,y:378,r:15,o:"-91px 0px"},{x:462,y:350,r:25,o:"-182px 0px"},{x:630,y:224,r:45,o:"-350px 0px"},{x:560,y:224,r:-45,o:"420px 0px"},{x:728,y:350,r:-25,o:"252px 0px"},{x:819,y:378,r:-15,o:"161px 0px"},
+            {x:910,y:350},{x:980,y:350},{x:1050,y:350},{x:1120,y:385},{x:1190,y:385}
+        ];
+
+        const GO60_GEO = [
+            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:350,y:0},{x:805,y:0},{x:875,y:0},{x:945,y:0},{x:1015,y:0},{x:1085,y:35},{x:1155,y:35},
+            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:805,y:70},{x:875,y:70},{x:945,y:70},{x:1015,y:70},{x:1085,y:105},{x:1155,y:105},
+            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:805,y:140},{x:875,y:140},{x:945,y:140},{x:1015,y:140},{x:1085,y:175},{x:1155,y:175},
+            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:805,y:210},{x:875,y:210},{x:945,y:210},{x:1015,y:210},{x:1085,y:245},{x:1155,y:245},
+            {x:140,y:280},{x:210,y:280},{x:280,y:280},{x:875,y:280},{x:945,y:280},{x:1015,y:280},
+            {x:364,y:287,r:12.5,o:"0px 0px"},{x:448,y:308,r:25,o:"0px 0px"},{x:525,y:346.5,r:37,o:"0px 0px"},
+            {x:640.5,y:385,r:-37,o:"0px 0px"},{x:710.5,y:336,r:-25,o:"0px 0px"},{x:791,y:301,r:-12.5,o:"0px 0px"}
+        ];
+
+        const PALETTE_DATA = {
+            Basic: [
+                { category: "Letter Keys", items: [ { label: 'A', code: 'A' }, { label: 'B', code: 'B' }, { label: 'C', code: 'C' }, { label: 'D', code: 'D' }, { label: 'E', code: 'E' }, { label: 'F', code: 'F' }, { label: 'G', code: 'G' }, { label: 'H', code: 'H' }, { label: 'I', code: 'I' }, { label: 'J', code: 'J' }, { label: 'K', code: 'K' }, { label: 'L', code: 'L' }, { label: 'M', code: 'M' }, { label: 'N', code: 'N' }, { label: 'O', code: 'O' }, { label: 'P', code: 'P' }, { label: 'Q', code: 'Q' }, { label: 'R', code: 'R' }, { label: 'S', code: 'S' }, { label: 'T', code: 'T' }, { label: 'U', code: 'U' }, { label: 'V', code: 'V' }, { label: 'W', code: 'W' }, { label: 'X', code: 'X' }, { label: 'Y', code: 'Y' }, { label: 'Z', code: 'Z' } ] },
+                { category: "Number Keys", items: [ { label: '1', code: 'N1' }, { label: '2', code: 'N2' }, { label: '3', code: 'N3' }, { label: '4', code: 'N4' }, { label: '5', code: 'N5' }, { label: '6', code: 'N6' }, { label: '7', code: 'N7' }, { label: '8', code: 'N8' }, { label: '9', code: 'N9' }, { label: '0', code: 'N0' } ] },
+                { category: "Symbol Keys", items: [
+                    { top: '!', bottom: '1', code: 'N1' }, { top: '@', bottom: '2', code: 'N2' }, { top: '#', bottom: '3', code: 'N3' }, { top: '$', bottom: '4', code: 'N4' }, { top: '%', bottom: '5', code: 'N5' }, { top: '^', bottom: '6', code: 'N6' }, { top: '&', bottom: '7', code: 'N7' }, { top: '*', bottom: '8', code: 'N8' }, { top: '(', bottom: '9', code: 'N9' }, { top: ')', bottom: '0', code: 'N0' },
+                    { top: '_', bottom: '-', code: 'MINUS' }, { top: '+', bottom: '=', code: 'EQUAL' }, { top: '~', bottom: '`', code: 'GRAVE' }, { top: '{', bottom: '[', code: 'LBKT' }, { top: '}', bottom: ']', code: 'RBKT' }, { top: '|', bottom: '\\', code: 'BSLH' }, { top: ':', bottom: ';', code: 'SEMI' }, { top: '"', bottom: "'", code: 'SQT' }, { top: '<', bottom: ',', code: 'COMMA' }, { top: '>', bottom: '.', code: 'DOT' }, { top: '?', bottom: '/', code: 'FSLH' },
+                    { label: '=', code: 'KP_EQUAL' }, { label: ',', code: 'KP_COMMA' }, { label: '÷', code: 'KP_DIVIDE' }, { label: '×', code: 'KP_MULTIPLY' }, { label: '-', code: 'KP_MINUS' }, { label: '+', code: 'KP_PLUS' }, { label: '.', code: 'KP_DOT' }
+                ] },
+                { category: "Function Keys", items: [
+                    { label: '▽', type: '&trans' }, { label: '∅ None', type: '&none' }, { label: 'F1', code: 'F1' }, { label: 'F2', code: 'F2' }, { label: 'F3', code: 'F3' }, { label: 'F4', code: 'F4' }, { label: 'F5', code: 'F5' }, { label: 'F6', code: 'F6' }, { label: 'F7', code: 'F7' }, { label: 'F8', code: 'F8' }, { label: 'F9', code: 'F9' }, { label: 'F10', code: 'F10' }, { label: 'F11', code: 'F11' }, { label: 'F12', code: 'F12' },
+                    { label: 'L shift', code: 'LSHFT' }, { label: 'R shift', code: 'RSHFT' }, { label: 'L ctrl', code: 'LCTRL' }, { label: 'R ctrl', code: 'RCTRL' }, { label: 'L win', code: 'LGUI' }, { label: 'R win', code: 'RGUI' }, { label: 'L Alt', code: 'LALT' }, { label: 'R Alt', code: 'RALT' },
+                    { label: 'Caps Lock', code: 'CAPS' }, { label: 'Tab', code: 'TAB' }, { label: 'Backspace', code: 'BSPC' }, { label: 'Enter', code: 'RET' }, { label: 'Space', code: 'SPACE' }, { label: 'Ins', code: 'INS' }, { label: 'Del', code: 'DEL' }, { label: 'Home', code: 'HOME' }, { label: 'End', code: 'END' }, { label: 'PgUp', code: 'PG_UP' }, { label: 'PgDn', code: 'PG_DN' }, { label: 'Esc', code: 'ESC' }, { label: 'Print', code: 'PRINTSCREEN' }, { label: 'Scroll', code: 'SLCK' }, { label: 'Pause', code: 'PAUSE_BREAK' }, { label: 'RApp', code: 'K_APP' }, { label: 'N.ent', code: 'KP_ENTER' }, { label: 'N.Lck', code: 'KP_NUM' }
+                ] }
+            ],
+            Media: [ { category: "", items: [{ label: 'Vol -', code: 'C_VOL_DN' }, { label: 'Vol +', code: 'C_VOL_UP' }, { label: 'Mute', code: 'C_MUTE' }, { label: 'Play', code: 'C_PP' }, { label: 'Mstp', code: 'C_STOP' }, { label: 'Prvs', code: 'C_PREV' }, { label: 'Next', code: 'C_NEXT' }, { label: 'Rewind', code: 'C_RW' }, { label: 'Mffd', code: 'C_FF' }, { label: 'Select', code: 'C_AL_SEL_TASK' }, { label: 'Eject', code: 'C_EJECT' }] } ],
+            SpecialKeys: [
+                { category: "General", items: [
+                    { label: 'Nuhs', code: 'NON_US_HASH' }, { label: 'Nubs', code: 'NON_US_BSLH' }, { label: 'Ro', code: 'INT3' }, { label: '¥', code: 'INT1' }, { label: '無変換', code: 'INT5' }, { label: '漢字', code: 'INT4' }, { label: '한영', code: 'LANG1' }, { label: '変換', code: 'INT4' }, { label: 'かな', code: 'INT2' }, { label: 'Esc `', code: 'GRAVE' }, { label: '(', type: '&kp', param1: 'LPAR' }, { label: ')', type: '&kp', param1: 'RPAR' }, { label: 'SftEnt', type: '&kp', param1: 'RET' }, { label: 'Reset', type: '&sys_reset' }, { label: 'Boot', type: '&bootloader' },
+                    { label: 'F13', code: 'F13' }, { label: 'F14', code: 'F14' }, { label: 'F15', code: 'F15' }, { label: 'F16', code: 'F16' }, { label: 'F17', code: 'F17' }, { label: 'F18', code: 'F18' }, { label: 'F19', code: 'F19' }, { label: 'Mouse ↑', type: '&mmv', param1: 'MOVE_UP' }, { label: 'Mouse ↓', type: '&mmv', param1: 'MOVE_DOWN' }, { label: 'Mouse ←', type: '&mmv', param1: 'MOVE_LEFT' }, { label: 'Mouse →', type: '&mmv', param1: 'MOVE_RIGHT' }, { label: 'Mouse Btn1', type: '&mkp', param1: 'MB1' }, { label: 'Mouse Btn2', type: '&mkp', param1: 'MB2' }, { label: 'Mouse Btn3', type: '&mkp', param1: 'MB3' }
+                ] },
+                { category: "Windows", items: [ { label: 'Lock Win', code: 'LGUI' }, { label: 'Calc', code: 'C_AL_CALC' }, { label: 'Mail', code: 'C_AL_EMAIL' }, { label: 'My Comp', code: 'C_AL_MY_COMPUTER' }, { label: 'Home', code: 'C_AC_HOME' }, { label: 'Back', code: 'C_AC_BACK' }, { label: 'Forward', code: 'C_AC_FORWARD' }, { label: 'Stop', code: 'C_AC_STOP' }, { label: 'Refresh', code: 'C_AC_REFRESH' }, { label: 'Favorites', code: 'C_AL_BOOKMARKS' }, { label: 'Search', code: 'C_AC_SEARCH' }, { label: 'Power', code: 'C_PWR' }, { label: 'Sleep', code: 'C_SLEEP' } ] },
+                { category: "Mac", items: [ { label: 'Power OSX', code: 'C_PWR' }, { label: 'MCtrl', code: 'LCTRL' }, { label: 'LPad', code: 'C_AL_LAUNCHPAD' }, { label: 'Wake', code: 'C_SLEEP' }, { label: 'Power', code: 'C_PWR' }, { label: 'Sleep', code: 'C_SLEEP' } ] },
+                { category: "Linux", items: [ { label: 'Help', code: 'C_AL_CALC' }, { label: 'Menu', code: 'K_CMENU' }, { label: 'Undo', code: 'C_AC_UNDO' }, { label: 'Cut', code: 'C_AC_CUT' }, { label: 'Copy', code: 'C_AC_COPY' }, { label: 'Paste', code: 'C_AC_PASTE' } ] }
+            ],
+            Lighting: [ { category: "", items: [{ label: 'RGB Tog', type: '&rgb_ug', param1: 'RGB_TOG' }, { label: 'Mode +', type: '&rgb_ug', param1: 'RGB_EFF' }, { label: 'Mode -', type: '&rgb_ug', param1: 'RGB_EFR' }, { label: 'Hue +', type: '&rgb_ug', param1: 'RGB_HUI' }, { label: 'Hue -', type: '&rgb_ug', param1: 'RGB_HUD' }, { label: 'Sat +', type: '&rgb_ug', param1: 'RGB_SAI' }, { label: 'Sat -', type: '&rgb_ug', param1: 'RGB_SAD' }, { label: 'Br +', type: '&rgb_ug', param1: 'RGB_BRI' }, { label: 'Br -', type: '&rgb_ug', param1: 'RGB_BRD' }] } ],
+            Custom: [
+                { category: "Modifiers & Systems", items: [ { label: 'L Opt', code: 'LALT' }, { label: 'R Opt', code: 'RALT' }, { label: 'L Cmd', code: 'LGUI' }, { label: 'R Cmd', code: 'RGUI' }, { label: 'MCtl', code: 'LCTRL' }, { label: 'LPad', code: 'C_AL_LAUNCHPAD' }, { label: 'Task', code: 'C_AL_SEL_TASK' }, { label: 'File', code: 'C_AL_FILES' }, { label: 'SShot', code: 'PRINTSCREEN' }, { label: 'Cortana', code: 'C_VOICE_COMMAND' }, { label: 'Siri', code: 'C_VOICE_COMMAND' }, { label: 'Any', type: 'Custom', param1: '' } ] },
+                { category: "Connectivity", items: [ { label: 'BTH1', type: '&bt', param1: 'BT_SEL', param2: 0 }, { label: 'BTH2', type: '&bt', param1: 'BT_SEL', param2: 1 }, { label: 'BTH3', type: '&bt', param1: 'BT_SEL', param2: 2 }, { label: '2.4G', type: '&out', param1: 'OUT_USB' }, { label: 'Batt', type: '&ext_power', param1: 'EP_TOG' }, { label: 'BT Clr', type: '&bt', param1: 'BT_CLR' }, { label: 'PROF1', type: '&none' }, { label: 'PROF2', type: '&none' }, { label: 'PROF3', type: '&none' } ] }
+            ]
+        };
+
+        const FLAT_GRID_TABS = ['Basic', 'Media', 'Special Keys', 'Lighting', 'Custom'];
+
+        // A small, deliberately limited preset palette -- enough to color-code a layout (e.g. by
+        // layer or function) without turning key-coloring into its own whole feature to learn.
+        const KEY_COLOR_PRESETS = ['#e5484d', '#f76b15', '#f5d90a', '#46a758', '#12a594', '#0091ff', '#8e4ec6', '#e93d82'];
+
+        // Filters a tab's sections by a search query, matching against the button's own label
+        // (top/bottom pair or plain label), and drops any section left with zero matches so empty
+        // category headers don't show up.
+        function filterPaletteSections(sections, query) {
+            const q = query.trim().toLowerCase();
+            if (!q) return sections;
+            return sections
+                .map(section => ({
+                    ...section,
+                    items: section.items.filter(item => {
+                        const text = [item.label, item.top, item.bottom, item.code].filter(Boolean).join(' ').toLowerCase();
+                        return text.includes(q);
+                    })
+                }))
+                .filter(section => section.items.length > 0);
+        }
+
+        // Cross-tab version: searches every flat-grid tab at once rather than just the active one,
+        // so typing "volume" finds it even while sitting on the Basic tab. Each result keeps track
+        // of which tab it came from so the results view can label it.
+        function searchAcrossAllPalette(query) {
+            if (!query.trim()) return [];
+            const results = [];
+            FLAT_GRID_TABS.forEach(tabName => {
+                const sections = PALETTE_DATA[tabName.replace(' ', '')] || [];
+                filterPaletteSections(sections, query).forEach(section => {
+                    results.push({ tabName, category: section.category, items: section.items });
+                });
+            });
+            return results;
+        }
+
+        const getContrastColor = (hexcolor) => {
+            if (!hexcolor) return '#ffffff';
+            let cleanHex = hexcolor.replace("#", "");
+            if (cleanHex.length === 3) cleanHex = cleanHex.split('').map(c => c+c).join('');
+            const r = parseInt(cleanHex.substr(0,2),16); const g = parseInt(cleanHex.substr(2,2),16); const b = parseInt(cleanHex.substr(4,2),16);
+            return (((r*299)+(g*587)+(b*114))/1000 >= 128) ? '#000000' : '#ffffff';
+        };
+
+        const ZMK_MAP = {
+            LSHFT:'⇧', LCTRL:'Ctrl', LALT:'Alt', RSHFT:'⇧', RCTRL:'Ctrl', RALT:'Alt',
+            BSPC:'⌫', RET:'↵', PG_DN:'PgDn', PG_UP:'PgUp', UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→', ESC:'Esc', TAB:'Tab',
+            MINUS:'-', EQUAL:'=', GRAVE:'`', BSLH:'\\', SEMI:';', SQT:"'", FSLH:'/', LBKT:'[', RBKT:']', COMMA:',', DOT:'.', SPACE:'␣',
+            C_VOL_DN:'Vol -', C_VOL_UP:'Vol +', C_MUTE:'Mute', C_PP:'Play', C_NEXT:'Next', C_PREV:'Prev'
+        };
+        const MOD_WRAPPER_TO_FULL = { LS: 'LSHFT', RS: 'RSHFT', LC: 'LCTRL', RC: 'RCTRL', LA: 'LALT', RA: 'RALT', LG: 'LGUI', RG: 'RGUI' };
+
+        // GUI key (LGUI/RGUI) is Cmd on macOS and the Windows key on Windows/Linux -- same ZMK
+        // keycode either way, so this is a display-only preference threaded through as a parameter
+        // rather than a module-level global, since these are plain functions called from React
+        // render paths that need to react to the osMode toggle.
+        const guiSymbol = (osMode) => osMode === 'mac' ? '⌘' : '⊞';
+
+        const formatKeycode = (val, osMode) => {
+            if (!val || val === 'none' || val === '&none') return '';
+            const normalized = val.toUpperCase().replace('&', '');
+            if (normalized === 'LGUI' || normalized === 'RGUI') return guiSymbol(osMode);
+            if (ZMK_MAP[normalized]) return ZMK_MAP[normalized];
+            if (val.length === 2 && val.startsWith('N') && '0123456789'.includes(val[1])) return val[1];
+            return val;
+        };
+
+        // Loaded layout files are untrusted input -- decoration labels and custom-behavior names
+        // get rendered via dangerouslySetInnerHTML for the canvas key display, so anything from the
+        // file itself must be escaped first or a crafted label could inject arbitrary markup.
+        const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+        const getBeautifulLabel = (binding, osMode) => {
+            if (!binding) return '';
+            let val = binding.value;
+            if (!val || val === '&none' || val === 'none') return '';
+            if (val === '&trans') return `<span class="key-center text-[18px] font-bold text-white">▽</span>`;
+            if (binding.decoration?.label) return `<span class="key-center">${escapeHtml(binding.decoration.label)}</span>`;
+            if (val === 'Custom') return `<span class="key-center text-[10px] text-MoErgo-primary">${escapeHtml(binding.params?.[0]?.value || 'Custom')}</span>`;
+            let p1 = binding.params?.[0]?.value || '?';
+            let p2 = binding.params?.[1]?.value || '?';
+            if (val === '&kp') {
+                if (MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
+                    let modSymbol = formatKeycode(MOD_WRAPPER_TO_FULL[p1], osMode);
+                    return `<span class="key-shift">${modSymbol}</span><span class="key-main">${formatKeycode(binding.params[0].params[0].value, osMode)}</span>`;
+                }
+                return `<span class="key-center">${formatKeycode(p1, osMode)}</span>`;
+            }
+            if (val === '&mo' || val === '&tog' || val === '&to' || val === '&sl') return `<span class="key-center text-MoErgo-primary">L${p1}</span>`;
+            if (val === '&mt') return `<span class="key-shift">${formatKeycode(p1, osMode)}</span><span class="key-main">${formatKeycode(p2, osMode)}</span>`;
+            if (val === '&lt') return `<span class="key-shift text-MoErgo-primary">L${p1}</span><span class="key-main">${formatKeycode(p2, osMode)}</span>`;
+            if (val === '&rgb_ug') return `<span class="key-center">${formatKeycode(p1, osMode)}</span>`;
+            if (val === '&bt') return `<span class="key-center">BTH${p2}</span>`;
+            if (val.startsWith('&mac')) return `<span class="key-center text-[11px] font-bold text-amber-400">${escapeHtml(val.replace('&',''))}</span>`;
+            if (val.startsWith('&ht_auto_')) return `<span class="key-center text-[10px]">${escapeHtml(val.split('_').pop())}</span>`;
+            return `<span class="key-center">${escapeHtml(val.replace('&', ''))}</span>`;
+        };
+
+        // Short plain-text summary for the "currently editing" readout -- deliberately simpler
+        // than getBeautifulLabel (no HTML, no OS-awareness needed for a text-only line).
+        // Palette buttons for LGUI/RGUI are hand-labeled "L win"/"R win" etc. in PALETTE_DATA --
+        // override those specifically so the button itself matches the current OS toggle instead of
+        // staying stuck on whichever OS the data happened to be written for.
+        const paletteLabel = (item, osMode) => {
+            if (item.code === 'LGUI') return osMode === 'mac' ? 'L Cmd' : 'L Win';
+            if (item.code === 'RGUI') return osMode === 'mac' ? 'R Cmd' : 'R Win';
+            return item.label;
+        };
+
+        const describeBinding = (binding) => {
+            if (!binding || !binding.value || binding.value === '&none' || binding.value === 'none') return 'Empty';
+            if (binding.value === '&trans') return 'Transparent (falls through to base layer)';
+            const val = binding.value;
+            const p1 = binding.params?.[0]?.value;
+            const p2 = binding.params?.[1]?.value;
+            if (val === '&kp') return p1 ? String(p1) : '&kp';
+            if (val === '&mo') return `Momentary Layer ${p1}`;
+            if (val === '&tog') return `Toggle Layer ${p1}`;
+            if (val === '&to') return `Switch to Layer ${p1}`;
+            if (val === '&sl') return `Sticky Layer ${p1}`;
+            if (val === 'Custom') return p1 ? String(p1) : 'Custom';
+            if (val.startsWith('&')) return val.replace('&', '') + (p1 !== undefined ? ` ${p1}` : '') + (p2 !== undefined ? ` ${p2}` : '');
+            return val;
+        };
+
+        const KeyComponent = memo(({ index, geo, binding, isSelected, onSelect, osMode, onContextMenu }) => {
+            const labelHtml = getBeautifulLabel(binding, osMode);
+            const keyStyle = { left: `${geo.x}px`, top: `${geo.y}px`, transform: geo.r ? `rotate(${geo.r}deg)` : 'none', transformOrigin: geo.o || 'center' };
+            const hasCustomBg = binding?.value !== '&trans' && binding?.value !== '&none' && binding?.decoration?.background;
+            if (hasCustomBg) {
+                // Must set the `background` shorthand, not just `backgroundColor` -- the .p-key CSS
+                // class paints a gradient via `background-image` (part of the `background`
+                // shorthand) for the keycap bevel effect, which sits visually on top of and hides
+                // a plain backgroundColor override. Setting the shorthand here correctly cancels
+                // that gradient layer too, the same way it would in the stylesheet.
+                keyStyle.background = binding.decoration.background;
+                keyStyle.borderColor = binding.decoration.background;
+                keyStyle.color = binding.decoration.color || getContrastColor(binding.decoration.background);
+            }
+            return (
+                <div className={`p-key ${isSelected ? 'selected' : ''} ${hasCustomBg ? 'has-bg' : ''}`} style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }} onContextMenu={(e) => onContextMenu(e, index)}>
+                    {labelHtml ? <div dangerouslySetInnerHTML={{ __html: labelHtml }} className="w-full h-full relative" /> : null}
+                </div>
+            );
+        });
+
+        // Native design-space size of the keyboard canvas (matches the geometry coordinate systems
+        // used by GLOVE80_GEO/GO60_GEO). Auto-fit scale is computed relative to this.
+        const CANVAS_NATIVE_W = 1260;
+        const CANVAS_NATIVE_H = 450;
+
+        const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, selectedKey, onSelectKey, scale, setScale, osMode, onContextAction, clipboard, styleClipboard }) => {
+            const containerRef = useRef(null);
+            const [autoFitScale, setAutoFitScale] = useState(1);
+            const [pan, setPan] = useState({ x: 0, y: 0 });
+            const [isDragging, setIsDragging] = useState(false);
+            const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+            const [contextMenu, setContextMenu] = useState(null); // { x, y, keyIndex } | null
+
+            // Auto-fit: recompute whenever the available canvas area changes size for ANY reason --
+            // browser window resize, sidebar/panel layout changes, or the bottom panel being
+            // dragged to a new height -- so the keyboard always fills the space without clipping
+            // or needing to scroll, and stays centered (pan resets alongside it).
+            useEffect(() => {
+                const el = containerRef.current;
+                if (!el) return;
+                const PADDING_FACTOR = 0.88; // breathing room so keys never touch the edges
+                const compute = () => {
+                    const { width, height } = el.getBoundingClientRect();
+                    if (width === 0 || height === 0) return;
+                    const fit = Math.min(width / CANVAS_NATIVE_W, height / CANVAS_NATIVE_H) * PADDING_FACTOR;
+                    setAutoFitScale(Math.max(0.2, Math.min(fit, 2)));
+                    setPan({ x: 0, y: 0 });
+                };
+                compute();
+                const ro = new ResizeObserver(compute);
+                ro.observe(el);
+                return () => ro.disconnect();
+            }, [keyboardGeo]);
+
+            const effectiveScale = autoFitScale * scale;
+
+            const handleMouseDown = (e) => {
+                if(e.target.closest('.p-key')) return;
+                setIsDragging(true);
+                setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+            };
+            const handleMouseMove = (e) => {
+                if(!isDragging) return;
+                setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+            };
+            const handleMouseUp = () => setIsDragging(false);
+            const openContextMenu = (e, index) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onSelectKey(index);
+                setContextMenu({ x: e.clientX, y: e.clientY, keyIndex: index });
+            };
+            const closeContextMenu = () => setContextMenu(null);
+            const runContextAction = (action) => {
+                if (contextMenu) onContextAction(action, contextMenu.keyIndex);
+                closeContextMenu();
+            };
+            return (
+                <div ref={containerRef} className="canvas-container absolute inset-0 flex items-center justify-center" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onClick={() => { onSelectKey(null); closeContextMenu(); }}>
+                    <div className="absolute top-6 right-6 flex items-center gap-3 bg-MoErgo-tabBg p-1.5 rounded-full px-4 border border-[#333] shadow-lg z-20">
+                        <span className="text-xs text-gray-500 font-bold mr-2 hidden sm:inline">CANVAS</span>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(s + 0.1, 2)); }} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg></button>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(1); setPan({x:0,y:0}); }} className="text-xs font-mono font-bold w-12 text-center hover:text-white transition-colors" title="Reset to auto-fit and re-center">{Math.round(effectiveScale * 100)}%</button>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(s - 0.1, 0.4)); }} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg></button>
+                        <div className="w-px h-4 bg-[#444]"></div>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(1); setPan({x:0,y:0}); }} className="text-gray-400 hover:text-white" title="Fit and center the keyboard">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m-4 12h2a2 2 0 002-2v-2"></path></svg>
+                        </button>
+                    </div>
+                    <div className="absolute top-6 left-6 flex items-center gap-2 z-20 hidden md:flex">
+                        {(!clipboard && !styleClipboard) && (
+                            <div className="text-[11px] text-gray-500 bg-MoErgo-tabBg px-4 py-2 rounded-full border border-[#333] pointer-events-none">
+                                Right-click a key to copy, paste, or clear it
+                            </div>
+                        )}
+                        {clipboard && (
+                            <div className="text-[11px] text-gray-300 bg-MoErgo-tabBg px-3 py-2 rounded-full border border-[#333] flex items-center gap-1.5">
+                                📋 <span className="font-mono text-white">{describeBinding(clipboard)}</span>
+                            </div>
+                        )}
+                        {styleClipboard && (
+                            <div className="text-[11px] text-gray-300 bg-MoErgo-tabBg px-3 py-2 rounded-full border border-[#333] flex items-center gap-1.5">
+                                🎨 <span className="w-3 h-3 rounded-full border border-white/20" style={{ background: styleClipboard.background }}></span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="relative origin-center" style={{ width: `${CANVAS_NATIVE_W}px`, height: `${CANVAS_NATIVE_H}px`, transform: `translate(${pan.x}px, ${pan.y}px) scale(${effectiveScale})` }}>
+                        {keyboardGeo.map((geo, index) => (
+                            <KeyComponent key={`matrix-key-${index}`} index={index} geo={geo} binding={activeLayerBindings[index] || { value: '&none' }} isSelected={selectedKey === index} onSelect={onSelectKey} osMode={osMode} onContextMenu={openContextMenu} />
+                        ))}
+                    </div>
+                    {contextMenu && (
+                        <div className="fixed z-50 bg-[#2a2a2a] border border-[#444] rounded-lg shadow-2xl py-1.5 min-w-[170px] text-xs font-bold" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={(e) => e.stopPropagation()}>
+                            <button className="w-full text-left px-4 py-2 hover:bg-[#383838] text-white transition-colors" onClick={() => runContextAction('copy')}>📋 Copy</button>
+                            <button className={`w-full text-left px-4 py-2 transition-colors ${clipboard ? 'hover:bg-[#383838] text-white' : 'text-gray-600 cursor-not-allowed'}`} onClick={() => clipboard && runContextAction('paste')}>📥 Paste</button>
+                            <div className="my-1 border-t border-[#3a3a3a]"></div>
+                            <button className="w-full text-left px-4 py-2 hover:bg-[#383838] text-white transition-colors" onClick={() => runContextAction('copyStyle')}>🎨 Copy Style</button>
+                            <button className={`w-full text-left px-4 py-2 transition-colors ${styleClipboard ? 'hover:bg-[#383838] text-white' : 'text-gray-600 cursor-not-allowed'}`} onClick={() => styleClipboard && runContextAction('pasteStyle')}>🖌️ Paste Style</button>
+                            <div className="my-1 border-t border-[#3a3a3a]"></div>
+                            <button className="w-full text-left px-4 py-2 hover:bg-red-950 text-red-400 transition-colors" onClick={() => runContextAction('clear')}>✕ Clear</button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        // When a layer is deleted, any &mo/&to/&tog/&sl/&lt elsewhere that points at it (or at a
+        // layer above it) needs to be kept pointing at the correct layer -- otherwise deleting
+        // layer 1 silently turns a "jump to layer 3" key into "jump to layer 3" which is now a
+        // totally different layer than the one it used to mean. Whitelisted to only these five
+        // layer-index-carrying behaviors so nothing else (keycodes, BT profile numbers, etc.) gets
+        // touched even though they might also contain small integers.
+        const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
+        function remapLayerPointersAfterDelete(layers, deletedIdx) {
+            layers.forEach(layer => {
+                (layer || []).forEach(binding => {
+                    if (!binding || !LAYER_POINTER_BEHAVIORS.has(binding.value)) return;
+                    const p = binding.params?.[0];
+                    if (!p || typeof p.value !== 'number') return;
+                    if (p.value === deletedIdx) { binding.value = '&none'; binding.params = []; } // dangling -> neutralize
+                    else if (p.value > deletedIdx) p.value -= 1; // shift down to track the same logical layer
+                });
+            });
+        }
+
+        const App = () => {
+            const [config, setConfig] = useState(null);
+            const [activeLayer, setActiveLayer] = useState(0);
+            const [selectedKey, setSelectedKey] = useState(null);
+            const [activeTab, setActiveTab] = useState('Basic');
+            const [paletteScale, setPaletteScale] = useState(1.0);
+            const [paletteSearch, setPaletteSearch] = useState('');
+            const [canvasScale, setCanvasScale] = useState(1.0); // multiplier on top of the auto-fit scale
+            const [osMode, setOsMode] = useState(() => /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '') ? 'mac' : 'win');
+            const [toast, setToast] = useState(null);
+            const [showQuickStart, setShowQuickStart] = useState(false);
+            const [clipboard, setClipboard] = useState(null);
+            const [styleClipboard, setStyleClipboard] = useState(null); // decoration only (color/label), copied independently of the binding it came from
+            const [renamingLayerIdx, setRenamingLayerIdx] = useState(null);
+            const [renameValue, setRenameValue] = useState('');
+            const [bottomPanelHeight, setBottomPanelHeight] = useState(340);
+            const resizeStateRef = useRef(null);
+
+            // Drag-to-resize the bottom panel from its top edge. Height persists in React state for
+            // the session (not localStorage -- "remember during the session" doesn't imply surviving
+            // a reload). Dragging up increases height, dragging down decreases it.
+            const handleBottomResizeStart = (e) => {
+                e.preventDefault();
+                resizeStateRef.current = { startY: e.clientY, startHeight: bottomPanelHeight };
+                const onMove = (e2) => {
+                    const dy = resizeStateRef.current.startY - e2.clientY;
+                    const next = Math.max(180, Math.min(resizeStateRef.current.startHeight + dy, window.innerHeight * 0.8));
+                    setBottomPanelHeight(next);
+                };
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            };
+
+            // The bottom panel's height only got clamped at drag-time before -- if the browser
+            // window was later resized smaller (without dragging), header + bottomPanelHeight could
+            // exceed the window's actual height, collapsing the canvas section's flex-1 height to
+            // zero and taking its zoom controls with it. Re-clamp on every window resize so the
+            // canvas always keeps a usable minimum, matching what the drag handler already enforces.
+            useEffect(() => {
+                const HEADER_H = 76;
+                const MIN_CANVAS_H = 220;
+                const clampToWindow = () => {
+                    const maxAllowed = Math.max(120, window.innerHeight - HEADER_H - MIN_CANVAS_H);
+                    setBottomPanelHeight(h => Math.min(h, maxAllowed));
+                };
+                clampToWindow();
+                window.addEventListener('resize', clampToWindow);
+                return () => window.removeEventListener('resize', clampToWindow);
+            }, []);
+            const [jsonStr, setJsonStr] = useState("");
+            const [jsonError, setJsonError] = useState("");
+            const [undoStack, setUndoStack] = useState([]);
+            const [redoStack, setRedoStack] = useState([]);
+
+            const keyboardGeo = useMemo(() => {
+                if (!config) return [];
+                const kb = config.keyboard?.toLowerCase();
+                if (kb === 'go60') return GO60_GEO;
+                if (kb === 'glove80') return GLOVE80_GEO;
+                // Unrecognized/missing `keyboard` field: guess from actual key count rather than
+                // silently assuming Glove80, so a differently-sized board doesn't render wrong.
+                const count = config.layers?.[0]?.length || 0;
+                return (count > 0 && count <= 65) ? GO60_GEO : GLOVE80_GEO;
+            }, [config]);
+
+            // Clamp activeLayer/selectedKey whenever config changes (undo/redo, or a layer being
+            // deleted) so they can never point past the end of the current layers array -- indexing
+            // config.layers[activeLayer] directly without this guard was a real crash risk.
+            useEffect(() => {
+                if (!config || !Array.isArray(config.layers)) return;
+                if (activeLayer >= config.layers.length) setActiveLayer(Math.max(0, config.layers.length - 1));
+            }, [config]);
+
+            const currentLayerBindings = useMemo(() => {
+                if (!config || !Array.isArray(config.layers)) return [];
+                return config.layers[activeLayer] || [];
+            }, [config, activeLayer]);
+
+            useEffect(() => {
+                if (activeTab === 'JSON' && config && selectedKey !== null) {
+                    setJsonStr(JSON.stringify(currentLayerBindings[selectedKey] || {value: "&none"}, null, 2));
+                    setJsonError("");
+                }
+            }, [selectedKey, activeLayer, config, activeTab]);
+
+            const pushHistory = useCallback((newConfig) => {
+                setUndoStack(prev => [...prev.slice(-99), structuredClone(config)]);
+                setRedoStack([]); setConfig(newConfig);
+            }, [config]);
+
+            const undo = () => { if (undoStack.length === 0) return; const prevConfig = undoStack[undoStack.length - 1]; setRedoStack(prev => [...prev, structuredClone(config)]); setUndoStack(prev => prev.slice(0, -1)); setConfig(prevConfig); };
+            const redo = () => { if (redoStack.length === 0) return; const nextConfig = redoStack[redoStack.length - 1]; setUndoStack(prev => [...prev, structuredClone(config)]); setRedoStack(prev => prev.slice(0, -1)); setConfig(nextConfig); };
+
+            const showToast = useCallback((message, kind = 'default') => {
+                setToast({ message, kind, id: Date.now() });
+            }, []);
+            useEffect(() => {
+                if (!toast) return;
+                const t = setTimeout(() => setToast(null), 2200);
+                return () => clearTimeout(t);
+            }, [toast]);
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        let parsed = JSON.parse(event.target.result);
+                        parsed = parsed.keymap !== undefined ? parsed.keymap : parsed;
+                        if (!parsed || !Array.isArray(parsed.layers)) throw new Error('Missing a "layers" array');
+                        setConfig(parsed); setActiveLayer(0); setSelectedKey(null); setUndoStack([]); setRedoStack([]);
+                        setCanvasScale(1.0);
+                        showToast(`Loaded "${file.name}"`);
+                    } catch (err) { showToast(`Couldn't read that file — ${err.message}`, 'error'); }
+                };
+                reader.readAsText(file); e.target.value = '';
+            };
+
+            const handleExport = () => {
+                if (!config) return;
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+                const anchor = document.createElement('a');
+                anchor.href = dataStr; anchor.download = `layout_${config.keyboard || 'custom'}.json`;
+                document.body.appendChild(anchor); anchor.click(); anchor.remove();
+                showToast('Layout exported');
+            };
+
+            const assignAction = (item) => {
+                if (selectedKey === null || !config || !config.layers[activeLayer]) return;
+                const newConfig = structuredClone(config);
+                let newBinding = { value: '&none' };
+                if (item.code) {
+                    newBinding = { value: '&kp', params: [{ value: item.code, params: [] }] };
+                } else if (item.type) {
+                    newBinding.value = item.type;
+                    if (item.param1 !== undefined) {
+                        newBinding.params = [{ value: item.param1, params: [] }];
+                        if (item.param2 !== undefined) newBinding.params.push({ value: item.param2, params: [] });
+                    }
+                }
+                if (newConfig.layers[activeLayer][selectedKey]?.decoration) {
+                    newBinding.decoration = newConfig.layers[activeLayer][selectedKey].decoration;
+                }
+                newConfig.layers[activeLayer][selectedKey] = newBinding;
+                pushHistory(newConfig);
+            };
+
+            const saveCustomJson = () => {
+                if (selectedKey === null || !config || !config.layers[activeLayer]) return;
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    if (!parsed.value) throw new Error("Missing 'value' attribute.");
+                    const newConfig = structuredClone(config);
+                    newConfig.layers[activeLayer][selectedKey] = parsed;
+                    pushHistory(newConfig); setJsonError("");
+                    showToast('Applied');
+                } catch (err) { setJsonError(err.message); }
+            };
+
+            // Right-click context menu actions. Copy/Paste move the whole binding (value + params +
+            // decoration together); Copy Style/Paste Style move *only* the color/label, letting you
+            // apply a look to a key without touching what it actually does -- a distinct, separate
+            // clipboard slot from the binding one, since you might want both loaded at once.
+            const handleKeyContextAction = useCallback((action, keyIndex) => {
+                if (!config || !config.layers[activeLayer]) return;
+                const existing = config.layers[activeLayer][keyIndex];
+                if (action === 'copy') {
+                    setClipboard(structuredClone(existing || { value: '&none' }));
+                    showToast(`Copied ${describeBinding(existing)}`);
+                } else if (action === 'paste') {
+                    if (!clipboard) { showToast('Clipboard is empty — copy a key first', 'error'); return; }
+                    const newConfig = structuredClone(config);
+                    const pasted = structuredClone(clipboard);
+                    const existingDecoration = newConfig.layers[activeLayer][keyIndex]?.decoration;
+                    if (existingDecoration && !pasted.decoration) pasted.decoration = existingDecoration;
+                    newConfig.layers[activeLayer][keyIndex] = pasted;
+                    pushHistory(newConfig);
+                    showToast('Pasted');
+                } else if (action === 'clear') {
+                    const newConfig = structuredClone(config);
+                    newConfig.layers[activeLayer][keyIndex] = { value: '&none' };
+                    pushHistory(newConfig);
+                    showToast('Cleared');
+                } else if (action === 'copyStyle') {
+                    if (!existing?.decoration) { showToast('This key has no style set', 'error'); return; }
+                    setStyleClipboard(structuredClone(existing.decoration));
+                    showToast('Style copied');
+                } else if (action === 'pasteStyle') {
+                    if (!styleClipboard) { showToast('No style copied yet — copy a colored key first', 'error'); return; }
+                    const newConfig = structuredClone(config);
+                    const target = newConfig.layers[activeLayer][keyIndex] || { value: '&none' };
+                    target.decoration = structuredClone(styleClipboard);
+                    newConfig.layers[activeLayer][keyIndex] = target;
+                    pushHistory(newConfig);
+                    showToast('Style pasted');
+                }
+            }, [config, activeLayer, clipboard, styleClipboard, pushHistory, showToast]);
+
+            // Sets or clears the selected key's decoration color -- the only way to originate a
+            // color today, since decorations otherwise only ever arrive already-present in a
+            // loaded file (or copied from another key).
+            const setKeyDecoration = (color) => {
+                if (selectedKey === null || !config || !config.layers[activeLayer]) return;
+                const newConfig = structuredClone(config);
+                const existing = newConfig.layers[activeLayer][selectedKey] || { value: '&none' };
+                if (color === null) {
+                    delete existing.decoration;
+                } else {
+                    existing.decoration = { ...(existing.decoration || {}), background: color };
+                }
+                newConfig.layers[activeLayer][selectedKey] = existing;
+                pushHistory(newConfig);
+                showToast(color ? 'Color applied' : 'Color cleared');
+            };
+
+            // Global shortcuts: Ctrl/Cmd+Z to undo, Ctrl/Cmd+Shift+Z (or Ctrl+Y) to redo, Escape to
+            // deselect the current key, Ctrl/Cmd+C / Ctrl/Cmd+V to copy/paste the selected key --
+            // right-click alone isn't available on every input device. All skipped while typing in
+            // the JSON textarea so they don't fight with normal text editing there. Declared after
+            // handleKeyContextAction so the dependency array below can reference it safely.
+            useEffect(() => {
+                const handler = (e) => {
+                    const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+                    if (e.key === 'Escape' && !typing) { setSelectedKey(null); return; }
+                    const isMod = e.ctrlKey || e.metaKey;
+                    if (!isMod || typing) return;
+                    const key = e.key.toLowerCase();
+                    if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+                    else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); redo(); }
+                    else if (key === 'c' && selectedKey !== null) { e.preventDefault(); handleKeyContextAction('copy', selectedKey); }
+                    else if (key === 'v' && selectedKey !== null) { e.preventDefault(); handleKeyContextAction('paste', selectedKey); }
+                };
+                window.addEventListener('keydown', handler);
+                return () => window.removeEventListener('keydown', handler);
+            }, [undoStack, redoStack, config, selectedKey, handleKeyContextAction]);
+
+            const addLayer = () => {
+                if (!config) return;
+                const newConfig = structuredClone(config);
+                const keyCount = newConfig.layers[0]?.length || keyboardGeo.length || 80;
+                // New layers default to all-transparent (fall through to the base layer) rather
+                // than all-none, so the new layer starts usable instead of dead.
+                newConfig.layers.push(Array.from({ length: keyCount }, () => ({ value: '&trans' })));
+                if (!Array.isArray(newConfig.layer_names)) newConfig.layer_names = newConfig.layers.slice(0, -1).map((_, i) => `Layer ${i}`);
+                newConfig.layer_names.push(`Layer ${newConfig.layers.length - 1}`);
+                pushHistory(newConfig);
+                setActiveLayer(newConfig.layers.length - 1);
+                setSelectedKey(null);
+                showToast('Layer added');
+            };
+
+            const deleteLayer = (idx) => {
+                if (!config || idx === 0 || config.layers.length <= 1) return; // base layer is permanent
+                const name = (Array.isArray(config.layer_names) && typeof config.layer_names[idx] === 'string') ? config.layer_names[idx] : `Layer ${idx}`;
+                if (!window.confirm(`Delete "${name}"? All its key bindings will be lost (Undo can still bring it back).`)) return;
+                const newConfig = structuredClone(config);
+                newConfig.layers.splice(idx, 1);
+                if (Array.isArray(newConfig.layer_names)) newConfig.layer_names.splice(idx, 1);
+                remapLayerPointersAfterDelete(newConfig.layers, idx);
+                pushHistory(newConfig);
+                setActiveLayer(prev => prev >= newConfig.layers.length ? newConfig.layers.length - 1 : (prev > idx ? prev - 1 : prev));
+                setSelectedKey(null);
+                showToast('Layer deleted');
+            };
+
+            const startRenameLayer = (idx, currentName) => { setRenamingLayerIdx(idx); setRenameValue(currentName); };
+            const commitRenameLayer = () => {
+                if (renamingLayerIdx === null || !config) { setRenamingLayerIdx(null); return; }
+                const newConfig = structuredClone(config);
+                if (!Array.isArray(newConfig.layer_names)) newConfig.layer_names = newConfig.layers.map((_, i) => `Layer ${i}`);
+                const trimmed = renameValue.trim();
+                newConfig.layer_names[renamingLayerIdx] = trimmed || `Layer ${renamingLayerIdx}`;
+                pushHistory(newConfig);
+                setRenamingLayerIdx(null);
+            };
+
+            // Restored to match the original Keychron Launcher's sidebar structure, adapted for
+            // ZMK/MoErgo: "HE Mode" (Hall Effect switches) and "Firmware Update" (Keychron's own
+            // flashing tool) don't apply to this hardware/format, so they're replaced with things
+            // that actually do something here rather than copied for visual parity alone.
+            // Backlight/Macro reuse the palette tabs that already do this work -- clicking them
+            // jumps straight there instead of duplicating a second, separate UI for the same thing.
+            const SIDEBAR_ITEMS = [
+                { id: 'Keymap', label: 'Keymap', action: () => setActiveTab('Basic'),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h2M10 10h2M14 10h2M6 14h10M18 10h.01M18 14h.01"/></svg> },
+                { id: 'Backlight', label: 'Backlight', action: () => setActiveTab('Lighting'),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2m0 14v2m8-10h2M3 12h2m13.071-7.071l-1.414 1.414M6.343 17.657l-1.414 1.414M17.657 17.657l1.414 1.414M6.343 6.343L4.929 4.929M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> },
+                { id: 'Macro', label: 'Macro', action: () => setActiveTab('Macro'),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path strokeLinecap="round" strokeLinejoin="round" d="M8 16V8l4 5 4-5v8"/></svg> },
+                { id: 'QuickStart', label: 'Quick Start', action: () => setShowQuickStart(true),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V4L9 14h2v6l4-10h-2z"/></svg> },
+                { id: 'Advanced', label: 'Advanced Mode', action: () => setActiveTab('JSON'),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.646.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.352.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.991l1.005.828c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.353.49l-1.216-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.333.183-.582.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.35-.49l-1.298-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.991l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.352-.49l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.213-1.28z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> },
+            ];
+
+            return (
+                <div className="flex h-screen w-screen font-sans text-sm overflow-hidden">
+                    <aside className="w-[260px] bg-MoErgo-sidebar border-r border-MoErgo-card flex flex-col shrink-0 py-6 px-4 z-20 h-full overflow-y-auto">
+                        <div className="px-4 mb-1">
+                            <div className="text-2xl font-bold text-white tracking-tight">GLIDE</div>
+                            <div className="text-[10px] text-MoErgo-textMuted tracking-wide mt-0.5">Graphical Layout & Intent Definition Editor</div>
+                        </div>
+
+                        <div className="my-5 px-2">
+                            <div className="flex items-center gap-3 bg-MoErgo-card rounded-xl px-3 py-3">
+                                <div className="w-9 h-9 rounded-lg bg-MoErgo-cardHover flex items-center justify-center text-MoErgo-primary shrink-0">
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h2M10 10h2M14 10h2M6 14h10M18 10h.01M18 14h.01"/></svg>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-white font-semibold text-xs truncate">{config ? (config.keyboard ? config.keyboard.toUpperCase() : 'MoErgo Keyboard') : 'No layout loaded'}</div>
+                                    <div className="text-MoErgo-textMuted text-[10px] truncate">{config ? `${config.layers.length} layer${config.layers.length === 1 ? '' : 's'}` : 'Load a JSON file to begin'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1 flex-1 pl-2">
+                            {SIDEBAR_ITEMS.map((item) => {
+                                const isActive = item.id === 'Backlight' ? activeTab === 'Lighting'
+                                    : item.id === 'Macro' ? activeTab === 'Macro'
+                                    : item.id === 'Advanced' ? activeTab === 'JSON'
+                                    : item.id === 'Keymap' ? !['Lighting', 'Macro', 'JSON'].includes(activeTab)
+                                    : false;
+                                return (
+                                    <div key={item.id} onClick={item.action} className={`sidebar-item flex items-center gap-4 px-4 py-3 rounded-lg cursor-pointer font-medium transition-colors ${isActive ? 'bg-MoErgo-menuActiveBg text-white shadow-sm' : 'text-MoErgo-textMuted hover:bg-MoErgo-cardHover'}`}>
+                                        <div className={isActive ? 'text-MoErgo-primary' : 'text-gray-500'}>{item.icon}</div>
+                                        <span className="tracking-wide text-[14px] font-semibold">{item.label}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mt-auto border-t border-MoErgo-card pt-4 space-y-3">
+                            <a href="https://my.glove80.com" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full text-MoErgo-textMuted hover:text-white text-xs font-medium py-2 transition-colors">
+                                MoErgo Configurator
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                            </a>
+                            <label className="block w-full bg-MoErgo-card hover:bg-MoErgo-cardHover border border-MoErgo-card text-white text-center py-3 rounded-full cursor-pointer transition-colors font-medium">Load JSON<input type="file" accept=".json" className="hidden" onChange={handleFileUpload} /></label>
+                            {config && <button onClick={handleExport} className="w-full bg-MoErgo-primary hover:bg-MoErgo-primaryHover text-white font-medium py-3 rounded-full transition-colors shadow-[0_0_10px_rgba(229,95,46,0.3)]">Export Layout</button>}
+                        </div>
+                    </aside>
+
+                    <main className="flex-1 flex flex-col bg-MoErgo-base relative z-10 h-full">
+                        <header className="h-[76px] shrink-0 border-b border-MoErgo-card flex items-center justify-between px-8 bg-MoErgo-surface z-20">
+                            <div className="flex items-center gap-4 min-w-0 flex-1">
+                                <span className="text-MoErgo-textMuted text-xs uppercase font-semibold shrink-0">Layer</span>
+                                <div className="flex bg-MoErgo-tabBg p-1 rounded-full items-center gap-1 min-w-0">
+                                    <div className="flex items-center gap-1 overflow-x-auto">
+                                    {config ? (config.layer_names || Array.from({length: config.layers.length})).map((name, i) => (
+                                        <div key={i} className="relative group shrink-0">
+                                            {renamingLayerIdx === i ? (
+                                                <input
+                                                    autoFocus
+                                                    value={renameValue}
+                                                    onChange={(e) => setRenameValue(e.target.value)}
+                                                    onBlur={commitRenameLayer}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') commitRenameLayer(); if (e.key === 'Escape') setRenamingLayerIdx(null); }}
+                                                    className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white text-black w-24 outline-none"
+                                                />
+                                            ) : (
+                                                <button
+                                                    onClick={() => { setActiveLayer(i); setSelectedKey(null); }}
+                                                    onDoubleClick={() => startRenameLayer(i, typeof name === 'string' ? name : `Layer ${i}`)}
+                                                    title="Double-click to rename"
+                                                    className={`px-5 py-1.5 rounded-full text-xs font-semibold transition-colors ${activeLayer === i ? 'palette-tab-active' : 'text-MoErgo-textMuted hover:text-white'}`}
+                                                >
+                                                    {typeof name === 'string' ? name : `Layer ${i}`}
+                                                </button>
+                                            )}
+                                            {i > 0 && config.layers.length > 1 && renamingLayerIdx !== i && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); deleteLayer(i); }}
+                                                    title="Delete layer"
+                                                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 hover:bg-red-500 text-white text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                                >✕</button>
+                                            )}
+                                        </div>
+                                    )) : (<div className="px-5 py-1.5 text-xs text-MoErgo-textMuted">No Layout</div>)}
+                                    </div>
+                                    {config && (
+                                        <button onClick={addLayer} title="Add layer" className="w-7 h-7 rounded-full bg-MoErgo-card hover:bg-MoErgo-cardHover text-white flex items-center justify-center text-sm font-bold shrink-0">+</button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex bg-MoErgo-tabBg p-1 rounded-full mr-2" title="Changes how the GUI/Cmd key is labeled -- doesn't change the underlying keycode">
+                                    <button onClick={() => setOsMode('mac')} className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${osMode === 'mac' ? 'palette-tab-active' : 'text-MoErgo-textMuted hover:text-white'}`}>🍎<span className="hidden lg:inline"> Mac</span></button>
+                                    <button onClick={() => setOsMode('win')} className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${osMode === 'win' ? 'palette-tab-active' : 'text-MoErgo-textMuted hover:text-white'}`}>🪟<span className="hidden lg:inline"> Win</span></button>
+                                </div>
+                                <span className="hidden xl:inline text-xs text-gray-500 font-bold mr-2 tracking-widest">HISTORY</span>
+                                <button onClick={undo} disabled={undoStack.length === 0} className={`p-2 rounded-full border border-MoErgo-card flex items-center gap-2 px-3 lg:px-4 font-bold text-xs ${undoStack.length > 0 ? 'text-white bg-MoErgo-card hover:bg-MoErgo-cardHover' : 'text-MoErgo-textMuted opacity-50 cursor-not-allowed'}`} title="Undo">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a5 5 0 015 5v1m-15-6l4-4m-4 4l4 4"></path></svg><span className="hidden lg:inline"> Undo</span>
+                                </button>
+                                <button onClick={redo} disabled={redoStack.length === 0} className={`p-2 rounded-full border border-MoErgo-card flex items-center gap-2 px-3 lg:px-4 font-bold text-xs ${redoStack.length > 0 ? 'text-white bg-MoErgo-card hover:bg-MoErgo-cardHover' : 'text-MoErgo-textMuted opacity-50 cursor-not-allowed'}`} title="Redo">
+                                    <span className="hidden lg:inline">Redo </span><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 10H11a5 5 0 00-5 5v1m15-6l-4-4m4 4l-4 4"></path></svg>
+                                </button>
+                            </div>
+                        </header>
+                        <section className="flex-1 flex relative overflow-hidden">
+                            {!config ? (
+                                <div className="m-auto text-MoErgo-textMuted flex flex-col items-center gap-4 bg-MoErgo-panel p-8 rounded-2xl border border-MoErgo-card shadow-2xl">
+                                    <span className="font-medium">Upload a MoErgo JSON layout to begin.</span>
+                                </div>
+                            ) : <KeyboardContainer keyboardGeo={keyboardGeo} activeLayerBindings={currentLayerBindings} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={canvasScale} setScale={setCanvasScale} osMode={osMode} onContextAction={handleKeyContextAction} clipboard={clipboard} styleClipboard={styleClipboard} />}
+                        </section>
+                        {config && (
+                            <section style={{ height: `${bottomPanelHeight}px` }} className="shrink-0 bg-[#222222] border-t border-[#333] flex flex-col z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] relative">
+                                <div
+                                    onMouseDown={handleBottomResizeStart}
+                                    title="Drag to resize"
+                                    className="absolute -top-2 left-0 right-0 h-4 cursor-row-resize z-30 flex items-center justify-center group"
+                                >
+                                    <div className="w-14 h-1 rounded-full bg-[#3a3a3a] group-hover:bg-MoErgo-primary transition-colors"></div>
+                                </div>
+                                <div className="p-4 flex flex-wrap items-center gap-3">
+                                    <div className="bg-MoErgo-tabBg p-1.5 rounded-full inline-flex gap-2 overflow-x-auto max-w-full">
+                                        {['Basic', 'Media', 'Macro', 'Special Keys', 'Lighting', 'Custom', 'Layer', 'JSON'].map(tab => (
+                                            <button key={tab} onClick={() => { setActiveTab(tab); setPaletteSearch(''); }} className={`shrink-0 px-5 py-1.5 rounded-full text-xs font-semibold transition-all ${activeTab === tab ? 'palette-tab-active' : 'text-gray-400 hover:text-white'}`}>
+                                                {tab}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {FLAT_GRID_TABS.includes(activeTab) && (
+                                        <input
+                                            type="text"
+                                            value={paletteSearch}
+                                            onChange={(e) => setPaletteSearch(e.target.value)}
+                                            placeholder="Search all tabs…"
+                                            className="shrink-0 bg-MoErgo-tabBg border border-[#333] rounded-full px-4 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-gray-500 w-40"
+                                        />
+                                    )}
+                                    <div className="shrink-0 ml-auto flex items-center gap-3 bg-MoErgo-tabBg p-1.5 rounded-full px-4 border border-[#333]">
+                                        <span className="text-xs text-gray-500 font-bold mr-2 tracking-widest">PALETTE ZOOM</span>
+                                        <button onClick={() => setPaletteScale(s => Math.min(s + 0.2, 2))} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg></button>
+                                        <span className="text-xs font-mono font-bold w-10 text-center">{Math.round(paletteScale * 100)}%</span>
+                                        <button onClick={() => setPaletteScale(s => Math.max(s - 0.2, 0.6))} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg></button>
+                                    </div>
+                                </div>
+                                <div className="flex-1 px-6 pt-4 pb-6 overflow-y-auto">
+                                    {selectedKey === null ? (
+                                        <div className="h-full flex items-center text-gray-500 italic">Select a key on the canvas to assign a new binding.</div>
+                                    ) : (
+                                        <div className="flex flex-col gap-4">
+                                            <div className="text-xs text-gray-400 mb-1 leading-relaxed">
+                                                Editing <span className="text-white font-bold">Key {selectedKey}</span> on <span className="text-white font-bold">{(config.layer_names && typeof config.layer_names[activeLayer] === 'string') ? config.layer_names[activeLayer] : `Layer ${activeLayer}`}</span>
+                                                {' — currently: '}
+                                                <span className="font-mono text-MoErgo-primary">{describeBinding(currentLayerBindings[selectedKey])}</span>
+                                            </div>
+                                            <div className="flex items-center gap-2 -mt-2 mb-1">
+                                                <span className="text-[10px] text-gray-500 uppercase tracking-widest mr-1">Color</span>
+                                                {KEY_COLOR_PRESETS.map(c => (
+                                                    <button key={c} onClick={() => setKeyDecoration(c)} title={c} className="w-5 h-5 rounded-full border border-black/30 hover:scale-110 transition-transform" style={{ background: c }} />
+                                                ))}
+                                                <input type="color" onChange={(e) => setKeyDecoration(e.target.value)} title="Custom color" className="w-5 h-5 rounded-full border border-black/30 bg-transparent cursor-pointer p-0" />
+                                                <button onClick={() => setKeyDecoration(null)} title="Clear color" className="w-5 h-5 rounded-full border border-[#555] flex items-center justify-center text-gray-500 hover:text-white hover:border-white transition-colors text-[10px] leading-none">✕</button>
+                                            </div>
+                                            {activeTab === 'Macro' ? (
+                                                <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                    {(config.macros && config.macros.length > 0) ? (
+                                                        config.macros.map((m, i) => (
+                                                            <button key={i} onClick={() => assignAction({ type: m.name })} className="palette-btn">
+                                                                {m.name.replace('&', '')}
+                                                            </button>
+                                                        ))
+                                                    ) : <div className="text-gray-500 text-xs">No custom macros defined in layout file.</div>}
+                                                </div>
+                                            ) : activeTab === 'Layer' ? (
+                                                <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                    {(config.layer_names || config.layers).map((n, i) => (
+                                                        <React.Fragment key={i}>
+                                                            <button onClick={() => assignAction({ type: '&mo', param1: i })} className="palette-btn text-purple-300">MO {i}</button>
+                                                            <button onClick={() => assignAction({ type: '&tog', param1: i })} className="palette-btn text-emerald-300">TOG {i}</button>
+                                                        </React.Fragment>
+                                                    ))}
+                                                </div>
+                                            ) : activeTab === 'JSON' ? (
+                                                <div className="flex flex-col w-full max-w-2xl">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-xs text-gray-400">Raw JSON AST (Layer {activeLayer}, Key {selectedKey})</span>
+                                                        <button onClick={saveCustomJson} className="bg-MoErgo-primary text-white text-xs px-4 py-1.5 rounded hover:bg-[#c54a1f] transition-colors">Apply JSON</button>
+                                                    </div>
+                                                    <textarea className={`w-full bg-[#111] text-emerald-400 font-mono text-xs p-4 rounded-lg border outline-none resize-y min-h-[120px] ${jsonError ? 'border-red-500' : 'border-[#333] focus:border-gray-500'}`} value={jsonStr} onChange={(e) => setJsonStr(e.target.value)} spellCheck="false" />
+                                                    {jsonError && <div className="text-red-400 text-xs mt-2">{jsonError}</div>}
+                                                </div>
+                                            ) : (
+                                                paletteSearch.trim() ? (
+                                                    searchAcrossAllPalette(paletteSearch).length === 0 ? (
+                                                        <div className="text-gray-500 text-xs italic">No keys match "{paletteSearch}" anywhere.</div>
+                                                    ) : searchAcrossAllPalette(paletteSearch).map((section, sIdx) => (
+                                                        <div key={sIdx} className="mb-4">
+                                                            <div className="text-white text-sm font-bold flex items-center gap-2 mb-3">
+                                                                <span className="text-[10px] uppercase tracking-widest text-MoErgo-primary bg-MoErgo-primary/10 px-2 py-0.5 rounded">{section.tabName}</span>
+                                                                {section.category}
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                                {section.items.map((item, idx) => (
+                                                                    <button key={idx} onClick={() => assignAction(item)} className="palette-btn">
+                                                                        {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    (PALETTE_DATA[activeTab.replace(' ', '')] || PALETTE_DATA['Basic']).map((section, sIdx) => (
+                                                        <div key={sIdx} className="mb-4">
+                                                            {section.category && <div className="text-white text-sm font-bold flex items-center gap-2 mb-3">{section.category}</div>}
+                                                            <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                                {section.items.map((item, idx) => (
+                                                                    <button key={idx} onClick={() => assignAction(item)} className="palette-btn">
+                                                                        {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+                    </main>
+
+                    {toast && (
+                        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full text-xs font-bold shadow-2xl border ${toast.kind === 'error' ? 'bg-red-950 border-red-600 text-red-200' : 'bg-[#2a2a2a] border-[#444] text-white'}`}>
+                            {toast.message}
+                        </div>
+                    )}
+
+                    {showQuickStart && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowQuickStart(false)}>
+                            <div className="bg-MoErgo-panel border border-MoErgo-card rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold text-white mb-1">Quick Start</h3>
+                                <p className="text-xs text-MoErgo-textMuted mb-5">Six steps to a working layout.</p>
+                                <ol className="space-y-3 text-sm text-MoErgo-textMuted list-decimal list-inside">
+                                    <li><span className="text-white font-semibold">Load your layout</span> — "Load JSON" in the sidebar opens a MoErgo/ZMK layout file.</li>
+                                    <li><span className="text-white font-semibold">Click a key</span> on the keyboard to select it.</li>
+                                    <li><span className="text-white font-semibold">Pick what it does</span> from the tabs below — letters, symbols, media keys, layers, and more.</li>
+                                    <li><span className="text-white font-semibold">Right-click a key</span> to copy, paste, or clear it quickly.</li>
+                                    <li><span className="text-white font-semibold">Switch or add layers</span> using the tabs up top.</li>
+                                    <li><span className="text-white font-semibold">Export</span> when you're done, and load the file back into your MoErgo configurator.</li>
+                                </ol>
+                                <button onClick={() => setShowQuickStart(false)} className="mt-6 w-full bg-MoErgo-primary hover:bg-MoErgo-primaryHover text-white font-medium py-2.5 rounded-full transition-colors">Got it</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
