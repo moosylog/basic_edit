@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -43,21 +44,33 @@
         .canvas-container:active { cursor: grabbing; }
 
         /* Canvas Physical Key Styling */
+        .p-key-outer {
+            position: absolute; cursor: pointer; z-index: 1; user-select: none;
+        }
+        .p-key-outer:hover { z-index: 5; }
+        .p-key-outer.selected { z-index: 10; }
+        .p-key-outer.drag-over { z-index: 15; }
         .p-key {
-            position: absolute; width: 62px; height: 62px; border-radius: 6px;
+            width: 100%; height: 100%; border-radius: 6px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s, border-color 0.1s; user-select: none;
+            transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s, border-color 0.1s;
             background: linear-gradient(180deg, #3c3c3c 0%, #303030 55%, #2b2b2b 100%);
             border: 1px solid #161616;
             /* Keycap-style bottom shadow line: a thin top highlight for a slight bevel, a solid
                bottom edge line for depth, and a soft drop shadow so keys read as physical caps
                rather than flat rectangles. */
             box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -2px 0 rgba(0,0,0,0.35), 0 2px 3px rgba(0,0,0,0.45);
-            padding: 4px; text-align: center; overflow: hidden; color: #e5e5e5; z-index: 1;
+            padding: 4px; text-align: center; overflow: hidden; color: #e5e5e5;
         }
-        .p-key:active { transform: scale(0.96) translateY(1px) !important; box-shadow: inset 0 2px 4px rgba(0,0,0,0.5) !important; background: #282828; }
-        .p-key:hover { border-color: #6b6b6b; background: linear-gradient(180deg, #454545 0%, #383838 55%, #333333 100%); color: #ffffff; z-index: 5; }
-        .p-key.selected { border-color: #e55f2e !important; color: #ffffff !important; box-shadow: 0 0 0 2px rgba(229, 95, 46, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important; z-index: 10; background: linear-gradient(180deg, #593d30 0%, #4a342c 100%); }
+        .p-key.is-round { border-radius: 50%; }
+        /* This element carries NO rotation of its own (that lives on .p-key-outer's inline style),
+           so :active/:hover transforms here are always the ONLY transform in effect -- they can
+           never clobber a thumb-cluster key's rotation the way a single combined element would. */
+        .p-key:active { transform: scale(0.96) translateY(1px); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); background: #282828; }
+        .p-key:hover { border-color: #6b6b6b; background: linear-gradient(180deg, #454545 0%, #383838 55%, #333333 100%); color: #ffffff; }
+        .p-key.selected { border-color: #e55f2e !important; color: #ffffff !important; box-shadow: 0 0 0 2px rgba(229, 95, 46, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important; background: linear-gradient(180deg, #593d30 0%, #4a342c 100%); }
+        .p-key.drag-source { opacity: 0.35; }
+        .p-key.drag-over { box-shadow: 0 0 0 2px #e55f2e !important; transform: scale(1.08); }
         .p-key:not(.selected).has-bg:hover { filter: brightness(1.2); border-color: #ffffff !important; }
 
         .key-center { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 11px; font-weight: 600; text-align: center; line-height: 1.2; word-break: break-word; color: inherit; }
@@ -91,28 +104,62 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
 
-        const GLOVE80_GEO = [
-            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:910,y:0},{x:980,y:0},{x:1050,y:0},{x:1120,y:35},{x:1190,y:35},
-            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:840,y:70},{x:910,y:70},{x:980,y:70},{x:1050,y:70},{x:1120,y:105},{x:1190,y:105},
-            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:840,y:140},{x:910,y:140},{x:980,y:140},{x:1050,y:140},{x:1120,y:175},{x:1190,y:175},
-            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:840,y:210},{x:910,y:210},{x:980,y:210},{x:1050,y:210},{x:1120,y:245},{x:1190,y:245},
-            {x:0,y:315},{x:70,y:315},{x:140,y:280},{x:210,y:280},{x:280,y:280},{x:350,y:280},
-            {x:448,y:280,r:20,o:"-168px 0px"},{x:546,y:231,r:30,o:"-266px 0px"},{x:707,y:105,r:45,o:"-427px 0px"},{x:490,y:105,r:-45,o:"490px 0px"},{x:651,y:231,r:-30,o:"329px 0px"},{x:749,y:280,r:-20,o:"231px 0px"},
-            {x:840,y:280},{x:910,y:280},{x:980,y:280},{x:1050,y:280},{x:1120,y:315},{x:1190,y:315},
-            {x:0,y:385},{x:70,y:385},{x:140,y:350},{x:210,y:350},{x:280,y:350},
-            {x:371,y:378,r:15,o:"-91px 0px"},{x:462,y:350,r:25,o:"-182px 0px"},{x:630,y:224,r:45,o:"-350px 0px"},{x:560,y:224,r:-45,o:"420px 0px"},{x:728,y:350,r:-25,o:"252px 0px"},{x:819,y:378,r:-15,o:"161px 0px"},
-            {x:910,y:350},{x:980,y:350},{x:1050,y:350},{x:1120,y:385},{x:1190,y:385}
+        // Grid-unit geometry (1 unit = 1 standard keycap pitch) -- easier to verify against a real
+        // physical layout than raw pixels, and matches the format of the reference data this was
+        // corrected against. `r` = rotation in degrees; `rx`,`ry` = the ABSOLUTE pivot point (in the
+        // same grid coordinates) that the rotation happens around -- e.g. multiple thumb keys at the
+        // same base position fanning out around one shared hinge point, matching how these clusters
+        // are actually built. `w`,`h` = size multiplier for non-standard keys (default 1); `isRound`
+        // = circular key (Go60's two large thumb keys).
+        const KEY_UNIT = 70; // px per grid unit
+        const KEY_SIZE = 62; // px, matches .p-key's base width/height
+
+        const GLOVE80_GEO_RAW = [
+            {x:0,y:0.5},{x:1,y:0.5},{x:2,y:0},{x:3,y:0},{x:4,y:0},{x:13,y:0},{x:14,y:0},{x:15,y:0},{x:16,y:0.5},{x:17,y:0.5},
+            {x:0,y:1.5},{x:1,y:1.5},{x:2,y:1},{x:3,y:1},{x:4,y:1},{x:5,y:1},{x:12,y:1},{x:13,y:1},{x:14,y:1},{x:15,y:1},{x:16,y:1.5},{x:17,y:1.5},
+            {x:0,y:2.5},{x:1,y:2.5},{x:2,y:2},{x:3,y:2},{x:4,y:2},{x:5,y:2},{x:12,y:2},{x:13,y:2},{x:14,y:2},{x:15,y:2},{x:16,y:2.5},{x:17,y:2.5},
+            {x:0,y:3.5},{x:1,y:3.5},{x:2,y:3},{x:3,y:3},{x:4,y:3},{x:5,y:3},{x:12,y:3},{x:13,y:3},{x:14,y:3},{x:15,y:3},{x:16,y:3.5},{x:17,y:3.5},
+            {x:0,y:4.5},{x:1,y:4.5},{x:2,y:4},{x:3,y:4},{x:4,y:4},{x:5,y:4},
+            {x:6.4,y:4,r:20,rx:4,ry:4},{x:7.8,y:3.3,r:30,rx:4,ry:3.3},{x:10.1,y:1.5,r:45,rx:4,ry:1.5},{x:7,y:1.5,r:-45,rx:14,ry:1.5},{x:9.3,y:3.3,r:-30,rx:14,ry:3.3},{x:10.7,y:4,r:-20,rx:14,ry:4},
+            {x:12,y:4},{x:13,y:4},{x:14,y:4},{x:15,y:4},{x:16,y:4.5},{x:17,y:4.5},
+            {x:0,y:5.5},{x:1,y:5.5},{x:2,y:5},{x:3,y:5},{x:4,y:5},
+            {x:5.3,y:5.4,r:15,rx:4,ry:5.4},{x:6.6,y:5,r:25,rx:4,ry:5},{x:9,y:3.2,r:45,rx:4,ry:3.2},{x:8,y:3.2,r:-45,rx:14,ry:3.2},{x:10.4,y:5,r:-25,rx:14,ry:5},{x:11.7,y:5.4,r:-15,rx:14,ry:5.4},
+            {x:13,y:5},{x:14,y:5},{x:15,y:5},{x:16,y:5.5},{x:17,y:5.5}
         ];
 
-        const GO60_GEO = [
-            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:350,y:0},{x:805,y:0},{x:875,y:0},{x:945,y:0},{x:1015,y:0},{x:1085,y:35},{x:1155,y:35},
-            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:805,y:70},{x:875,y:70},{x:945,y:70},{x:1015,y:70},{x:1085,y:105},{x:1155,y:105},
-            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:805,y:140},{x:875,y:140},{x:945,y:140},{x:1015,y:140},{x:1085,y:175},{x:1155,y:175},
-            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:805,y:210},{x:875,y:210},{x:945,y:210},{x:1015,y:210},{x:1085,y:245},{x:1155,y:245},
-            {x:140,y:280},{x:210,y:280},{x:280,y:280},{x:875,y:280},{x:945,y:280},{x:1015,y:280},
-            {x:364,y:287,r:12.5,o:"0px 0px"},{x:448,y:308,r:25,o:"0px 0px"},{x:525,y:346.5,r:37,o:"0px 0px"},
-            {x:640.5,y:385,r:-37,o:"0px 0px"},{x:710.5,y:336,r:-25,o:"0px 0px"},{x:791,y:301,r:-12.5,o:"0px 0px"}
+        const GO60_GEO_RAW = [
+            {x:0,y:0.9},{x:1,y:0.9},{x:2,y:0.25},{x:3,y:0},{x:4,y:0.15},{x:5,y:0.25},{x:11,y:0.25},{x:12,y:0.15},{x:13,y:0},{x:14,y:0.25},{x:15,y:0.9},{x:16,y:0.9},
+            {x:0,y:1.9},{x:1,y:1.9},{x:2,y:1.25},{x:3,y:1},{x:4,y:1.15},{x:5,y:1.25},{x:11,y:1.25},{x:12,y:1.15},{x:13,y:1},{x:14,y:1.25},{x:15,y:1.9},{x:16,y:1.9},
+            {x:0,y:2.9},{x:1,y:2.9},{x:2,y:2.25},{x:3,y:2},{x:4,y:2.15},{x:5,y:2.25},{x:11,y:2.25},{x:12,y:2.15},{x:13,y:2},{x:14,y:2.25},{x:15,y:2.9},{x:16,y:2.9},
+            {x:0,y:3.9},{x:1,y:3.9},{x:2,y:3.25},{x:3,y:3},{x:4,y:3.15},{x:5,y:3.25},{x:11,y:3.25},{x:12,y:3.15},{x:13,y:3},{x:14,y:3.25},{x:15,y:3.9},{x:16,y:3.9},
+            {x:2,y:4.25},{x:3,y:4},{x:4,y:4.15},{x:12,y:4.15},{x:13,y:4},{x:14,y:4.25},
+            {x:4,y:4.25,r:15,rx:4.5,ry:9},{x:4,y:4.25,r:30,rx:4.5,ry:9},{x:4,y:4.25,r:45,rx:4.5,ry:9},{x:12,y:4.25,r:-45,rx:12.5,ry:9},{x:12,y:4.25,r:-30,rx:12.5,ry:9},{x:12,y:4.25,r:-15,rx:12.5,ry:9},
+            {x:6.5,y:2.2,w:1.8,h:1.8,isRound:1},{x:8.7,y:2.2,w:1.8,h:1.8,isRound:1}
         ];
+
+        // Converts grid-unit geometry into what the canvas actually needs: pixel left/top, a size
+        // (defaulting to the standard keycap), and -- for rotated keys -- a CSS transform-origin
+        // expressed as an offset from THIS key's own center to the shared pivot, since CSS
+        // transform-origin is always relative to the element's own box, not an absolute coordinate.
+        function convertGeo(rawGeo) {
+            return rawGeo.map(k => {
+                const w = (k.w || 1) * KEY_UNIT - (KEY_UNIT - KEY_SIZE);
+                const h = (k.h || 1) * KEY_UNIT - (KEY_UNIT - KEY_SIZE);
+                const out = { x: k.x * KEY_UNIT, y: k.y * KEY_UNIT, w, h, isRound: !!k.isRound };
+                if (k.r) {
+                    out.r = k.r;
+                    const centerX = k.x * KEY_UNIT + w / 2;
+                    const centerY = k.y * KEY_UNIT + h / 2;
+                    const pivotX = (k.rx !== undefined ? k.rx : k.x) * KEY_UNIT;
+                    const pivotY = (k.ry !== undefined ? k.ry : k.y) * KEY_UNIT;
+                    out.o = `${(pivotX - centerX).toFixed(1)}px ${(pivotY - centerY).toFixed(1)}px`;
+                }
+                return out;
+            });
+        }
+
+        const GLOVE80_GEO = convertGeo(GLOVE80_GEO_RAW);
+        const GO60_GEO = convertGeo(GO60_GEO_RAW);
 
         const PALETTE_DATA = {
             Basic: [
@@ -145,6 +192,20 @@
                 { category: "Connectivity", items: [ { label: 'BTH1', type: '&bt', param1: 'BT_SEL', param2: 0 }, { label: 'BTH2', type: '&bt', param1: 'BT_SEL', param2: 1 }, { label: 'BTH3', type: '&bt', param1: 'BT_SEL', param2: 2 }, { label: '2.4G', type: '&out', param1: 'OUT_USB' }, { label: 'Batt', type: '&ext_power', param1: 'EP_TOG' }, { label: 'BT Clr', type: '&bt', param1: 'BT_CLR' }, { label: 'PROF1', type: '&none' }, { label: 'PROF2', type: '&none' }, { label: 'PROF3', type: '&none' } ] }
             ]
         };
+
+        // Fixed compose order (outermost -> innermost) purely for a consistent output shape --
+        // LC(LS(x)) and LS(LC(x)) behave identically to ZMK either way.
+        const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
+        const MOD_ARM_LIST = [
+            { code: 'LC', label: 'L Ctrl' }, { code: 'RC', label: 'R Ctrl' },
+            { code: 'LA', label: 'L Alt' },  { code: 'RA', label: 'R Alt' },
+            { code: 'LS', label: 'L Shift' }, { code: 'RS', label: 'R Shift' },
+            { code: 'LG', label: null }, { code: 'RG', label: null }, // label computed per-render (OS-aware Cmd/Win)
+        ];
+        // Raw modifier keycodes assigned via their own palette buttons ("L ctrl", "L win", etc.) --
+        // these mean "make this physical key send this modifier standalone" and must never get
+        // wrapped by armed modifiers, which is a different concept (composing a combo).
+        const RAW_MOD_CODES = new Set(['LSHFT', 'RSHFT', 'LCTRL', 'RCTRL', 'LALT', 'RALT', 'LGUI', 'RGUI']);
 
         const FLAT_GRID_TABS = ['Basic', 'Media', 'Special Keys', 'Lighting', 'Custom'];
 
@@ -199,6 +260,32 @@
             C_VOL_DN:'Vol -', C_VOL_UP:'Vol +', C_MUTE:'Mute', C_PP:'Play', C_NEXT:'Next', C_PREV:'Prev'
         };
         const MOD_WRAPPER_TO_FULL = { LS: 'LSHFT', RS: 'RSHFT', LC: 'LCTRL', RC: 'RCTRL', LA: 'LALT', RA: 'RALT', LG: 'LGUI', RG: 'RGUI' };
+        const FULL_TO_MOD_WRAPPER = Object.fromEntries(Object.entries(MOD_WRAPPER_TO_FULL).map(([k, v]) => [v, k]));
+
+        // Recursively unwraps a chain of stacked modifier wraps -- e.g. LC(LS(C)) -- into
+        // { mods: ['LCTRL','LSHFT'], keyVal: 'C' }. Needed so the picker can compose combos with
+        // more than one modifier (Ctrl+Shift+C) and still have them display correctly, not just the
+        // single-level LS(x) case the file format originally only ever contained.
+        function unwrapModChain(node) {
+            const mods = [];
+            while (node && typeof node === 'object' && MOD_WRAPPER_TO_FULL[node.value] && node.params?.[0]) {
+                mods.push(MOD_WRAPPER_TO_FULL[node.value]);
+                node = node.params[0];
+            }
+            const keyVal = (node && typeof node === 'object') ? node.value : node;
+            return { mods, keyVal };
+        }
+
+        // Builds the nested { value, params } chain for a keycode with 0+ armed modifiers --
+        // the inverse of unwrapModChain. modCodes is short wrapper codes like ['LC','LS'], applied
+        // outermost-first as listed (order doesn't change ZMK's behavior, just the resulting shape).
+        function composeKeycodeParam(baseCode, modCodes) {
+            let node = { value: baseCode, params: [] };
+            for (let i = modCodes.length - 1; i >= 0; i--) {
+                node = { value: modCodes[i], params: [node] };
+            }
+            return node;
+        }
 
         // GUI key (LGUI/RGUI) is Cmd on macOS and the Windows key on Windows/Linux -- same ZMK
         // keycode either way, so this is a display-only preference threaded through as a parameter
@@ -231,8 +318,9 @@
             let p2 = binding.params?.[1]?.value || '?';
             if (val === '&kp') {
                 if (MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
-                    let modSymbol = formatKeycode(MOD_WRAPPER_TO_FULL[p1], osMode);
-                    return `<span class="key-shift">${modSymbol}</span><span class="key-main">${formatKeycode(binding.params[0].params[0].value, osMode)}</span>`;
+                    const { mods, keyVal } = unwrapModChain(binding.params[0]);
+                    const modSymbols = mods.map(m => formatKeycode(m, osMode)).join('+');
+                    return `<span class="key-shift">${modSymbols}</span><span class="key-main">${formatKeycode(keyVal, osMode)}</span>`;
                 }
                 return `<span class="key-center">${formatKeycode(p1, osMode)}</span>`;
             }
@@ -263,7 +351,13 @@
             const val = binding.value;
             const p1 = binding.params?.[0]?.value;
             const p2 = binding.params?.[1]?.value;
-            if (val === '&kp') return p1 ? String(p1) : '&kp';
+            if (val === '&kp') {
+                if (p1 && MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
+                    const { mods, keyVal } = unwrapModChain(binding.params[0]);
+                    return mods.map(m => formatKeycode(m)).join('+') + '+' + formatKeycode(keyVal);
+                }
+                return p1 ? String(p1) : '&kp';
+            }
             if (val === '&mo') return `Momentary Layer ${p1}`;
             if (val === '&tog') return `Toggle Layer ${p1}`;
             if (val === '&to') return `Switch to Layer ${p1}`;
@@ -273,9 +367,21 @@
             return val;
         };
 
-        const KeyComponent = memo(({ index, geo, binding, isSelected, onSelect, osMode, onContextMenu }) => {
+        const KeyComponent = memo(({ index, geo, binding, isSelected, onSelect, osMode, onContextMenu, onKeyMouseDown, isDragSource, isDragOver }) => {
             const labelHtml = getBeautifulLabel(binding, osMode);
-            const keyStyle = { left: `${geo.x}px`, top: `${geo.y}px`, transform: geo.r ? `rotate(${geo.r}deg)` : 'none', transformOrigin: geo.o || 'center' };
+            // Position, size, and rotation live ONLY on this outer wrapper's inline style, which
+            // CSS pseudo-classes never touch. The inner .p-key element handles all interactive
+            // visual states (:hover/:active/.selected) with its own independent transforms -- this
+            // separation is what stops rotated (thumb-cluster) keys from snapping back to
+            // unrotated on click, which happened when a single element's CSS :active transform
+            // (needed for the press-down feedback) overrode the inline rotation transform outright.
+            const outerStyle = {
+                left: `${geo.x}px`, top: `${geo.y}px`,
+                width: `${geo.w || KEY_SIZE}px`, height: `${geo.h || KEY_SIZE}px`,
+                transform: geo.r ? `rotate(${geo.r}deg)` : 'none',
+                transformOrigin: geo.o || 'center',
+            };
+            const innerStyle = {};
             const hasCustomBg = binding?.value !== '&trans' && binding?.value !== '&none' && binding?.decoration?.background;
             if (hasCustomBg) {
                 // Must set the `background` shorthand, not just `backgroundColor` -- the .p-key CSS
@@ -283,29 +389,49 @@
                 // shorthand) for the keycap bevel effect, which sits visually on top of and hides
                 // a plain backgroundColor override. Setting the shorthand here correctly cancels
                 // that gradient layer too, the same way it would in the stylesheet.
-                keyStyle.background = binding.decoration.background;
-                keyStyle.borderColor = binding.decoration.background;
-                keyStyle.color = binding.decoration.color || getContrastColor(binding.decoration.background);
+                innerStyle.background = binding.decoration.background;
+                innerStyle.borderColor = binding.decoration.background;
+                innerStyle.color = binding.decoration.color || getContrastColor(binding.decoration.background);
             }
             return (
-                <div className={`p-key ${isSelected ? 'selected' : ''} ${hasCustomBg ? 'has-bg' : ''}`} style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }} onContextMenu={(e) => onContextMenu(e, index)}>
-                    {labelHtml ? <div dangerouslySetInnerHTML={{ __html: labelHtml }} className="w-full h-full relative" /> : null}
+                <div
+                    className={`p-key-outer ${isSelected ? 'selected' : ''} ${isDragOver ? 'drag-over' : ''}`}
+                    style={outerStyle}
+                    data-key-idx={index}
+                    onClick={(e) => { e.stopPropagation(); onSelect(index); }}
+                    onContextMenu={(e) => onContextMenu(e, index)}
+                    onMouseDown={(e) => onKeyMouseDown(e, index)}
+                >
+                    <div className={`p-key ${isSelected ? 'selected' : ''} ${hasCustomBg ? 'has-bg' : ''} ${isDragSource ? 'drag-source' : ''} ${isDragOver ? 'drag-over' : ''} ${geo.isRound ? 'is-round' : ''}`} style={innerStyle}>
+                        {labelHtml ? <div dangerouslySetInnerHTML={{ __html: labelHtml }} className="w-full h-full relative" /> : null}
+                    </div>
                 </div>
             );
         });
 
-        // Native design-space size of the keyboard canvas (matches the geometry coordinate systems
-        // used by GLOVE80_GEO/GO60_GEO). Auto-fit scale is computed relative to this.
-        const CANVAS_NATIVE_W = 1260;
-        const CANVAS_NATIVE_H = 450;
+        // Computes the design-space bounding box for whichever geometry is currently active --
+        // Glove80 and Go60 have different footprints, and now that keys can have per-key w/h too, a
+        // single hardcoded canvas size would either clip one keyboard or leave the other tiny.
+        function computeGeoBounds(geo) {
+            let maxX = 0, maxY = 0;
+            geo.forEach(k => {
+                maxX = Math.max(maxX, k.x + (k.w || KEY_SIZE));
+                maxY = Math.max(maxY, k.y + (k.h || KEY_SIZE));
+            });
+            return { w: maxX + 40, h: maxY + 40 }; // small margin so edge keys aren't flush against the frame
+        }
 
-        const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, selectedKey, onSelectKey, scale, setScale, osMode, onContextAction, clipboard, styleClipboard }) => {
+        const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, selectedKey, onSelectKey, scale, setScale, osMode, onContextAction, clipboard, styleClipboard, onSwapKeys }) => {
             const containerRef = useRef(null);
             const [autoFitScale, setAutoFitScale] = useState(1);
             const [pan, setPan] = useState({ x: 0, y: 0 });
             const [isDragging, setIsDragging] = useState(false);
             const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
             const [contextMenu, setContextMenu] = useState(null); // { x, y, keyIndex } | null
+            const [dragSourceIdx, setDragSourceIdx] = useState(null);
+            const [dragOverIdx, setDragOverIdx] = useState(null);
+
+            const bounds = useMemo(() => computeGeoBounds(keyboardGeo), [keyboardGeo]);
 
             // Auto-fit: recompute whenever the available canvas area changes size for ANY reason --
             // browser window resize, sidebar/panel layout changes, or the bottom panel being
@@ -318,7 +444,7 @@
                 const compute = () => {
                     const { width, height } = el.getBoundingClientRect();
                     if (width === 0 || height === 0) return;
-                    const fit = Math.min(width / CANVAS_NATIVE_W, height / CANVAS_NATIVE_H) * PADDING_FACTOR;
+                    const fit = Math.min(width / bounds.w, height / bounds.h) * PADDING_FACTOR;
                     setAutoFitScale(Math.max(0.2, Math.min(fit, 2)));
                     setPan({ x: 0, y: 0 });
                 };
@@ -340,6 +466,41 @@
                 setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
             };
             const handleMouseUp = () => setIsDragging(false);
+
+            // Drag-to-swap: mousedown on a key arms a potential drag; a small movement threshold
+            // distinguishes an intentional drag from a normal click (which still needs to select
+            // the key as before). Uses elementFromPoint rather than React drag events so it behaves
+            // consistently with mouse and touch-emulated pointers alike.
+            const handleKeyMouseDown = (e, index) => {
+                if (e.button !== 0) return; // primary button/touch only
+                const startX = e.clientX, startY = e.clientY;
+                let dragging = false;
+                const onMove = (e2) => {
+                    const dx = e2.clientX - startX, dy = e2.clientY - startY;
+                    if (!dragging && Math.hypot(dx, dy) > 6) {
+                        dragging = true;
+                        setDragSourceIdx(index);
+                    }
+                    if (dragging) {
+                        const el = document.elementFromPoint(e2.clientX, e2.clientY)?.closest('[data-key-idx]');
+                        const overIdx = el ? parseInt(el.dataset.keyIdx, 10) : null;
+                        setDragOverIdx(overIdx !== index ? overIdx : null);
+                    }
+                };
+                const onUp = (e2) => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    if (dragging) {
+                        const el = document.elementFromPoint(e2.clientX, e2.clientY)?.closest('[data-key-idx]');
+                        const targetIdx = el ? parseInt(el.dataset.keyIdx, 10) : null;
+                        if (targetIdx !== null && targetIdx !== index) onSwapKeys(index, targetIdx);
+                    }
+                    setDragSourceIdx(null);
+                    setDragOverIdx(null);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            };
             const openContextMenu = (e, index) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -380,9 +541,9 @@
                             </div>
                         )}
                     </div>
-                    <div className="relative origin-center" style={{ width: `${CANVAS_NATIVE_W}px`, height: `${CANVAS_NATIVE_H}px`, transform: `translate(${pan.x}px, ${pan.y}px) scale(${effectiveScale})` }}>
+                    <div className="relative origin-center" style={{ width: `${bounds.w}px`, height: `${bounds.h}px`, transform: `translate(${pan.x}px, ${pan.y}px) scale(${effectiveScale})` }}>
                         {keyboardGeo.map((geo, index) => (
-                            <KeyComponent key={`matrix-key-${index}`} index={index} geo={geo} binding={activeLayerBindings[index] || { value: '&none' }} isSelected={selectedKey === index} onSelect={onSelectKey} osMode={osMode} onContextMenu={openContextMenu} />
+                            <KeyComponent key={`matrix-key-${index}`} index={index} geo={geo} binding={activeLayerBindings[index] || { value: '&none' }} isSelected={selectedKey === index} onSelect={onSelectKey} osMode={osMode} onContextMenu={openContextMenu} onKeyMouseDown={handleKeyMouseDown} isDragSource={dragSourceIdx === index} isDragOver={dragOverIdx === index} />
                         ))}
                     </div>
                     {contextMenu && (
@@ -426,10 +587,17 @@
             const [activeTab, setActiveTab] = useState('Basic');
             const [paletteScale, setPaletteScale] = useState(1.0);
             const [paletteSearch, setPaletteSearch] = useState('');
+            const [armedMods, setArmedMods] = useState(new Set());
+            const [hexInput, setHexInput] = useState('');
+
+            // Reset the hex field when switching keys so stale text from a previous key doesn't
+            // linger and look like it applies to the newly-selected one.
+            useEffect(() => { setHexInput(''); }, [selectedKey]);
             const [canvasScale, setCanvasScale] = useState(1.0); // multiplier on top of the auto-fit scale
             const [osMode, setOsMode] = useState(() => /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '') ? 'mac' : 'win');
             const [toast, setToast] = useState(null);
             const [showQuickStart, setShowQuickStart] = useState(false);
+            const [isFetchingTemplate, setIsFetchingTemplate] = useState(false);
             const [clipboard, setClipboard] = useState(null);
             const [styleClipboard, setStyleClipboard] = useState(null); // decoration only (color/label), copied independently of the binding it came from
             const [renamingLayerIdx, setRenamingLayerIdx] = useState(null);
@@ -501,6 +669,21 @@
                 return config.layers[activeLayer] || [];
             }, [config, activeLayer]);
 
+            // Every distinct decoration color already present anywhere in the loaded layout, minus
+            // the fixed presets (so a color never appears twice as a swatch) -- lets a layout that
+            // already color-codes its keys surface those exact colors as one-click options, instead
+            // of only offering the 8 fixed presets or a from-scratch custom picker.
+            const usedLayoutColors = useMemo(() => {
+                if (!config || !Array.isArray(config.layers)) return [];
+                const seen = new Set();
+                const presetSet = new Set(KEY_COLOR_PRESETS.map(c => c.toLowerCase()));
+                config.layers.forEach(layer => (layer || []).forEach(b => {
+                    const bg = b?.decoration?.background;
+                    if (bg && !presetSet.has(bg.toLowerCase())) seen.add(bg.toLowerCase());
+                }));
+                return Array.from(seen);
+            }, [config]);
+
             useEffect(() => {
                 if (activeTab === 'JSON' && config && selectedKey !== null) {
                     setJsonStr(JSON.stringify(currentLayerBindings[selectedKey] || {value: "&none"}, null, 2));
@@ -525,21 +708,55 @@
                 return () => clearTimeout(t);
             }, [toast]);
 
+            // Shared by file upload and template fetching -- validates, resets editor state, and
+            // gives consistent feedback regardless of where the layout data came from.
+            const loadLayoutData = (parsed, sourceLabel) => {
+                let data = parsed?.keymap !== undefined ? parsed.keymap : parsed;
+                if (!data || !Array.isArray(data.layers)) throw new Error('Missing a "layers" array');
+                setConfig(data); setActiveLayer(0); setSelectedKey(null); setUndoStack([]); setRedoStack([]);
+                setCanvasScale(1.0);
+                showToast(`Loaded ${sourceLabel}`);
+            };
+
             const handleFileUpload = (e) => {
                 const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = (event) => {
                     try {
-                        let parsed = JSON.parse(event.target.result);
-                        parsed = parsed.keymap !== undefined ? parsed.keymap : parsed;
-                        if (!parsed || !Array.isArray(parsed.layers)) throw new Error('Missing a "layers" array');
-                        setConfig(parsed); setActiveLayer(0); setSelectedKey(null); setUndoStack([]); setRedoStack([]);
-                        setCanvasScale(1.0);
-                        showToast(`Loaded "${file.name}"`);
+                        const parsed = JSON.parse(event.target.result);
+                        loadLayoutData(parsed, `"${file.name}"`);
                     } catch (err) { showToast(`Couldn't read that file — ${err.message}`, 'error'); }
                 };
                 reader.readAsText(file); e.target.value = '';
+            };
+
+            const TEMPLATE_URLS = {
+                glove80: 'https://gist.githubusercontent.com/moosylog/a71d65a4b2de4215d7e226449f3cadb2/raw/ee1661e9adbe197285b50ef0bd8997f6a80e795c/Glove80_default.json',
+                go60: 'https://gist.githubusercontent.com/moosylog/a71d65a4b2de4215d7e226449f3cadb2/raw/ee1661e9adbe197285b50ef0bd8997f6a80e795c/Go60_default.json',
+            };
+
+            const fetchTemplate = async (type) => {
+                setIsFetchingTemplate(true);
+                try {
+                    const response = await fetch(TEMPLATE_URLS[type]);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const text = await response.text();
+                    // Some gist raw endpoints occasionally prepend stray characters before the
+                    // actual JSON body -- trim to the first real brace defensively, same guard as
+                    // the file-upload path effectively gets for free from JSON.parse alone.
+                    let cleanText = text.trim();
+                    if (!cleanText.startsWith('{') && !cleanText.startsWith('[')) {
+                        const firstBrace = cleanText.indexOf('{');
+                        if (firstBrace !== -1) cleanText = cleanText.substring(firstBrace);
+                    }
+                    const parsed = JSON.parse(cleanText);
+                    loadLayoutData(parsed, type === 'glove80' ? 'the Glove80 template' : 'the Go60 template');
+                } catch (err) {
+                    showToast(`Couldn't fetch the ${type === 'glove80' ? 'Glove80' : 'Go60'} template — ${err.message}`, 'error');
+                } finally {
+                    setIsFetchingTemplate(false);
+                }
             };
 
             const handleExport = () => {
@@ -556,7 +773,13 @@
                 const newConfig = structuredClone(config);
                 let newBinding = { value: '&none' };
                 if (item.code) {
-                    newBinding = { value: '&kp', params: [{ value: item.code, params: [] }] };
+                    // Armed modifiers only apply to plain keycodes, never to a raw-modifier button
+                    // itself ("L ctrl" etc. means "send this modifier standalone", a different
+                    // thing from composing a combo).
+                    const activeMods = (!RAW_MOD_CODES.has(item.code) && armedMods.size > 0)
+                        ? MOD_ARM_ORDER.filter(m => armedMods.has(m))
+                        : [];
+                    newBinding = { value: '&kp', params: [ composeKeycodeParam(item.code, activeMods) ] };
                 } else if (item.type) {
                     newBinding.value = item.type;
                     if (item.param1 !== undefined) {
@@ -569,6 +792,7 @@
                 }
                 newConfig.layers[activeLayer][selectedKey] = newBinding;
                 pushHistory(newConfig);
+                if (armedMods.size > 0) setArmedMods(new Set());
             };
 
             const saveCustomJson = () => {
@@ -638,6 +862,32 @@
                 pushHistory(newConfig);
                 showToast(color ? 'Color applied' : 'Color cleared');
             };
+
+            const applyHexInput = () => {
+                const v = hexInput.trim();
+                if (!v) return;
+                const normalized = v.startsWith('#') ? v : `#${v}`;
+                if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) {
+                    showToast('Enter a valid hex color, like #E55F2E', 'error');
+                    return;
+                }
+                setKeyDecoration(normalized);
+                setHexInput('');
+            };
+
+            // Drag-and-drop: swaps two keys' entire bindings (including decoration) on the current
+            // layer -- both keys keep a binding either way, so swap is the safe default (never
+            // silently loses data the way a plain "move and clear source" would).
+            const swapKeys = useCallback((a, b) => {
+                if (!config || !config.layers[activeLayer] || a === b) return;
+                const newConfig = structuredClone(config);
+                const layer = newConfig.layers[activeLayer];
+                const temp = layer[a] || { value: '&none' };
+                layer[a] = layer[b] || { value: '&none' };
+                layer[b] = temp;
+                pushHistory(newConfig);
+                showToast(`Swapped Key ${a} ↔ Key ${b}`);
+            }, [config, activeLayer, pushHistory, showToast]);
 
             // Global shortcuts: Ctrl/Cmd+Z to undo, Ctrl/Cmd+Shift+Z (or Ctrl+Y) to redo, Escape to
             // deselect the current key, Ctrl/Cmd+C / Ctrl/Cmd+V to copy/paste the selected key --
@@ -760,6 +1010,13 @@
                                 MoErgo Configurator
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
                             </a>
+                            <div>
+                                <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 px-1">Start from a template</div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => fetchTemplate('glove80')} disabled={isFetchingTemplate} className="flex-1 bg-MoErgo-card hover:bg-MoErgo-cardHover disabled:opacity-50 disabled:cursor-not-allowed border border-MoErgo-card text-white text-xs font-medium py-2.5 rounded-full transition-colors">Glove80</button>
+                                    <button onClick={() => fetchTemplate('go60')} disabled={isFetchingTemplate} className="flex-1 bg-MoErgo-card hover:bg-MoErgo-cardHover disabled:opacity-50 disabled:cursor-not-allowed border border-MoErgo-card text-white text-xs font-medium py-2.5 rounded-full transition-colors">Go60</button>
+                                </div>
+                            </div>
                             <label className="block w-full bg-MoErgo-card hover:bg-MoErgo-cardHover border border-MoErgo-card text-white text-center py-3 rounded-full cursor-pointer transition-colors font-medium">Load JSON<input type="file" accept=".json" className="hidden" onChange={handleFileUpload} /></label>
                             {config && <button onClick={handleExport} className="w-full bg-MoErgo-primary hover:bg-MoErgo-primaryHover text-white font-medium py-3 rounded-full transition-colors shadow-[0_0_10px_rgba(229,95,46,0.3)]">Export Layout</button>}
                         </div>
@@ -826,7 +1083,7 @@
                                 <div className="m-auto text-MoErgo-textMuted flex flex-col items-center gap-4 bg-MoErgo-panel p-8 rounded-2xl border border-MoErgo-card shadow-2xl">
                                     <span className="font-medium">Upload a MoErgo JSON layout to begin.</span>
                                 </div>
-                            ) : <KeyboardContainer keyboardGeo={keyboardGeo} activeLayerBindings={currentLayerBindings} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={canvasScale} setScale={setCanvasScale} osMode={osMode} onContextAction={handleKeyContextAction} clipboard={clipboard} styleClipboard={styleClipboard} />}
+                            ) : <KeyboardContainer keyboardGeo={keyboardGeo} activeLayerBindings={currentLayerBindings} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={canvasScale} setScale={setCanvasScale} osMode={osMode} onContextAction={handleKeyContextAction} clipboard={clipboard} styleClipboard={styleClipboard} onSwapKeys={swapKeys} />}
                         </section>
                         {config && (
                             <section style={{ height: `${bottomPanelHeight}px` }} className="shrink-0 bg-[#222222] border-t border-[#333] flex flex-col z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] relative">
@@ -871,14 +1128,52 @@
                                                 {' — currently: '}
                                                 <span className="font-mono text-MoErgo-primary">{describeBinding(currentLayerBindings[selectedKey])}</span>
                                             </div>
-                                            <div className="flex items-center gap-2 -mt-2 mb-1">
-                                                <span className="text-[10px] text-gray-500 uppercase tracking-widest mr-1">Color</span>
+                                            <div className="flex items-center gap-2 -mt-2 mb-1 flex-wrap">
+                                                <span className="text-[10px] text-gray-500 uppercase tracking-widest mr-1 shrink-0">Color</span>
                                                 {KEY_COLOR_PRESETS.map(c => (
-                                                    <button key={c} onClick={() => setKeyDecoration(c)} title={c} className="w-5 h-5 rounded-full border border-black/30 hover:scale-110 transition-transform" style={{ background: c }} />
+                                                    <button key={c} onClick={() => setKeyDecoration(c)} title={c} className="w-5 h-5 rounded-full border border-black/30 hover:scale-110 transition-transform shrink-0" style={{ background: c }} />
                                                 ))}
-                                                <input type="color" onChange={(e) => setKeyDecoration(e.target.value)} title="Custom color" className="w-5 h-5 rounded-full border border-black/30 bg-transparent cursor-pointer p-0" />
-                                                <button onClick={() => setKeyDecoration(null)} title="Clear color" className="w-5 h-5 rounded-full border border-[#555] flex items-center justify-center text-gray-500 hover:text-white hover:border-white transition-colors text-[10px] leading-none">✕</button>
+                                                {usedLayoutColors.length > 0 && <div className="w-px h-4 bg-[#3a3a3a] shrink-0"></div>}
+                                                {usedLayoutColors.map(c => (
+                                                    <button key={c} onClick={() => setKeyDecoration(c)} title={`${c} (used in this layout)`} className="w-5 h-5 rounded-full border border-black/30 hover:scale-110 transition-transform shrink-0" style={{ background: c }} />
+                                                ))}
+                                                <input type="color" onChange={(e) => setKeyDecoration(e.target.value)} title="Custom color" className="w-5 h-5 rounded-full border border-black/30 bg-transparent cursor-pointer p-0 shrink-0" />
+                                                <input
+                                                    type="text"
+                                                    value={hexInput}
+                                                    onChange={(e) => setHexInput(e.target.value)}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') applyHexInput(); }}
+                                                    onBlur={applyHexInput}
+                                                    placeholder="#RRGGBB"
+                                                    maxLength={7}
+                                                    className="w-20 shrink-0 bg-[#1c1c1c] border border-[#3a3a3a] rounded-lg px-2 py-1 text-[11px] font-mono text-white placeholder-gray-600 outline-none focus:border-gray-500"
+                                                />
+                                                <button onClick={() => setKeyDecoration(null)} title="Clear color" className="w-5 h-5 rounded-full border border-[#555] flex items-center justify-center text-gray-500 hover:text-white hover:border-white transition-colors text-[10px] leading-none shrink-0">✕</button>
                                             </div>
+                                            {activeTab === 'Basic' && (
+                                                <div className="flex items-center gap-2 flex-wrap mb-1 bg-[#1c1c1c] border border-[#333] rounded-xl px-3 py-2">
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-widest mr-1 shrink-0">Modifiers</span>
+                                                    {MOD_ARM_LIST.map(m => {
+                                                        const label = m.label || (m.code === 'LG' ? `L ${osMode === 'mac' ? 'Cmd' : 'Win'}` : `R ${osMode === 'mac' ? 'Cmd' : 'Win'}`);
+                                                        const active = armedMods.has(m.code);
+                                                        return (
+                                                            <button
+                                                                key={m.code}
+                                                                onClick={() => setArmedMods(prev => { const next = new Set(prev); next.has(m.code) ? next.delete(m.code) : next.add(m.code); return next; })}
+                                                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${active ? 'bg-MoErgo-primary border-MoErgo-primary text-white' : 'bg-[#2a2a2a] border-[#3a3a3a] text-gray-400 hover:border-gray-500'}`}
+                                                            >{label}</button>
+                                                        );
+                                                    })}
+                                                    {armedMods.size > 0 && (
+                                                        <>
+                                                            <span className="text-[11px] font-mono text-MoErgo-primary ml-1">
+                                                                {MOD_ARM_ORDER.filter(m => armedMods.has(m)).map(m => formatKeycode(MOD_WRAPPER_TO_FULL[m], osMode)).join('+')} + _
+                                                            </span>
+                                                            <button onClick={() => setArmedMods(new Set())} className="text-[10px] text-gray-500 hover:text-red-400 ml-1">Clear</button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
                                             {activeTab === 'Macro' ? (
                                                 <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
                                                     {(config.macros && config.macros.length > 0) ? (
@@ -954,13 +1249,22 @@
                         </div>
                     )}
 
+                    {isFetchingTemplate && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                            <div className="flex flex-col items-center gap-3 text-white">
+                                <svg className="w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                <span className="text-xs font-medium text-gray-300">Fetching template…</span>
+                            </div>
+                        </div>
+                    )}
+
                     {showQuickStart && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowQuickStart(false)}>
                             <div className="bg-MoErgo-panel border border-MoErgo-card rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
                                 <h3 className="text-lg font-bold text-white mb-1">Quick Start</h3>
                                 <p className="text-xs text-MoErgo-textMuted mb-5">Six steps to a working layout.</p>
                                 <ol className="space-y-3 text-sm text-MoErgo-textMuted list-decimal list-inside">
-                                    <li><span className="text-white font-semibold">Load your layout</span> — "Load JSON" in the sidebar opens a MoErgo/ZMK layout file.</li>
+                                    <li><span className="text-white font-semibold">Load your layout</span> — "Load JSON" opens your own file, or pick "Glove80"/"Go60" to start from a factory template.</li>
                                     <li><span className="text-white font-semibold">Click a key</span> on the keyboard to select it.</li>
                                     <li><span className="text-white font-semibold">Pick what it does</span> from the tabs below — letters, symbols, media keys, layers, and more.</li>
                                     <li><span className="text-white font-semibold">Right-click a key</span> to copy, paste, or clear it quickly.</li>
