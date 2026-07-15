@@ -1,10 +1,10 @@
 # ⌨️ Basic Edit
 
-[![Basic version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/) index.html
+[![Basic version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/) Very basic fundament
 
-[![Basic version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/v3.html) v3.htm
+[![Basic version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/v3.html) More advanced
 
-[![Keycharon style v3 version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/kc_style_v3.html) v3.htm
+[![Keycharon style v3 version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/kc_style_v3.html) Keycharon style v3 version
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
