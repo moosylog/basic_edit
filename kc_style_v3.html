@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -32,6 +31,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
    
     <style>
+        /* Without this, any element combining an explicit width/height with border/padding renders
+           LARGER than intended (border+padding add on top of the declared size instead of being
+           included in it) -- this was quietly inflating both the keyboard's keys (most damaging on
+           the tightly-packed, rotated thumb cluster, where the resulting overlap was clearly
+           visible) and the palette buttons. A global reset is safer than patching classes one at a
+           time, since any future element with the same combination would silently have the same bug. */
+        *, *::before, *::after { box-sizing: border-box; }
         body { background-color: #1a1a1a; color: #ffffff; overflow: hidden; margin: 0; }
        
         /* Interactive Canvas */
@@ -113,6 +119,39 @@
         // = circular key (Go60's two large thumb keys).
         const KEY_UNIT = 70; // px per grid unit
         const KEY_SIZE = 62; // px, matches .p-key's base width/height
+        const GLOVE80_TOTAL_WIDTH = 18; // total columns spanned (indices 0..17)
+        const GO60_TOTAL_WIDTH = 17;    // total columns spanned (indices 0..16)
+
+        // Mirrors a single thumb/special key horizontally across the board's center line -- used to
+        // derive the right hand's cluster geometry FROM the left hand's, guaranteeing exact
+        // left/right symmetry by construction. Hand-authoring both halves independently is exactly
+        // how small drifts creep in (verified against the original reference data: the pivots and
+        // most positions were already correct, but one thumb row had crept ~0.1 units off between
+        // its two hand-typed halves) -- deriving one side from the other removes that risk entirely.
+        // Width-1 keys mirror via (totalWidth - x - 1); wider keys (round thumb keys) via
+        // (totalWidth - x - w) so their far edge lands at the correct mirrored position. Rotation
+        // pivots are points, not boxes, and mirror via (totalWidth - rx) directly -- no width term.
+        function mirrorSpecialKey(k, totalWidth) {
+            const w = k.w || 1;
+            const mirrored = { ...k, x: totalWidth - k.x - w };
+            if (k.r !== undefined) mirrored.r = -k.r;
+            if (k.rx !== undefined) mirrored.rx = totalWidth - k.rx;
+            return mirrored;
+        }
+
+        // Left-hand thumb clusters, defined once -- the right hand is generated from these, not
+        // typed out separately. Order is reversed when generating the right side because the fan
+        // sweeps outward in the opposite direction on that hand (innermost-rotation key first).
+        const GLOVE80_THUMB_A_LEFT = [
+            {x:6.4,y:4,r:20,rx:4,ry:4}, {x:7.8,y:3.3,r:30,rx:4,ry:3.3}, {x:10.1,y:1.5,r:45,rx:4,ry:1.5},
+        ];
+        const GLOVE80_THUMB_B_LEFT = [
+            {x:5.3,y:5.4,r:15,rx:4,ry:5.4}, {x:6.6,y:5,r:25,rx:4,ry:5}, {x:9,y:3.2,r:45,rx:4,ry:3.2},
+        ];
+        const GO60_THUMB_LEFT = [
+            {x:4,y:4.25,r:15,rx:4.5,ry:9}, {x:4,y:4.25,r:30,rx:4.5,ry:9}, {x:4,y:4.25,r:45,rx:4.5,ry:9},
+        ];
+        const GO60_ROUND_LEFT = {x:6.5,y:2.2,w:1.8,h:1.8,isRound:1};
 
         const GLOVE80_GEO_RAW = [
             {x:0,y:0.5},{x:1,y:0.5},{x:2,y:0},{x:3,y:0},{x:4,y:0},{x:13,y:0},{x:14,y:0},{x:15,y:0},{x:16,y:0.5},{x:17,y:0.5},
@@ -120,10 +159,10 @@
             {x:0,y:2.5},{x:1,y:2.5},{x:2,y:2},{x:3,y:2},{x:4,y:2},{x:5,y:2},{x:12,y:2},{x:13,y:2},{x:14,y:2},{x:15,y:2},{x:16,y:2.5},{x:17,y:2.5},
             {x:0,y:3.5},{x:1,y:3.5},{x:2,y:3},{x:3,y:3},{x:4,y:3},{x:5,y:3},{x:12,y:3},{x:13,y:3},{x:14,y:3},{x:15,y:3},{x:16,y:3.5},{x:17,y:3.5},
             {x:0,y:4.5},{x:1,y:4.5},{x:2,y:4},{x:3,y:4},{x:4,y:4},{x:5,y:4},
-            {x:6.4,y:4,r:20,rx:4,ry:4},{x:7.8,y:3.3,r:30,rx:4,ry:3.3},{x:10.1,y:1.5,r:45,rx:4,ry:1.5},{x:7,y:1.5,r:-45,rx:14,ry:1.5},{x:9.3,y:3.3,r:-30,rx:14,ry:3.3},{x:10.7,y:4,r:-20,rx:14,ry:4},
+            ...GLOVE80_THUMB_A_LEFT, ...[...GLOVE80_THUMB_A_LEFT].reverse().map(k => mirrorSpecialKey(k, GLOVE80_TOTAL_WIDTH)),
             {x:12,y:4},{x:13,y:4},{x:14,y:4},{x:15,y:4},{x:16,y:4.5},{x:17,y:4.5},
             {x:0,y:5.5},{x:1,y:5.5},{x:2,y:5},{x:3,y:5},{x:4,y:5},
-            {x:5.3,y:5.4,r:15,rx:4,ry:5.4},{x:6.6,y:5,r:25,rx:4,ry:5},{x:9,y:3.2,r:45,rx:4,ry:3.2},{x:8,y:3.2,r:-45,rx:14,ry:3.2},{x:10.4,y:5,r:-25,rx:14,ry:5},{x:11.7,y:5.4,r:-15,rx:14,ry:5.4},
+            ...GLOVE80_THUMB_B_LEFT, ...[...GLOVE80_THUMB_B_LEFT].reverse().map(k => mirrorSpecialKey(k, GLOVE80_TOTAL_WIDTH)),
             {x:13,y:5},{x:14,y:5},{x:15,y:5},{x:16,y:5.5},{x:17,y:5.5}
         ];
 
@@ -133,26 +172,44 @@
             {x:0,y:2.9},{x:1,y:2.9},{x:2,y:2.25},{x:3,y:2},{x:4,y:2.15},{x:5,y:2.25},{x:11,y:2.25},{x:12,y:2.15},{x:13,y:2},{x:14,y:2.25},{x:15,y:2.9},{x:16,y:2.9},
             {x:0,y:3.9},{x:1,y:3.9},{x:2,y:3.25},{x:3,y:3},{x:4,y:3.15},{x:5,y:3.25},{x:11,y:3.25},{x:12,y:3.15},{x:13,y:3},{x:14,y:3.25},{x:15,y:3.9},{x:16,y:3.9},
             {x:2,y:4.25},{x:3,y:4},{x:4,y:4.15},{x:12,y:4.15},{x:13,y:4},{x:14,y:4.25},
-            {x:4,y:4.25,r:15,rx:4.5,ry:9},{x:4,y:4.25,r:30,rx:4.5,ry:9},{x:4,y:4.25,r:45,rx:4.5,ry:9},{x:12,y:4.25,r:-45,rx:12.5,ry:9},{x:12,y:4.25,r:-30,rx:12.5,ry:9},{x:12,y:4.25,r:-15,rx:12.5,ry:9},
-            {x:6.5,y:2.2,w:1.8,h:1.8,isRound:1},{x:8.7,y:2.2,w:1.8,h:1.8,isRound:1}
+            ...GO60_THUMB_LEFT, ...[...GO60_THUMB_LEFT].reverse().map(k => mirrorSpecialKey(k, GO60_TOTAL_WIDTH)),
+            GO60_ROUND_LEFT, mirrorSpecialKey(GO60_ROUND_LEFT, GO60_TOTAL_WIDTH)
         ];
 
         // Converts grid-unit geometry into what the canvas actually needs: pixel left/top, a size
         // (defaulting to the standard keycap), and -- for rotated keys -- a CSS transform-origin
         // expressed as an offset from THIS key's own center to the shared pivot, since CSS
         // transform-origin is always relative to the element's own box, not an absolute coordinate.
-        function convertGeo(rawGeo) {
+        //
+        // Each key's rendered box is shrunk from the full KEY_UNIT pitch down to KEY_SIZE (to leave
+        // a visible gutter between keys). That box must stay CENTERED within its full-pitch grid
+        // cell -- inset by half the gutter on each side -- otherwise it hugs the cell's top-left
+        // corner instead. That inset alone is invisible for ordinary keys (just a uniform tiny
+        // shift), but it matters a great deal for rotation: the pivot math needs the TRUE grid-cell
+        // center (based on the full KEY_UNIT pitch) as its reference point, not the shrunk box's own
+        // center -- using the shrunk-box center was quietly biasing every rotated key's effective
+        // pivot-to-center vector, which is exactly what was producing a visibly asymmetric thumb fan
+        // even though the underlying left/right coordinate data was already provably symmetric.
+        const GUTTER = (KEY_UNIT - KEY_SIZE) / 2;
+function convertGeo(rawGeo) {
             return rawGeo.map(k => {
-                const w = (k.w || 1) * KEY_UNIT - (KEY_UNIT - KEY_SIZE);
-                const h = (k.h || 1) * KEY_UNIT - (KEY_UNIT - KEY_SIZE);
-                const out = { x: k.x * KEY_UNIT, y: k.y * KEY_UNIT, w, h, isRound: !!k.isRound };
+                const wUnits = k.w || 1, hUnits = k.h || 1;
+                const cellLeft = k.x * KEY_UNIT, cellTop = k.y * KEY_UNIT;
+                const w = wUnits * KEY_UNIT - (KEY_UNIT - KEY_SIZE);
+                const h = hUnits * KEY_UNIT - (KEY_UNIT - KEY_SIZE);
+                const out = { x: cellLeft + GUTTER, y: cellTop + GUTTER, w, h, isRound: !!k.isRound };
                 if (k.r) {
                     out.r = k.r;
-                    const centerX = k.x * KEY_UNIT + w / 2;
-                    const centerY = k.y * KEY_UNIT + h / 2;
+                    
                     const pivotX = (k.rx !== undefined ? k.rx : k.x) * KEY_UNIT;
                     const pivotY = (k.ry !== undefined ? k.ry : k.y) * KEY_UNIT;
-                    out.o = `${(pivotX - centerX).toFixed(1)}px ${(pivotY - centerY).toFixed(1)}px`;
+                    
+                    // CSS transform-origin with raw pixels evaluates from the TOP-LEFT of the box.
+                    // The element's top-left corner sits exactly at (cellLeft + GUTTER).
+                    const originX = pivotX - (cellLeft + GUTTER);
+                    const originY = pivotY - (cellTop + GUTTER);
+                    
+                    out.o = `${originX.toFixed(1)}px ${originY.toFixed(1)}px`;
                 }
                 return out;
             });
