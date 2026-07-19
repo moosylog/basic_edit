@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
@@ -469,14 +470,19 @@ function convertGeo(rawGeo) {
         // Computes the design-space bounding box for whichever geometry is currently active --
         // Glove80 and Go60 have different footprints, and now that keys can have per-key w/h too, a
         // single hardcoded canvas size would either clip one keyboard or leave the other tiny.
-        function computeGeoBounds(geo) {
-            let maxX = 0, maxY = 0;
-            geo.forEach(k => {
-                maxX = Math.max(maxX, k.x + (k.w || KEY_SIZE));
-                maxY = Math.max(maxY, k.y + (k.h || KEY_SIZE));
-            });
-            return { w: maxX + 40, h: maxY + 40 }; // small margin so edge keys aren't flush against the frame
-        }
+// Computes the design-space bounding box for whichever geometry is currently active.
+function computeGeoBounds(geo) {
+    let maxX = 0, maxY = 0;
+    geo.forEach(k => {
+        maxX = Math.max(maxX, k.x + (k.w || KEY_SIZE));
+        
+        // Add extra downward clearance for rotated keys (like the thumb clusters) 
+        // so they don't break out of the calculated bounds.
+        const extraHeight = k.r ? 60 : 0; 
+        maxY = Math.max(maxY, k.y + (k.h || KEY_SIZE) + extraHeight);
+    });
+    return { w: maxX + 40, h: maxY + 40 }; // small margin so edge keys aren't flush against the frame
+}
 
         const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, selectedKey, onSelectKey, scale, setScale, osMode, onContextAction, clipboard, styleClipboard, onSwapKeys }) => {
             const containerRef = useRef(null);
