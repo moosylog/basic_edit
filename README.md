@@ -4,7 +4,7 @@
 
 [![Basic version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/v3.html) More advanced
 
-[![Keycharon style v3 version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/kc_style_v3.html) Keychron style v3 version
+[![Keycharon style v3 version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/glide_v11.html) Keychron style latest 
 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
