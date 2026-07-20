@@ -4,9 +4,9 @@
 
 [![Basic version](https://img.shields.io/badge/Live_Demo-Basic_version-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/v3.html) More advanced (v3.html)
 
-[![Keychron style version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/kc_style_v4.html) Keychron style (kc_style_v4.html)
+[![Keychron style version](https://img.shields.io/badge/Live_Demo-Keychron_style-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/kc_style_v4.html) Keychron style (kc_style_v4.html)
 
-[![Naya style version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/glide_v16.html) Naya style (glide_v16.html)
+[![Naya style version](https://img.shields.io/badge/Live_Demo-NayaMix-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/glide_v16.html) Naya style (glide_v16.html)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 [![Zero Build](https://img.shields.io/badge/Zero_Dependencies-HTML5-orange?style=for-the-badge&logo=html5)](#)
