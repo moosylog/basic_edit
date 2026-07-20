@@ -1,8 +1,8 @@
 # ⌨️ Basic Edit
 
-[![Basic version](https://img.shields.io/badge/Live_Demo-Basic-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/) Very basic fundament (index.html)
+[![Basic version](https://img.shields.io/badge/Live_Demo-Fundament-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/) Very basic fundament (index.html)
 
-[![Basic version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/v3.html) More advanced (v3.html)
+[![Basic version](https://img.shields.io/badge/Live_Demo-Basic_version-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/v3.html) More advanced (v3.html)
 
 [![Keychron style version](https://img.shields.io/badge/Live_Demo-Playground-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/kc_style_v4.html) Keychron style (kc_style_v4.html)
 
