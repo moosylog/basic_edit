@@ -81,9 +81,11 @@
         }
         .palette-btn .key-dual { font-size: calc(11px * var(--btn-scale, 1)); gap: calc(4px * var(--btn-scale, 1)); }
         .palette-btn:hover { background-color: #2a2a2a; border-color: #555; color: #ffffff; }
-        .palette-btn.selected { background-color: #b4b4ff; border-color: #b4b4ff; color: #000000; box-shadow: 0 0 10px rgba(180, 180, 255, 0.3); }
-        .palette-btn.selected:hover { background-color: #9c9cff; }
        
+        /* Universal Active Highlight State */
+        .btn-active { background-color: #b4b4ff !important; border-color: #b4b4ff !important; color: #000000 !important; box-shadow: 0 0 10px rgba(180, 180, 255, 0.3) !important; }
+        .btn-active:hover { background-color: #9c9cff !important; }
+
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
@@ -209,6 +211,12 @@
                     { top: '_', bottom: '-', code: 'MINUS' }, { top: '+', bottom: '=', code: 'EQUAL' }, { top: '~', bottom: '`', code: 'GRAVE' }, { top: '{', bottom: '[', code: 'LBKT' }, { top: '}', bottom: ']', code: 'RBKT' }, { top: '|', bottom: '\\', code: 'BSLH' }, { top: ':', bottom: ';', code: 'SEMI' }, { top: '"', bottom: "'", code: 'SQT' }, { top: '<', bottom: ',', code: 'COMMA' }, { top: '>', bottom: '.', code: 'DOT' }, { top: '?', bottom: '/', code: 'FSLH' },
                     { label: '=', code: 'KP_EQUAL' }, { label: ',', code: 'KP_COMMA' }, { label: '÷', code: 'KP_DIVIDE' }, { label: '×', code: 'KP_MULTIPLY' }, { label: '-', code: 'KP_MINUS' }, { label: '+', code: 'KP_PLUS' }, { label: '.', code: 'KP_DOT' }, { label: '&', code: 'AMPS' }
                 ] },
+                { category: "Modifiers", items: [
+                    { label: 'L Shift', code: 'LSHFT' }, { label: 'R Shift', code: 'RSHFT' },
+                    { label: 'L Ctrl', code: 'LCTRL' }, { label: 'R Ctrl', code: 'RCTRL' },
+                    { label: 'L Alt', code: 'LALT' }, { label: 'R Alt', code: 'RALT' },
+                    { label: 'L Win', code: 'LGUI' }, { label: 'R Win', code: 'RGUI' }
+                ] },
                 { category: "Control", items: [
                     { label: '▽', type: '&trans' }, { label: '∅ None', type: '&none' }, { label: 'F1', code: 'F1' }, { label: 'F2', code: 'F2' }, { label: 'F3', code: 'F3' }, { label: 'F4', code: 'F4' }, { label: 'F5', code: 'F5' }, { label: 'F6', code: 'F6' }, { label: 'F7', code: 'F7' }, { label: 'F8', code: 'F8' }, { label: 'F9', code: 'F9' }, { label: 'F10', code: 'F10' }, { label: 'F11', code: 'F11' }, { label: 'F12', code: 'F12' },
                     { label: 'Caps Lock', code: 'CAPS' }, { label: 'Tab', code: 'TAB' }, { label: 'Backspace', code: 'BSPC' }, { label: 'Enter', code: 'RET' }, { label: 'Space', code: 'SPACE' }, { label: 'Ins', code: 'INS' }, { label: 'Del', code: 'DEL' }, { label: 'Home', code: 'HOME' }, { label: 'End', code: 'END' }, { label: 'PgUp', code: 'PG_UP' }, { label: 'PgDn', code: 'PG_DN' }, { label: 'Esc', code: 'ESC' }, { label: 'Print', code: 'PRINTSCREEN' }, { label: 'Scroll', code: 'SLCK' }, { label: 'Pause', code: 'PAUSE_BREAK' }, { label: 'RApp', code: 'K_APP' }, { label: 'N.ent', code: 'KP_ENTER' }, { label: 'N.Lck', code: 'KP_NUM' }
@@ -261,6 +269,7 @@
             ...PALETTE_DATA.Custom
         ];
 
+
 const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
         const MOD_BASES = [
             { base: 'C', mac: '⌃', win: 'Ct', nameMac: 'Control', nameWin: 'Control' },
@@ -310,7 +319,6 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
 
         const runGC = (newConfig) => {
             const usedNames = new Set();
-           
             const extractNames = (node) => {
                 if (!node) return;
                 if (typeof node === 'object') {
@@ -335,9 +343,7 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
                             if (beh.bindings) {
                                 beh.bindings.forEach(b => {
                                     if (typeof b === 'object') extractNames(b);
-                                    else if (typeof b === 'string' && (b.startsWith('&ht_auto_') || b.startsWith('&td_') || b.startsWith('&mm_auto_'))) {
-                                        usedNames.add(b);
-                                    }
+                                    else if (typeof b === 'string' && (b.startsWith('&ht_auto_') || b.startsWith('&td_') || b.startsWith('&mm_auto_'))) usedNames.add(b);
                                 });
                             }
                             if (beh.cases) beh.cases.forEach(c => extractNames(c.binding));
@@ -410,7 +416,6 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             slots.shiftTap = pMM.shiftTap;
 
             slots.doubleTap = secondaryBinding;
-
             return slots;
         };
 
@@ -435,7 +440,7 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             return { value: mmName };
         };
 
-        const makeHoldTap = (tap, hold, configRef) => {
+        const makeHoldTap = (tap, hold, configRef, forceCustom = false) => {
             if (!tap && !hold) return null;
             if (tap && !hold) return tap;
             if (!tap && hold) return hold;
@@ -446,7 +451,7 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             const isLayer = holdVal === '&mo' || holdVal === '&to' || holdVal === '&tog' || holdVal === '&sl';
             const isMod = RAW_MOD_CODES.has(holdVal) || ['LCTRL','RCTRL','LSHFT','RSHFT','LALT','RALT','LGUI','RGUI'].includes(holdVal);
 
-            if (tapVal === '&kp' || tapVal.startsWith('&mac')) {
+            if (!forceCustom && (tapVal === '&kp' || tapVal.startsWith('&mac'))) {
                 if (tapVal === '&kp') {
                     if (isLayer) return { value: '&lt', params: [hold.params?.[0] || {value: 0}, tap.params[0]] };
                     if (isMod) return { value: '&mt', params: [{value: holdVal}, tap.params[0]] };
@@ -461,7 +466,8 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             if (!configRef.holdTaps.find(h => h.name === htName)) {
                 configRef.holdTaps.push({
                     name: htName, bindings: [holdVal, tapVal],
-                    tappingTermMs: 200, flavor: "tap-preferred", quickTapMs: -1, requirePriorIdleMs: 0
+                    tappingTermMs: 200, flavor: "tap-preferred", quickTapMs: -1, requirePriorIdleMs: 0,
+                    retroTap: false, holdTriggerOnRelease: false
                 });
             }
             let params = [];
@@ -470,11 +476,11 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             return { value: htName, params };
         };
 
-        function buildBindingAndConfig(slots, currentConfig) {
+        function buildBindingAndConfig(slots, currentConfig, forceCustomHold = false) {
             let newConfig = structuredClone(currentConfig);
            
             const primaryTap = makeModMorph(slots.tap, slots.shiftTap, newConfig);
-            const primary = makeHoldTap(primaryTap, slots.hold, newConfig);
+            const primary = makeHoldTap(primaryTap, slots.hold, newConfig, forceCustomHold);
             const secondary = slots.doubleTap && slots.doubleTap.value !== '&none' ? slots.doubleTap : null;
 
             if (!primary && !secondary) return { newBinding: { value: '&none' }, newConfig };
@@ -575,9 +581,9 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             if (val === '&sl') return `Sticky Layer ${p1}`;
             if (val === 'Custom') return p1 ? String(p1) : 'Custom';
            
-            if (val.startsWith('&ht_auto_')) return val.replace('&ht_auto_', '').split('_').join(' + ');
-            if (val.startsWith('&td_')) return val.replace('&td_', '').split('_').join(' / ');
-            if (val.startsWith('&mm_auto_')) return val.replace('&mm_auto_', '').split('_').join(' / Shift+');
+            if (val.startsWith('&ht_auto_')) return val.replace('&ht_auto_', '').split('_').map(s => formatKeycode(s, osMode)).join(' + ');
+            if (val.startsWith('&td_')) return val.replace('&td_', '').replace('auto_', '').split('_').map(s => formatKeycode(s, osMode)).join(' / ');
+            if (val.startsWith('&mm_auto_')) return val.replace('&mm_auto_', '').split('_').map(s => formatKeycode(s, osMode)).join(' / Shift+');
 
             if (val.startsWith('&')) return val.replace('&', '') + (p1 !== undefined ? ` ${p1}` : '') + (p2 !== undefined ? ` ${p2}` : '');
             return val;
@@ -809,6 +815,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
            
             const [activeVerticalTab, setActiveVerticalTab] = useState('Keymap');
             const [activeActionSlot, setActiveActionSlot] = useState('tap');
+            const [activeConfigSlot, setActiveConfigSlot] = useState(null);
             const [manuallyAddedSlots, setManuallyAddedSlots] = useState(new Set());
             const [showLeds, setShowLeds] = useState(true);
             const [paletteSearch, setPaletteSearch] = useState('');
@@ -821,6 +828,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
             useEffect(() => {
                 setBgHexInput('');
                 setActiveActionSlot('tap');
+                setActiveConfigSlot(null);
                 setManuallyAddedSlots(new Set());
             }, [selectedKey, activeLayer, config]);
 
@@ -1000,7 +1008,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                 }
 
                 const newSlots = { ...parsedSlots, [activeActionSlot]: newSlotBinding };
-                let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config);
+                let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config, false);
 
                 if (currentBinding?.decoration) newBinding.decoration = currentBinding.decoration;
 
@@ -1024,7 +1032,6 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                     return;
                 }
 
-                // Modifies existing &kp inline dynamically
                 let p1 = slotBinding.params?.[0]?.value;
                 if (!p1) return;
 
@@ -1051,7 +1058,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                 }
 
                 const newSlots = { ...parsedSlots, [activeActionSlot]: newSlotBinding };
-                let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config);
+                let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config, false);
 
                 if (currentBinding?.decoration) newBinding.decoration = currentBinding.decoration;
 
@@ -1059,10 +1066,22 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                 pushHistory(newConfig);
             };
 
+            const updateBehaviorSetting = (type, behName, key, val) => {
+                if (!config) return;
+                const newConfig = structuredClone(config);
+                const behArray = newConfig[type];
+                if (!behArray) return;
+                const beh = behArray.find(b => b.name === behName);
+                if (beh) {
+                    beh[key] = val;
+                    pushHistory(newConfig);
+                }
+            };
+
             const clearSlot = (slotKey) => {
                 if (selectedKey === null || !config) return;
                 const newSlots = { ...parsedSlots, [slotKey]: null };
-                let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config);
+                let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config, false);
                
                 if (currentBinding?.decoration) newBinding.decoration = currentBinding.decoration;
 
@@ -1075,6 +1094,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                     return next;
                 });
                 if (activeActionSlot === slotKey) setActiveActionSlot('tap');
+                if (activeConfigSlot === slotKey) setActiveConfigSlot(null);
             };
 
             const isItemActive = useCallback((item) => {
@@ -1083,7 +1103,6 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                 if (!slotBinding || slotBinding.value === '&none') return false;
 
                 if (item.code) {
-                    if (RAW_MOD_CODES.has(item.code)) return slotBinding.value === item.code;
                     if (slotBinding.value === '&kp') {
                         let p1 = slotBinding.params?.[0]?.value;
                         if (MOD_WRAPPER_TO_FULL[p1] && slotBinding.params[0].params) {
@@ -1101,29 +1120,128 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                 return false;
             }, [selectedKey, config, parsedSlots, activeActionSlot]);
 
+            const renderBehaviorSettings = (slotKey, bindingName) => {
+                if (bindingName.startsWith('&ht_auto_')) {
+                    const ht = (config.holdTaps || []).find(h => h.name === bindingName);
+                    if (!ht) return null;
+                    return (
+                        <div className="bg-[#0a0a0a] p-4 rounded-b-xl border-x border-b border-[#222] -mt-2 pt-4 flex flex-col gap-4 shadow-inner relative z-0">
+                            <div className="flex gap-4">
+                                <div className="flex flex-col flex-1 gap-1.5">
+                                    <label className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Tapping Term</label>
+                                    <div className="flex bg-[#111] border border-[#333] rounded-lg">
+                                        <input type="number" min="0" max="1000" step="10" className="w-full bg-transparent p-2 text-xs font-mono text-white outline-none" value={ht.tappingTermMs ?? 200} onChange={e => updateBehaviorSetting('holdTaps', bindingName, 'tappingTermMs', parseInt(e.target.value)||200)} />
+                                        <span className="p-2 text-xs text-gray-500 font-mono">ms</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col flex-1 gap-1.5">
+                                    <label className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Quick Tap</label>
+                                    <div className="flex bg-[#111] border border-[#333] rounded-lg">
+                                        <input type="number" min="-1" max="1000" step="10" className="w-full bg-transparent p-2 text-xs font-mono text-white outline-none" value={ht.quickTapMs ?? -1} onChange={e => updateBehaviorSetting('holdTaps', bindingName, 'quickTapMs', parseInt(e.target.value)||-1)} />
+                                        <span className="p-2 text-xs text-gray-500 font-mono">ms</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Flavor Strategy</label>
+                                <select className="w-full bg-[#111] border border-[#333] p-2 rounded-lg text-xs text-white outline-none" value={ht.flavor || 'tap-preferred'} onChange={e => updateBehaviorSetting('holdTaps', bindingName, 'flavor', e.target.value)}>
+                                    <option value="tap-preferred">Tap Preferred</option>
+                                    <option value="hold-preferred">Hold Preferred</option>
+                                    <option value="balanced">Balanced</option>
+                                    <option value="tap-unless-interrupted">Tap Unless Interrupted</option>
+                                </select>
+                            </div>
+                            <div className="flex justify-between mt-1">
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" checked={!!ht.retroTap} onChange={e => updateBehaviorSetting('holdTaps', bindingName, 'retroTap', e.target.checked)} className="accent-[#b4b4ff]" />
+                                    <span className="text-xs text-gray-300">Retro Tap</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input type="checkbox" checked={!!ht.holdTriggerOnRelease} onChange={e => updateBehaviorSetting('holdTaps', bindingName, 'holdTriggerOnRelease', e.target.checked)} className="accent-[#b4b4ff]" />
+                                    <span className="text-xs text-gray-300">Trigger on Release</span>
+                                </label>
+                            </div>
+                        </div>
+                    );
+                } else if (bindingName.startsWith('&td_')) {
+                    const td = (config.tapDances || []).find(t => t.name === bindingName);
+                    if (!td) return null;
+                    return (
+                        <div className="bg-[#0a0a0a] p-4 rounded-b-xl border-x border-b border-[#222] -mt-2 pt-4 flex flex-col gap-4 shadow-inner relative z-0">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="text-[10px] uppercase tracking-widest text-gray-500 font-bold">Tapping Term</label>
+                                <div className="flex bg-[#111] border border-[#333] rounded-lg">
+                                    <input type="number" min="0" max="1000" step="10" className="w-full bg-transparent p-2 text-xs font-mono text-white outline-none" value={td.tappingTermMs ?? 200} onChange={e => updateBehaviorSetting('tapDances', bindingName, 'tappingTermMs', parseInt(e.target.value)||200)} />
+                                    <span className="p-2 text-xs text-gray-500 font-mono">ms</span>
+                                </div>
+                            </div>
+                        </div>
+                    );
+                }
+                return null;
+            };
+
             const SLOT_LABELS = { tap: 'Tap', shiftTap: 'Shift + Tap', hold: 'Hold', doubleTap: 'Double Tap' };
+
+            const handleGearClick = (e, slotKey) => {
+                e.stopPropagation();
+               
+                const slotBinding = parsedSlots[slotKey];
+                let isStandardHoldTap = false;
+                if (slotKey === 'hold') {
+                    const primaryBinding = currentBinding;
+                    if (primaryBinding && !primaryBinding.value.startsWith('&ht_auto_') && !primaryBinding.value.startsWith('&td_') && (primaryBinding.value === '&mt' || primaryBinding.value === '&lt')) {
+                        isStandardHoldTap = true;
+                    }
+                }
+               
+                if (isStandardHoldTap) {
+                    const newSlots = { ...parsedSlots };
+                    let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config, true);
+                    if (currentBinding?.decoration) newBinding.decoration = currentBinding.decoration;
+                    newConfig.layers[activeLayer][selectedKey] = newBinding;
+                    pushHistory(newConfig);
+                }
+
+                setActiveConfigSlot(prev => prev === slotKey ? null : slotKey);
+            };
 
             const renderSlot = (slotKey, label) => {
                 const isSelected = activeActionSlot === slotKey;
+                const isConfigOpen = activeConfigSlot === slotKey;
                 const slotBinding = parsedSlots[slotKey];
                 const isFilled = !!slotBinding && slotBinding.value !== '&none';
 
+                let rawBindingName = '';
+                if (slotKey === 'hold') rawBindingName = currentBinding?.value || '';
+                if (slotKey === 'doubleTap') rawBindingName = currentBinding?.value || '';
+
+                const showGear = isFilled && (slotKey === 'hold' || slotKey === 'doubleTap');
+
                 if (isFilled) {
                     return (
-                        <div key={slotKey} onClick={() => setActiveActionSlot(slotKey)} className={`rounded-xl px-4 py-3 text-sm font-semibold flex items-center justify-between cursor-pointer transition-colors border ${isSelected ? 'bg-[#b4b4ff] text-black border-[#b4b4ff]' : 'bg-transparent text-gray-300 border-[#333] hover:border-[#555]'} shadow-sm group`}>
-                            <span className="w-28 tracking-wide">{label}</span>
-                            <span className="opacity-40 px-2">→</span>
-                            <span className="flex-1 truncate font-mono text-[13px] text-right">{describeBinding(slotBinding, osMode)}</span>
-                            <button onClick={(e) => { e.stopPropagation(); clearSlot(slotKey); }} className={`ml-3 w-6 h-6 rounded flex items-center justify-center transition-colors border text-lg leading-none shrink-0 ${isSelected ? 'border-black/20 hover:bg-black/10 text-black' : 'border-[#444] text-gray-500 hover:text-white hover:border-white'}`} title="Clear slot">×</button>
+                        <div key={slotKey} className="flex flex-col">
+                            <div onClick={() => setActiveActionSlot(slotKey)} className={`rounded-xl px-4 py-2 text-xs font-semibold flex items-center justify-between cursor-pointer transition-colors border ${isSelected ? 'btn-active border-none !text-black shadow-sm' : 'bg-transparent text-gray-300 border-[#222] hover:border-[#444]'} relative z-10`}>
+                                <span className="w-24 tracking-wide">{label}</span>
+                                <span className="opacity-40 px-2">→</span>
+                                <span className="flex-1 truncate font-mono text-[11px] text-right pr-2">{describeBinding(slotBinding, osMode)}</span>
+                                <div className="flex items-center gap-1 shrink-0">
+                                    {showGear && (
+                                        <button onClick={(e) => handleGearClick(e, slotKey)} className={`w-5 h-5 rounded flex items-center justify-center transition-colors text-[10px] shrink-0 ${isSelected ? 'hover:bg-black/10 text-black border border-black/20' : 'text-gray-500 hover:text-white border border-[#444]'}`} title="Settings">⚙</button>
+                                    )}
+                                    <button onClick={(e) => { e.stopPropagation(); clearSlot(slotKey); }} className={`w-5 h-5 rounded flex items-center justify-center transition-colors text-md leading-none shrink-0 ${isSelected ? 'hover:bg-black/10 text-black border border-black/20' : 'text-gray-500 hover:text-white border border-[#444]'}`} title="Clear slot">×</button>
+                                </div>
+                            </div>
+                            {isConfigOpen && renderBehaviorSettings(slotKey, rawBindingName)}
                         </div>
                     );
                 } else {
                     return (
-                        <div key={slotKey} onClick={() => setActiveActionSlot(slotKey)} className={`rounded-xl px-4 py-2 text-sm font-semibold flex items-center justify-between cursor-pointer transition-colors border border-dashed ${isSelected ? 'border-[#b4b4ff] text-[#b4b4ff] bg-[#b4b4ff]/5' : 'border-[#444] text-gray-500 hover:border-[#666] hover:text-gray-300'}`}>
-                            <span className="w-28 tracking-wide">{label}</span>
+                        <div key={slotKey} onClick={() => setActiveActionSlot(slotKey)} className={`rounded-xl px-4 py-2 text-xs font-semibold flex items-center justify-between cursor-pointer transition-colors border border-dashed ${isSelected ? 'border-[#b4b4ff] text-[#b4b4ff] bg-[#b4b4ff]/5' : 'border-[#222] text-gray-500 hover:border-[#444] hover:text-gray-300'}`}>
+                            <span className="w-24 tracking-wide">{label}</span>
                             <span className="opacity-40 px-2">→</span>
-                            <span className="flex-1 truncate font-mono text-[13px]"></span>
-                            <div className={`w-6 h-6 rounded flex items-center justify-center border transition-colors ${isSelected ? 'border-[#b4b4ff] text-[#b4b4ff]' : 'border-[#444] text-gray-500'}`}>
+                            <span className="flex-1 truncate font-mono text-[11px]"></span>
+                            <div className={`w-5 h-5 rounded flex items-center justify-center border transition-colors ${isSelected ? 'border-[#b4b4ff] text-[#b4b4ff]' : 'border-[#444] text-gray-500'}`}>
                                 <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"></path></svg>
                             </div>
                         </div>
@@ -1315,7 +1433,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                     onClick={() => { setActiveLayer(i); setSelectedKey(null); }}
                                                     onDoubleClick={() => startRenameLayer(i, typeof name === 'string' ? name : `Layer ${i}`)}
                                                     title="Double-click to rename"
-                                                    className={`px-5 py-1.5 rounded-full text-xs font-semibold transition-colors ${activeLayer === i ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                                                    className={`px-5 py-1.5 rounded-full text-xs font-semibold transition-colors ${activeLayer === i ? 'btn-active border-none !text-black shadow-sm' : 'text-gray-400 hover:text-white'}`}
                                                 >
                                                     {typeof name === 'string' ? name : `Layer ${i}`}
                                                 </button>
@@ -1336,8 +1454,8 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                             </div>
                             <div className="flex items-center gap-4 shrink-0">
                                 <div className="flex bg-[#1c1c1c] border border-[#333] p-1 rounded-full mr-2">
-                                    <button onClick={() => setOsMode('mac')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${osMode === 'mac' ? 'bg-[#333] text-white' : 'text-gray-500 hover:text-white'}`}>Mac</button>
-                                    <button onClick={() => setOsMode('win')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${osMode === 'win' ? 'bg-[#333] text-white' : 'text-gray-500 hover:text-white'}`}>Win</button>
+                                    <button onClick={() => setOsMode('mac')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${osMode === 'mac' ? 'btn-active border-none !text-black' : 'text-gray-500 hover:text-white'}`}>Mac</button>
+                                    <button onClick={() => setOsMode('win')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${osMode === 'win' ? 'btn-active border-none !text-black' : 'text-gray-500 hover:text-white'}`}>Win</button>
                                 </div>
                                 <button onClick={undo} disabled={undoStack.length === 0} className={`p-2 rounded-full border border-MoErgo-card flex items-center justify-center w-8 h-8 ${undoStack.length > 0 ? 'text-white bg-[#333] hover:bg-[#444]' : 'text-gray-600 opacity-50 cursor-not-allowed'}`} title="Undo">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a5 5 0 015 5v1m-15-6l4-4m-4 4l4 4"></path></svg>
@@ -1347,7 +1465,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                 </button>
                                 <div className="w-px h-6 bg-[#333] mx-1"></div>
                                 <label className="bg-[#333] hover:bg-[#444] border border-[#444] text-white text-xs font-medium px-4 py-2 rounded-full cursor-pointer transition-colors">Load<input type="file" accept=".json" className="hidden" onChange={handleFileUpload} /></label>
-                                {config && <button onClick={handleExport} className="bg-[#b4b4ff] hover:bg-[#9c9cff] text-black text-xs font-bold px-4 py-2 rounded-full transition-colors shadow-sm">Export</button>}
+                                {config && <button onClick={handleExport} className="btn-active text-xs font-bold px-4 py-2 rounded-full transition-colors shadow-sm border-none !text-black">Export</button>}
                             </div>
                         </header>
 
@@ -1362,7 +1480,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                         <p className="text-sm">Load an existing JSON layout to begin editing.</p>
                                     </div>
                                     <div className="flex gap-3 w-full">
-                                        <label className="flex-1 bg-[#b4b4ff] hover:bg-[#9c9cff] text-black font-bold py-3 rounded-xl cursor-pointer transition-colors text-center">Load File<input type="file" accept=".json" className="hidden" onChange={handleFileUpload} /></label>
+                                        <label className="flex-1 btn-active font-bold py-3 rounded-xl cursor-pointer transition-colors text-center border-none !text-black">Load File<input type="file" accept=".json" className="hidden" onChange={handleFileUpload} /></label>
                                     </div>
                                     <div className="w-full flex items-center gap-4">
                                         <div className="h-px bg-[#333] flex-1"></div>
@@ -1386,29 +1504,29 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                 </div>
 
                                 {/* Left Pane: Key Selection Details */}
-                                <div className="w-[380px] shrink-0 border-r border-[#222] flex flex-col p-8 overflow-y-auto bg-[#050505]">
-                                    <div className="text-white font-bold mb-4 text-[15px] flex justify-between items-center">
+                                <div className="w-[380px] shrink-0 border-r border-[#222] flex flex-col p-6 overflow-y-auto bg-[#050505]">
+                                    <div className="text-white text-[13px] uppercase tracking-wider font-bold mb-4 flex justify-between items-center px-1">
                                         <span>key ({selectedKey !== null ? getLogicalName(selectedKey, config?.keyboard) : 'None'})</span>
                                         <button className="text-gray-500 hover:text-white transition-colors" title="Clear All Slots" onClick={() => { if(window.confirm('Clear all behaviors for this key?')) { clearSlot('tap'); clearSlot('shiftTap'); clearSlot('hold'); clearSlot('doubleTap'); } }}>
                                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM14 12a2 2 0 11-4 0 2 2 0 014 0zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                                         </button>
                                     </div>
 
-                                    <div className="flex text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-2 px-2">
-                                        <div className="w-28">Behavior</div>
+                                    <div className="flex text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-2 px-3">
+                                        <div className="w-24">Behavior</div>
                                         <div className="w-8 text-center">→</div>
                                         <div className="flex-1 text-right">Action</div>
                                     </div>
                                     <div className="h-px w-full bg-[#222] mb-4"></div>
 
                                     {selectedKey !== null ? (
-                                        <div className="flex flex-col gap-3">
+                                        <div className="flex flex-col gap-2">
                                             {activeSlotKeys.map(slotKey => renderSlot(slotKey, SLOT_LABELS[slotKey]))}
 
                                             {availableToAdd.length > 0 && (
                                                 <div className="flex flex-wrap gap-2 mt-2">
                                                     {availableToAdd.map(slotKey => (
-                                                        <div key={slotKey} onClick={() => { setManuallyAddedSlots(prev => new Set(prev).add(slotKey)); setActiveActionSlot(slotKey); }} className="rounded-xl px-4 py-2.5 text-xs font-semibold flex items-center justify-center cursor-pointer transition-colors border border-dashed border-[#333] hover:border-[#555] text-gray-500 hover:text-gray-300">
+                                                        <div key={slotKey} onClick={() => { setManuallyAddedSlots(prev => new Set(prev).add(slotKey)); setActiveActionSlot(slotKey); }} className="rounded-xl px-4 py-2 text-[11px] font-semibold flex items-center justify-center cursor-pointer transition-colors border border-dashed border-[#222] hover:border-[#444] text-gray-500 hover:text-gray-300">
                                                             <span className="mr-2 text-lg leading-none">+</span> Add {SLOT_LABELS[slotKey]}
                                                         </div>
                                                     ))}
@@ -1422,18 +1540,18 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
 
                                 {/* Middle Pane: Vertical Tabs */}
                                 <div className="w-[64px] shrink-0 border-r border-[#222] bg-[#0a0a0a] flex flex-col items-center py-6 gap-3">
-                                    <button onClick={() => setActiveVerticalTab('Keymap')} className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg transition-colors ${activeVerticalTab === 'Keymap' ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Keymap">B</button>
-                                    <button onClick={() => setActiveVerticalTab('Macro')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'Macro' ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Macros">
+                                    <button onClick={() => setActiveVerticalTab('Keymap')} className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg transition-colors ${activeVerticalTab === 'Keymap' ? 'btn-active border-none !text-black' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Keymap">B</button>
+                                    <button onClick={() => setActiveVerticalTab('Macro')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'Macro' ? 'btn-active border-none !text-black' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Macros">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
                                     </button>
-                                    <button onClick={() => setActiveVerticalTab('Layer')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'Layer' ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Layers">
+                                    <button onClick={() => setActiveVerticalTab('Layer')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'Layer' ? 'btn-active border-none !text-black' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Layers">
                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"></path></svg>
                                     </button>
                                     <div className="w-6 h-px bg-[#222] my-1"></div>
-                                    <button onClick={() => setActiveVerticalTab('Lighting')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'Lighting' ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Lighting">
+                                    <button onClick={() => setActiveVerticalTab('Lighting')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'Lighting' ? 'btn-active border-none !text-black' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Lighting">
                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
                                     </button>
-                                    <button onClick={() => setActiveVerticalTab('JSON')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'JSON' ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="JSON">
+                                    <button onClick={() => setActiveVerticalTab('JSON')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'JSON' ? 'btn-active border-none !text-black' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="JSON">
                                          <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
                                     </button>
                                 </div>
@@ -1441,7 +1559,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                 {/* Right Pane: Content Grid */}
                                 <div className="flex-1 p-8 overflow-y-auto bg-[#050505] relative">
                                     {activeVerticalTab === 'Keymap' && (
-                                        <div className="flex flex-col w-full max-w-7xl relative">
+                                        <div className="flex flex-col gap-6 w-full max-w-7xl relative">
                                            
                                             {/* Sticky Unified Header */}
                                             <div className="sticky top-[-32px] bg-[#050505] z-10 pb-4 pt-1 flex items-center justify-between gap-4 border-b border-[#222] mb-6">
@@ -1449,8 +1567,8 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                 <div className="flex items-center gap-3">
                                                     {/* Compact Left/Right Toggle */}
                                                     <div className="flex flex-col bg-[#111] border border-[#333] p-0.5 rounded-lg h-[48px] justify-between">
-                                                        <button onClick={() => setModSide('L')} className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-colors ${modSide === 'L' ? 'bg-[#b4b4ff] text-black' : 'text-gray-500 hover:text-white'}`}>L</button>
-                                                        <button onClick={() => setModSide('R')} className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-colors ${modSide === 'R' ? 'bg-[#b4b4ff] text-black' : 'text-gray-500 hover:text-white'}`}>R</button>
+                                                        <button onClick={() => setModSide('L')} className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-colors ${modSide === 'L' ? 'btn-active border-none !text-black' : 'text-gray-500 hover:text-white'}`}>L</button>
+                                                        <button onClick={() => setModSide('R')} className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-colors ${modSide === 'R' ? 'btn-active border-none !text-black' : 'text-gray-500 hover:text-white'}`}>R</button>
                                                     </div>
                                                    
                                                     {/* Square Modifier Grid */}
@@ -1474,7 +1592,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                                     key={code}
                                                                     title={`Toggle ${modSide === 'R' ? 'Right' : 'Left'} ${osMode === 'mac' ? m.nameMac : m.nameWin}`}
                                                                     onClick={() => toggleModifier(code)}
-                                                                    className={`palette-btn ${active ? 'selected' : ''}`}
+                                                                    className={`palette-btn ${active ? 'btn-active border-none !text-black' : ''}`}
                                                                 >
                                                                     {getModSymbol(code, osMode)}
                                                                 </button>
@@ -1501,7 +1619,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                             </div>
                                                             <div className="flex flex-wrap gap-2.5">
                                                                 {section.items.map((item, idx) => (
-                                                                    <button key={idx} onClick={() => assignAction(item)} className={`palette-btn ${isItemActive(item) ? 'selected' : ''}`}>
+                                                                    <button key={idx} onClick={() => assignAction(item)} className={`palette-btn ${isItemActive(item) ? 'btn-active border-none !text-black' : ''}`}>
                                                                         {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
                                                                     </button>
                                                                 ))}
@@ -1517,7 +1635,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                             </div>
                                                             <div className="flex flex-wrap gap-2.5">
                                                                 {section.items.map((item, idx) => (
-                                                                    <button key={idx} onClick={() => assignAction(item)} className={`palette-btn ${isItemActive(item) ? 'selected' : ''}`}>
+                                                                    <button key={idx} onClick={() => assignAction(item)} className={`palette-btn ${isItemActive(item) ? 'btn-active border-none !text-black' : ''}`}>
                                                                         {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
                                                                     </button>
                                                                 ))}
@@ -1535,7 +1653,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                             <div className="flex flex-col gap-3">
                                                 <div className="text-[11px] text-gray-500 font-bold tracking-wide uppercase">LED View Toggle</div>
                                                 <div className="h-px w-full max-w-[600px] bg-[#222]"></div>
-                                                <button onClick={() => setShowLeds(!showLeds)} className={`w-8 h-8 mt-1 flex items-center justify-center rounded transition-colors border cursor-pointer ${showLeds ? 'text-white bg-[#222] border-[#444]' : 'text-gray-500 border-transparent hover:border-[#444]'}`}>
+                                                <button onClick={() => setShowLeds(!showLeds)} className={`w-8 h-8 mt-1 flex items-center justify-center rounded transition-colors border cursor-pointer ${showLeds ? 'btn-active border-none !text-black' : 'text-gray-500 border-transparent hover:border-[#444]'}`}>
                                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
                                                 </button>
                                             </div>
@@ -1598,7 +1716,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                 <div className="flex flex-wrap gap-2.5">
                                                     {(config.macros && config.macros.length > 0) ? (
                                                         config.macros.map((m, i) => (
-                                                            <button key={i} onClick={() => assignAction({ type: m.name })} className={`palette-btn ${isItemActive({type: m.name}) ? 'selected' : ''}`}>
+                                                            <button key={i} onClick={() => assignAction({ type: m.name })} className={`palette-btn ${isItemActive({type: m.name}) ? 'btn-active border-none !text-black' : ''}`}>
                                                                 {m.name.replace('&', '')}
                                                             </button>
                                                         ))
@@ -1618,8 +1736,8 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                 <div className="flex flex-wrap gap-2.5">
                                                     {(config.layer_names || config.layers).map((n, i) => (
                                                         <React.Fragment key={i}>
-                                                            <button onClick={() => assignAction({ type: '&mo', param1: i })} className={`palette-btn ${isItemActive({type: '&mo', param1: i}) ? 'selected' : '!text-purple-300 border-purple-900/50 hover:bg-purple-900/20'}`}>MO {i}</button>
-                                                            <button onClick={() => assignAction({ type: '&tog', param1: i })} className={`palette-btn ${isItemActive({type: '&tog', param1: i}) ? 'selected' : '!text-emerald-300 border-emerald-900/50 hover:bg-emerald-900/20'}`}>TOG {i}</button>
+                                                            <button onClick={() => assignAction({ type: '&mo', param1: i })} className={`palette-btn ${isItemActive({type: '&mo', param1: i}) ? 'btn-active border-none !text-black' : '!text-purple-300 border-purple-900/50 hover:bg-purple-900/20'}`}>MO {i}</button>
+                                                            <button onClick={() => assignAction({ type: '&tog', param1: i })} className={`palette-btn ${isItemActive({type: '&tog', param1: i}) ? 'btn-active border-none !text-black' : '!text-emerald-300 border-emerald-900/50 hover:bg-emerald-900/20'}`}>TOG {i}</button>
                                                         </React.Fragment>
                                                     ))}
                                                 </div>
@@ -1670,7 +1788,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                     <li><span className="text-white font-semibold">Switch or add layers</span> using the tabs up top.</li>
                                     <li><span className="text-white font-semibold">Export</span> when you're done, and load the file into the MoErgo configurator.</li>
                                 </ol>
-                                <button onClick={() => setShowQuickStart(false)} className="mt-8 w-full bg-[#b4b4ff] hover:bg-[#9c9cff] text-black font-bold py-3 rounded-xl transition-colors">Got it</button>
+                                <button onClick={() => setShowQuickStart(false)} className="mt-8 w-full btn-active font-bold py-3 rounded-xl transition-colors border-none !text-black">Got it</button>
                             </div>
                         </div>
                     )}
