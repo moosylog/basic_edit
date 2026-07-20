@@ -8,8 +8,6 @@
 
 [![Naya style version](https://img.shields.io/badge/Live_Demo-NayaMix-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/glide_v16.html) Blend of Moosy, Keychron, Naya, Vial
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
-[![Zero Build](https://img.shields.io/badge/Zero_Dependencies-HTML5-orange?style=for-the-badge&logo=html5)](#)
 
 **A lightweight**, visual editor that serves as a foundation for **tinkering with the MoErgo Layout Editor JSON file**. By providing the exact hardware geometry coordinates needed to render the physical keyboard matrix on screen, it gives you a great starting point for your project.
 
