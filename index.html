@@ -33,14 +33,18 @@
             cursor: pointer; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); user-select: none; 
             border: 1px solid #334155; background-color: #1e293b; 
             box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
-            padding: 4px; text-align: center; overflow: hidden; will-change: transform, box-shadow;
+            padding: 4px; text-align: center; overflow: hidden; 
+            will-change: transform, scale, translate, box-shadow;
         }
-        .p-key:active { transform: scale(0.96) !important; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        /* FIX: Replaced 'transform: scale' with independent 'scale' property */
+        .p-key:active { scale: 0.96; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
         .p-key:hover { filter: brightness(1.2); border-color: #64748b; z-index: 5; }
+        
+        /* FIX: Replaced 'transform: translateY' with independent 'translate' property */
         .p-key.selected { 
             border-color: #0ea5e9 !important; 
             box-shadow: 0 0 0 4px rgba(14, 165, 233, 0.25), inset 0 1px 0 rgba(255,255,255,0.2) !important; 
-            z-index: 10; transform: translateY(-2px); background-color: #0f172a;
+            z-index: 10; translate: 0 -2px; background-color: #0f172a;
         }
         .p-key.trans { opacity: 0.5; border-style: dashed; }
         .p-key.dead { background-color: #0f172a; border-color: #1e293b; opacity: 0.3; }
@@ -193,10 +197,11 @@
             const isDead = binding.value === '&none' || binding.value === 'none';
             const labelText = isTrans && baseBinding ? generateAutoLabel(baseBinding) : generateAutoLabel(binding);
             
+            // FIX: Replaced 'transform' with independent 'rotate' property
             const keyStyle = { 
                 left: `${geo.x}px`, 
                 top: `${geo.y}px`, 
-                transform: geo.r ? `rotate(${geo.r}deg)` : 'none', 
+                rotate: geo.r ? `${geo.r}deg` : '0deg', 
                 transformOrigin: geo.o || 'center' 
             };
             if (!isTrans && binding.decoration?.background) {
