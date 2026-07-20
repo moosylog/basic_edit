@@ -205,7 +205,7 @@
                 { category: "Numbers", items: [ { top: '!', bottom: '1', code: 'N1' }, { top: '@', bottom: '2', code: 'N2' }, { top: '#', bottom: '3', code: 'N3' }, { top: '$', bottom: '4', code: 'N4' }, { top: '%', bottom: '5', code: 'N5' }, { top: '^', bottom: '6', code: 'N6' }, { top: '&', bottom: '7', code: 'N7' }, { top: '*', bottom: '8', code: 'N8' }, { top: '(', bottom: '9', code: 'N9' }, { top: ')', bottom: '0', code: 'N0' } ] },
                 { category: "Symbols", items: [
                     { top: '_', bottom: '-', code: 'MINUS' }, { top: '+', bottom: '=', code: 'EQUAL' }, { top: '~', bottom: '`', code: 'GRAVE' }, { top: '{', bottom: '[', code: 'LBKT' }, { top: '}', bottom: ']', code: 'RBKT' }, { top: '|', bottom: '\\', code: 'BSLH' }, { top: ':', bottom: ';', code: 'SEMI' }, { top: '"', bottom: "'", code: 'SQT' }, { top: '<', bottom: ',', code: 'COMMA' }, { top: '>', bottom: '.', code: 'DOT' }, { top: '?', bottom: '/', code: 'FSLH' },
-                    { label: '=', code: 'KP_EQUAL' }, { label: ',', code: 'KP_COMMA' }, { label: '÷', code: 'KP_DIVIDE' }, { label: '×', code: 'KP_MULTIPLY' }, { label: '-', code: 'KP_MINUS' }, { label: '+', code: 'KP_PLUS' }, { label: '.', code: 'KP_DOT' }
+                    { label: '=', code: 'KP_EQUAL' }, { label: ',', code: 'KP_COMMA' }, { label: '÷', code: 'KP_DIVIDE' }, { label: '×', code: 'KP_MULTIPLY' }, { label: '-', code: 'KP_MINUS' }, { label: '+', code: 'KP_PLUS' }, { label: '.', code: 'KP_DOT' }, { label: '&', code: 'AMPS' }
                 ] },
                 { category: "Control", items: [
                     { label: '▽', type: '&trans' }, { label: '∅ None', type: '&none' }, { label: 'F1', code: 'F1' }, { label: 'F2', code: 'F2' }, { label: 'F3', code: 'F3' }, { label: 'F4', code: 'F4' }, { label: 'F5', code: 'F5' }, { label: 'F6', code: 'F6' }, { label: 'F7', code: 'F7' }, { label: 'F8', code: 'F8' }, { label: 'F9', code: 'F9' }, { label: 'F10', code: 'F10' }, { label: 'F11', code: 'F11' }, { label: 'F12', code: 'F12' },
@@ -278,7 +278,68 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             return node;
         }
 
-        // --- ZMK AST PARSERS AND BUILDERS ---
+        // --- ZMK AST PARSERS, BUILDERS, AND GARBAGE COLLECTION ---
+
+        const runGC = (newConfig) => {
+            const usedNames = new Set();
+           
+            const extractNames = (node) => {
+                if (!node) return;
+                if (typeof node === 'object') {
+                    if (node.value && typeof node.value === 'string' && (node.value.startsWith('&ht_auto_') || node.value.startsWith('&td_') || node.value.startsWith('&mm_auto_'))) {
+                        usedNames.add(node.value);
+                    }
+                    if (Array.isArray(node.params)) node.params.forEach(extractNames);
+                    if (Array.isArray(node.bindings)) node.bindings.forEach(extractNames);
+                    if (Array.isArray(node.cases)) node.cases.forEach(c => extractNames(c.binding));
+                }
+            };
+
+            newConfig.layers?.forEach(layer => layer.forEach(extractNames));
+            newConfig.combos?.forEach(combo => extractNames(combo.binding));
+           
+            let size;
+            do {
+                size = usedNames.size;
+                ['holdTaps', 'tapDances', 'modMorphs'].forEach(arrKey => {
+                    (newConfig[arrKey] || []).forEach(beh => {
+                        if (usedNames.has(beh.name)) {
+                            if (beh.bindings) {
+                                beh.bindings.forEach(b => {
+                                    if (typeof b === 'object') extractNames(b);
+                                    else if (typeof b === 'string' && (b.startsWith('&ht_auto_') || b.startsWith('&td_') || b.startsWith('&mm_auto_'))) {
+                                        usedNames.add(b);
+                                    }
+                                });
+                            }
+                            if (beh.cases) beh.cases.forEach(c => extractNames(c.binding));
+                        }
+                    });
+                });
+            } while (usedNames.size > size);
+
+            if (newConfig.holdTaps) newConfig.holdTaps = newConfig.holdTaps.filter(h => !h.name.startsWith('&ht_auto_') || usedNames.has(h.name));
+            if (newConfig.tapDances) newConfig.tapDances = newConfig.tapDances.filter(t => !t.name.startsWith('&td_') || usedNames.has(t.name));
+            if (newConfig.modMorphs) newConfig.modMorphs = newConfig.modMorphs.filter(m => !m.name.startsWith('&mm_auto_') || usedNames.has(m.name));
+
+            if (newConfig.holdTaps && newConfig.holdTaps.length === 0) delete newConfig.holdTaps;
+            if (newConfig.tapDances && newConfig.tapDances.length === 0) delete newConfig.tapDances;
+            if (newConfig.modMorphs && newConfig.modMorphs.length === 0) delete newConfig.modMorphs;
+           
+            return newConfig;
+        };
+
+        const parseModMorph = (binding, config) => {
+            if (!binding || binding.value === '&none') return { tap: null, shiftTap: null };
+            if (binding.value.startsWith('&mm_auto_')) {
+                const mm = (config?.modMorphs || []).find(m => m.name === binding.value);
+                if (mm && mm.cases && mm.cases.length >= 2) {
+                    return { tap: mm.cases[0].binding, shiftTap: mm.cases[1].binding };
+                }
+            }
+            return { tap: binding, shiftTap: null };
+        };
+
         const parseHoldTap = (binding, config) => {
             if (!binding || binding.value === '&none') return { tap: null, hold: null };
             if (binding.value === '&mt') return { hold: { value: binding.params?.[0]?.value }, tap: { value: '&kp', params: [binding.params?.[1]] } };
@@ -299,27 +360,55 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
         };
 
         const parseSlots = (binding, config) => {
-            let slots = { tap: null, hold: null, doubleTap: null, tapHold: null };
+            let slots = { tap: null, shiftTap: null, hold: null, doubleTap: null, tapHold: null };
             if (!binding || binding.value === '&none') return slots;
 
-            if (binding.value.startsWith('&td_')) {
-                const td = (config?.tapDances || []).find(t => t.name === binding.value);
+            let primaryBinding = binding;
+            let secondaryBinding = null;
+
+            if (primaryBinding.value.startsWith('&td_')) {
+                const td = (config?.tapDances || []).find(t => t.name === primaryBinding.value);
                 if (td && td.bindings && td.bindings.length >= 2) {
-                    const primary = parseHoldTap(td.bindings[0], config);
-                    const secondary = parseHoldTap(td.bindings[1], config);
-                    slots.tap = primary.tap;
-                    slots.hold = primary.hold;
-                    slots.doubleTap = secondary.tap;
-                    slots.tapHold = secondary.hold;
-                } else {
-                    slots.tap = binding;
+                    primaryBinding = td.bindings[0];
+                    secondaryBinding = td.bindings[1];
                 }
-            } else {
-                const primary = parseHoldTap(binding, config);
-                slots.tap = primary.tap;
-                slots.hold = primary.hold;
             }
+
+            const pHT = parseHoldTap(primaryBinding, config);
+            slots.hold = pHT.hold;
+           
+            const pMM = parseModMorph(pHT.tap, config);
+            slots.tap = pMM.tap;
+            slots.shiftTap = pMM.shiftTap;
+
+            if (secondaryBinding) {
+                const sHT = parseHoldTap(secondaryBinding, config);
+                slots.tapHold = sHT.hold;
+                slots.doubleTap = sHT.tap;
+            }
+
             return slots;
+        };
+
+        const makeModMorph = (tap, shiftTap, configRef) => {
+            if (!shiftTap || shiftTap.value === '&none') return tap;
+            if (!tap || tap.value === '&none') return shiftTap;
+
+            const tName = tap.params?.[0]?.value || tap.value.replace('&','');
+            const stName = shiftTap.params?.[0]?.value || shiftTap.value.replace('&','');
+            const mmName = `&mm_auto_${tName}_${stName}`;
+
+            if (!configRef.modMorphs) configRef.modMorphs = [];
+            if (!configRef.modMorphs.find(m => m.name === mmName)) {
+                configRef.modMorphs.push({
+                    name: mmName,
+                    cases: [
+                        { binding: tap, mods: [], keepMods: [] },
+                        { binding: shiftTap, mods: ["MOD_LSFT", "MOD_RSFT"], keepMods: [] }
+                    ]
+                });
+            }
+            return { value: mmName };
         };
 
         const makeHoldTap = (tap, hold, configRef) => {
@@ -328,35 +417,40 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             if (!tap && hold) return hold;
            
             const holdVal = hold.value;
-            const tapParam = tap.value === '&kp' ? tap.params?.[0] : { value: tap.value };
+            const tapVal = tap.value;
            
             const isLayer = holdVal === '&mo' || holdVal === '&to' || holdVal === '&tog' || holdVal === '&sl';
             const isMod = RAW_MOD_CODES.has(holdVal) || ['LCTRL','RCTRL','LSHFT','RSHFT','LALT','RALT','LGUI','RGUI'].includes(holdVal);
 
-            if (isLayer) return { value: '&lt', params: [hold.params?.[0] || {value: 0}, tapParam] };
-            if (isMod) return { value: '&mt', params: [{value: holdVal}, tapParam] };
-
-            const hName = hold.params?.[0]?.value || hold.value.replace('&','');
-            const tName = tap.params?.[0]?.value || tap.value.replace('&','');
+            if (tapVal === '&kp' || tapVal.startsWith('&mac')) {
+                if (tapVal === '&kp') {
+                    if (isLayer) return { value: '&lt', params: [hold.params?.[0] || {value: 0}, tap.params[0]] };
+                    if (isMod) return { value: '&mt', params: [{value: holdVal}, tap.params[0]] };
+                }
+            }
+           
+            const hName = hold.params?.[0]?.value || holdVal.replace('&','');
+            const tName = tap.params?.[0]?.value || tapVal.replace('&','');
             const htName = `&ht_auto_${hName}_${tName}`;
            
             if (!configRef.holdTaps) configRef.holdTaps = [];
             if (!configRef.holdTaps.find(h => h.name === htName)) {
                 configRef.holdTaps.push({
-                    name: htName, bindings: [hold.value, tap.value],
+                    name: htName, bindings: [holdVal, tapVal],
                     tappingTermMs: 200, flavor: "tap-preferred", quickTapMs: -1, requirePriorIdleMs: 0
                 });
             }
             let params = [];
-            if (hold.params?.[0]) params.push(hold.params[0]);
-            if (tap.params?.[0]) params.push(tap.params[0]);
+            if (hold.params) params.push(...hold.params);
+            if (tap.params) params.push(...tap.params);
             return { value: htName, params };
         };
 
         function buildBindingAndConfig(slots, currentConfig) {
             let newConfig = structuredClone(currentConfig);
            
-            const primary = makeHoldTap(slots.tap, slots.hold, newConfig);
+            const primaryTap = makeModMorph(slots.tap, slots.shiftTap, newConfig);
+            const primary = makeHoldTap(primaryTap, slots.hold, newConfig);
             const secondary = makeHoldTap(slots.doubleTap, slots.tapHold, newConfig);
 
             if (!primary && !secondary) return { newBinding: { value: '&none' }, newConfig };
@@ -413,6 +507,7 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             if (val === '&bt') return `<span class="key-center">BTH${p2}</span>`;
             if (val.startsWith('&mac')) return `<span class="key-center text-[11px] font-bold text-amber-400">${escapeHtml(val.replace('&',''))}</span>`;
             if (val.startsWith('&ht_auto_')) return `<span class="key-center text-[10px]">${escapeHtml(val.split('_').pop())}</span>`;
+            if (val.startsWith('&mm_auto_')) return `<span class="key-center text-[11px] text-[#b4b4ff]">${escapeHtml(val.replace('&mm_auto_', '').split('_')[0])}</span>`;
             if (val.startsWith('&td_')) return `<span class="key-center text-[11px] text-[#b4b4ff]">${escapeHtml(val.replace('&td_', '').split('_')[0])}</span>`;
             return `<span class="key-center">${escapeHtml(val.replace('&', ''))}</span>`;
         };
@@ -515,6 +610,8 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
                     setAutoFitScale(Math.max(0.2, Math.min(fit, 2)));
                     setPan({ x: 0, y: 0 });
                 };
+               
+                // Slight delay ensures flex containers have painted correctly before we compute the bounds.
                 const timer = setTimeout(compute, 10);
                 const ro = new ResizeObserver(compute);
                 ro.observe(el);
@@ -666,7 +763,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
             const [styleClipboard, setStyleClipboard] = useState(null);
             const [renamingLayerIdx, setRenamingLayerIdx] = useState(null);
             const [renameValue, setRenameValue] = useState('');
-            const [bottomPanelHeight, setBottomPanelHeight] = useState(380);
+            const [bottomPanelHeight, setBottomPanelHeight] = useState(420);
             const resizeStateRef = useRef(null);
 
             const handleBottomResizeStart = (e) => {
@@ -742,9 +839,11 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                 }
             }, [selectedKey, activeLayer, config, activeVerticalTab, currentLayerBindings]);
 
+            // pushHistory runs Garbage Collection to prevent JSON bloat
             const pushHistory = useCallback((newConfig) => {
+                const cleanedConfig = runGC(newConfig);
                 setUndoStack(prev => [...prev.slice(-99), structuredClone(config)]);
-                setRedoStack([]); setConfig(newConfig);
+                setRedoStack([]); setConfig(cleanedConfig);
             }, [config]);
 
             const undo = () => { if (undoStack.length === 0) return; const prevConfig = undoStack[undoStack.length - 1]; setRedoStack(prev => [...prev, structuredClone(config)]); setUndoStack(prev => prev.slice(0, -1)); setConfig(prevConfig); };
@@ -859,8 +958,8 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
 
                 if (isFilled) {
                     return (
-                        <div onClick={() => setActiveActionSlot(slotKey)} className={`rounded-xl px-4 py-3 text-sm font-semibold flex items-center justify-between cursor-pointer transition-colors border ${isSelected ? 'bg-[#b4b4ff] text-black border-[#b4b4ff]' : 'bg-transparent text-gray-300 border-[#333] hover:border-[#555]'} shadow-sm group`}>
-                            <span className="w-24 tracking-wide">{label}</span>
+                        <div onClick={() => setActiveActionSlot(slotKey)} className={`rounded-xl px-4 py-2 text-sm font-semibold flex items-center justify-between cursor-pointer transition-colors border ${isSelected ? 'bg-[#b4b4ff] text-black border-[#b4b4ff]' : 'bg-transparent text-gray-300 border-[#333] hover:border-[#555]'} shadow-sm group`}>
+                            <span className="w-28 tracking-wide">{label}</span>
                             <span className="opacity-40 px-2">→</span>
                             <span className="flex-1 truncate font-mono text-[13px] text-right">{describeBinding(slotBinding)}</span>
                             <button onClick={(e) => { e.stopPropagation(); clearSlot(slotKey); }} className={`ml-3 w-6 h-6 rounded flex items-center justify-center transition-colors border text-lg leading-none shrink-0 ${isSelected ? 'border-black/20 hover:bg-black/10 text-black' : 'border-[#444] text-gray-500 hover:text-white hover:border-white'}`} title="Clear slot">×</button>
@@ -868,8 +967,8 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                     );
                 } else {
                     return (
-                        <div onClick={() => setActiveActionSlot(slotKey)} className={`rounded-xl px-4 py-3 text-sm font-semibold flex items-center justify-between cursor-pointer transition-colors border border-dashed ${isSelected ? 'border-[#b4b4ff] text-[#b4b4ff] bg-[#b4b4ff]/5' : 'border-[#444] text-gray-500 hover:border-[#666] hover:text-gray-300'}`}>
-                            <span className="w-24 tracking-wide">{label}</span>
+                        <div onClick={() => setActiveActionSlot(slotKey)} className={`rounded-xl px-4 py-2 text-sm font-semibold flex items-center justify-between cursor-pointer transition-colors border border-dashed ${isSelected ? 'border-[#b4b4ff] text-[#b4b4ff] bg-[#b4b4ff]/5' : 'border-[#444] text-gray-500 hover:border-[#666] hover:text-gray-300'}`}>
+                            <span className="w-28 tracking-wide">{label}</span>
                             <span className="opacity-40 px-2">→</span>
                             <span className="flex-1 truncate font-mono text-[13px]"></span>
                             <div className={`w-6 h-6 rounded flex items-center justify-center border transition-colors ${isSelected ? 'border-[#b4b4ff] text-[#b4b4ff]' : 'border-[#444] text-gray-500'}`}>
@@ -1131,7 +1230,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                 <div className="w-[380px] shrink-0 border-r border-[#222] flex flex-col p-8 overflow-y-auto bg-[#050505]">
                                     <div className="text-white font-bold mb-8 text-[15px] flex justify-between items-center">
                                         <span>key ({selectedKey !== null ? getLogicalName(selectedKey, config?.keyboard) : 'None'})</span>
-                                        <button className="text-gray-500 hover:text-white transition-colors" title="Clear All Slots" onClick={() => { if(window.confirm('Clear all behaviors for this key?')) { clearSlot('tap'); clearSlot('hold'); clearSlot('doubleTap'); clearSlot('tapHold'); } }}>
+                                        <button className="text-gray-500 hover:text-white transition-colors" title="Clear All Slots" onClick={() => { if(window.confirm('Clear all behaviors for this key?')) { clearSlot('tap'); clearSlot('shiftTap'); clearSlot('hold'); clearSlot('doubleTap'); clearSlot('tapHold'); } }}>
                                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM14 12a2 2 0 11-4 0 2 2 0 014 0zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                                         </button>
                                     </div>
@@ -1146,6 +1245,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                     {selectedKey !== null ? (
                                         <div className="flex flex-col gap-3">
                                             {renderSlot('tap', 'Tap')}
+                                            {renderSlot('shiftTap', 'Shift + Tap')}
                                             {renderSlot('hold', 'Hold')}
                                             {renderSlot('doubleTap', 'Double Tap')}
                                             {renderSlot('tapHold', 'Tap & Hold')}
