@@ -1,0 +1,1413 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLIDE — Graphical Layout & Intent Definition Editor</title>
+   
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        MoErgo: {
+                            base: '#1a1a1a', surface: '#222222', panel: '#282828', sidebar: '#222327',
+                            card: '#333333', cardHover: '#444444', primary: '#e55f2e', primaryHover: '#c9531f', textMain: '#ffffff',
+                            textMuted: '#9ca3af', tabActive: '#e5e5e5', tabBg: '#2a2a2a', menuActiveBg: '#2f303a'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }
+                }
+            }
+        }
+    </script>
+   
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+   
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background-color: #1a1a1a; color: #ffffff; overflow: hidden; margin: 0; }
+       
+        .canvas-container {
+            background-color: #1a1a1a;
+            background-image: radial-gradient(circle, #333333 1px, transparent 1px);
+            background-size: 24px 24px;
+            cursor: grab; overflow: hidden;
+        }
+        .canvas-container:active { cursor: grabbing; }
+
+        .p-key-outer {
+            position: absolute; cursor: pointer; z-index: 1; user-select: none;
+        }
+        .p-key-outer:hover { z-index: 5; }
+        .p-key-outer.selected { z-index: 10; }
+        .p-key-outer.drag-over { z-index: 15; }
+        .p-key {
+            width: 100%; height: 100%; border-radius: 6px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s, border-color 0.1s;
+            background: linear-gradient(180deg, #3c3c3c 0%, #303030 55%, #2b2b2b 100%);
+            border: 1px solid #161616;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -2px 0 rgba(0,0,0,0.35), 0 2px 3px rgba(0,0,0,0.45);
+            padding: 4px; text-align: center; overflow: hidden; color: #e5e5e5;
+        }
+        .p-key.is-round { border-radius: 50%; }
+        .p-key:active { transform: scale(0.96) translateY(1px); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); background: #282828; }
+        .p-key:hover { border-color: #6b6b6b; background: linear-gradient(180deg, #454545 0%, #383838 55%, #333333 100%); color: #ffffff; }
+        .p-key.selected { border-color: #e55f2e !important; color: #ffffff !important; box-shadow: 0 0 0 2px rgba(229, 95, 46, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important; background: linear-gradient(180deg, #593d30 0%, #4a342c 100%); }
+        .p-key.drag-source { opacity: 0.35; }
+        .p-key.drag-over { box-shadow: 0 0 0 2px #e55f2e !important; transform: scale(1.08); }
+        .p-key:not(.selected).has-bg:hover { filter: brightness(1.2); border-color: #ffffff !important; }
+
+        .key-center { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 11px; font-weight: 600; text-align: center; line-height: 1.2; word-break: break-word; color: inherit; }
+        .key-dual { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: inherit; }
+        .key-shift { position: absolute; top: 4px; left: 8px; font-size: 10px; opacity: 0.7; font-weight: 600; color: inherit; }
+        .key-main { position: absolute; bottom: 6px; left: 8px; font-weight: 700; font-size: 13px; color: inherit; }
+
+        /* Custom Label Visual Containment */
+        .key-custom-label {
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            word-break: break-word;
+            text-align: center;
+            width: 100%;
+            line-height: 1.1;
+            font-weight: 700;
+        }
+
+        .palette-btn {
+            min-width: calc(52px * var(--btn-scale, 1));
+            height: calc(52px * var(--btn-scale, 1));
+            background-color: #383838; border-radius: 6px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: calc(11px * var(--btn-scale, 1)); font-weight: 700; color: #ffffff;
+            cursor: pointer; transition: background-color 0.1s;
+            padding: 4px; border: 1px solid transparent; line-height: 1.2;
+        }
+        .palette-btn .key-dual { font-size: calc(11px * var(--btn-scale, 1)); gap: calc(4px * var(--btn-scale, 1)); }
+        .palette-btn:hover { background-color: #4a4a4a; border-color: #666666; }
+        .palette-tab-active { background-color: #e5e5e5; color: #000000; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), inset 0 2px 4px rgba(255, 255, 255, 0.8); }
+
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body>
+    <div id="root" class="h-screen w-screen flex"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
+
+        const KEY_UNIT = 70;
+        const KEY_SIZE = 62;
+        const GLOVE80_TOTAL_WIDTH = 18;
+        const GO60_TOTAL_WIDTH = 17;
+
+        function mirrorSpecialKey(k, totalWidth) {
+            const w = k.w || 1;
+            const mirrored = { ...k, x: totalWidth - k.x - w };
+            if (k.r !== undefined) mirrored.r = -k.r;
+            if (k.rx !== undefined) mirrored.rx = totalWidth - k.rx;
+            return mirrored;
+        }
+
+        const GLOVE80_THUMB_A_LEFT = [
+            {x:6.4,y:4,r:20,rx:4,ry:4}, {x:7.8,y:3.3,r:30,rx:4,ry:3.3}, {x:10.1,y:1.5,r:45,rx:4,ry:1.5},
+        ];
+        const GLOVE80_THUMB_B_LEFT = [
+            {x:5.3,y:5.4,r:15,rx:4,ry:5.4}, {x:6.6,y:5,r:25,rx:4,ry:5}, {x:9,y:3.2,r:45,rx:4,ry:3.2},
+        ];
+        const GO60_THUMB_LEFT = [
+            {x:4,y:4.25,r:15,rx:4.5,ry:9}, {x:4,y:4.25,r:30,rx:4.5,ry:9}, {x:4,y:4.25,r:45,rx:4.5,ry:9},
+        ];
+        const GO60_ROUND_LEFT = {x:6.5,y:2.2,w:1.8,h:1.8,isRound:1};
+
+        const GLOVE80_GEO_RAW = [
+            {x:0,y:0.5},{x:1,y:0.5},{x:2,y:0},{x:3,y:0},{x:4,y:0},{x:13,y:0},{x:14,y:0},{x:15,y:0},{x:16,y:0.5},{x:17,y:0.5},
+            {x:0,y:1.5},{x:1,y:1.5},{x:2,y:1},{x:3,y:1},{x:4,y:1},{x:5,y:1},{x:12,y:1},{x:13,y:1},{x:14,y:1},{x:15,y:1},{x:16,y:1.5},{x:17,y:1.5},
+            {x:0,y:2.5},{x:1,y:2.5},{x:2,y:2},{x:3,y:2},{x:4,y:2},{x:5,y:2},{x:12,y:2},{x:13,y:2},{x:14,y:2},{x:15,y:2},{x:16,y:2.5},{x:17,y:2.5},
+            {x:0,y:3.5},{x:1,y:3.5},{x:2,y:3},{x:3,y:3},{x:4,y:3},{x:5,y:3},{x:12,y:3},{x:13,y:3},{x:14,y:3},{x:15,y:3},{x:16,y:3.5},{x:17,y:3.5},
+            {x:0,y:4.5},{x:1,y:4.5},{x:2,y:4},{x:3,y:4},{x:4,y:4},{x:5,y:4},
+            ...GLOVE80_THUMB_A_LEFT, ...[...GLOVE80_THUMB_A_LEFT].reverse().map(k => mirrorSpecialKey(k, GLOVE80_TOTAL_WIDTH)),
+            {x:12,y:4},{x:13,y:4},{x:14,y:4},{x:15,y:4},{x:16,y:4.5},{x:17,y:4.5},
+            {x:0,y:5.5},{x:1,y:5.5},{x:2,y:5},{x:3,y:5},{x:4,y:5},
+            ...GLOVE80_THUMB_B_LEFT, ...[...GLOVE80_THUMB_B_LEFT].reverse().map(k => mirrorSpecialKey(k, GLOVE80_TOTAL_WIDTH)),
+            {x:13,y:5},{x:14,y:5},{x:15,y:5},{x:16,y:5.5},{x:17,y:5.5}
+        ];
+
+        const GO60_GEO_RAW = [
+            {x:0,y:0.9},{x:1,y:0.9},{x:2,y:0.25},{x:3,y:0},{x:4,y:0.15},{x:5,y:0.25},{x:11,y:0.25},{x:12,y:0.15},{x:13,y:0},{x:14,y:0.25},{x:15,y:0.9},{x:16,y:0.9},
+            {x:0,y:1.9},{x:1,y:1.9},{x:2,y:1.25},{x:3,y:1},{x:4,y:1.15},{x:5,y:1.25},{x:11,y:1.25},{x:12,y:1.15},{x:13,y:1},{x:14,y:1.25},{x:15,y:1.9},{x:16,y:1.9},
+            {x:0,y:2.9},{x:1,y:2.9},{x:2,y:2.25},{x:3,y:2},{x:4,y:2.15},{x:5,y:2.25},{x:11,y:2.25},{x:12,y:2.15},{x:13,y:2},{x:14,y:2.25},{x:15,y:2.9},{x:16,y:2.9},
+            {x:0,y:3.9},{x:1,y:3.9},{x:2,y:3.25},{x:3,y:3},{x:4,y:3.15},{x:5,y:3.25},{x:11,y:3.25},{x:12,y:3.15},{x:13,y:3},{x:14,y:3.25},{x:15,y:3.9},{x:16,y:3.9},
+            {x:2,y:4.25},{x:3,y:4},{x:4,y:4.15},{x:12,y:4.15},{x:13,y:4},{x:14,y:4.25},
+            ...GO60_THUMB_LEFT, ...[...GO60_THUMB_LEFT].reverse().map(k => mirrorSpecialKey(k, GO60_TOTAL_WIDTH)),
+            GO60_ROUND_LEFT, mirrorSpecialKey(GO60_ROUND_LEFT, GO60_TOTAL_WIDTH)
+        ];
+
+        const GUTTER = (KEY_UNIT - KEY_SIZE) / 2;
+        function convertGeo(rawGeo) {
+            return rawGeo.map(k => {
+                const wUnits = k.w || 1, hUnits = k.h || 1;
+                const cellLeft = k.x * KEY_UNIT, cellTop = k.y * KEY_UNIT;
+                const w = wUnits * KEY_UNIT - (KEY_UNIT - KEY_SIZE);
+                const h = hUnits * KEY_UNIT - (KEY_UNIT - KEY_SIZE);
+                const out = { x: cellLeft + GUTTER, y: cellTop + GUTTER, w, h, isRound: !!k.isRound };
+                if (k.r) {
+                    out.r = k.r;
+                    const pivotX = (k.rx !== undefined ? k.rx : k.x) * KEY_UNIT;
+                    const pivotY = (k.ry !== undefined ? k.ry : k.y) * KEY_UNIT;
+                    const originX = pivotX - (cellLeft + GUTTER);
+                    const originY = pivotY - (cellTop + GUTTER);
+                    out.o = `${originX.toFixed(1)}px ${originY.toFixed(1)}px`;
+                }
+                return out;
+            });
+        }
+
+        const GLOVE80_GEO = convertGeo(GLOVE80_GEO_RAW);
+        const GO60_GEO = convertGeo(GO60_GEO_RAW);
+
+        // Logical Naming Mapping dictionaries
+        const GLOVE80_NAMES = {
+            0: "LH C6R1", 1: "LH C5R1", 2: "LH C4R1", 3: "LH C3R1", 4: "LH C2R1",
+            10: "LH C6R2", 11: "LH C5R2", 12: "LH C4R2", 13: "LH C3R2", 14: "LH C2R2", 15: "LH C1R2",
+            22: "LH C6R3", 23: "LH C5R3", 24: "LH C4R3", 25: "LH C3R3", 26: "LH C2R3", 27: "LH C1R3",
+            34: "LH C6R4", 35: "LH C5R4", 36: "LH C4R4", 37: "LH C3R4", 38: "LH C2R4", 39: "LH C1R4",
+            46: "LH C6R5", 47: "LH C5R5", 48: "LH C4R5", 49: "LH C3R5", 50: "LH C2R5", 51: "LH C1R5",
+            64: "LH C6R6", 65: "LH C5R6", 66: "LH C4R6", 67: "LH C3R6", 68: "LH C2R6",
+            52: "LH T1", 53: "LH T2", 54: "LH T3", 69: "LH T4", 70: "LH T5", 71: "LH T6",
+            5: "RH C2R1", 6: "RH C3R1", 7: "RH C4R1", 8: "RH C5R1", 9: "RH C6R1",
+            16: "RH C1R2", 17: "RH C2R2", 18: "RH C3R2", 19: "RH C4R2", 20: "RH C5R2", 21: "RH C6R2",
+            28: "RH C1R3", 29: "RH C2R3", 30: "RH C3R3", 31: "RH C4R3", 32: "RH C5R3", 33: "RH C6R3",
+            40: "RH C1R4", 41: "RH C2R4", 42: "RH C3R4", 43: "RH C4R4", 44: "RH C5R4", 45: "RH C6R4",
+            58: "RH C1R5", 59: "RH C2R5", 60: "RH C3R5", 61: "RH C4R5", 62: "RH C5R5", 63: "RH C6R5",
+            75: "RH C2R6", 76: "RH C3R6", 77: "RH C4R6", 78: "RH C5R6", 79: "RH C6R6",
+            55: "RH T3", 56: "RH T2", 57: "RH T1", 72: "RH T6", 73: "RH T5", 74: "RH T4"
+        };
+        const GO60_NAMES = {
+            0: "LH C6R1", 1: "LH C5R1", 2: "LH C4R1", 3: "LH C3R1", 4: "LH C2R1", 5: "LH C1R1",
+            12: "LH C6R2", 13: "LH C5R2", 14: "LH C4R2", 15: "LH C3R2", 16: "LH C2R2", 17: "LH C1R2",
+            24: "LH C6R3", 25: "LH C5R3", 26: "LH C4R3", 27: "LH C3R3", 28: "LH C2R3", 29: "LH C1R3",
+            36: "LH C6R4", 37: "LH C5R4", 38: "LH C4R4", 39: "LH C3R4", 40: "LH C2R4", 41: "LH C1R4",
+            48: "LH C4R5", 49: "LH C3R5", 50: "LH C2R5",
+            54: "LH T1", 55: "LH T2", 56: "LH T3",
+            6: "RH C1R1", 7: "RH C2R1", 8: "RH C3R1", 9: "RH C4R1", 10: "RH C5R1", 11: "RH C6R1",
+            18: "RH C1R2", 19: "RH C2R2", 20: "RH C3R2", 21: "RH C4R2", 22: "RH C5R2", 23: "RH C6R2",
+            30: "RH C1R3", 31: "RH C2R3", 32: "RH C3R3", 33: "RH C4R3", 34: "RH C5R3", 35: "RH C6R3",
+            42: "RH C1R4", 43: "RH C2R4", 44: "RH C3R4", 45: "RH C4R4", 46: "RH C5R4", 47: "RH C6R4",
+            51: "RH C2R5", 52: "RH C3R5", 53: "RH C4R5",
+            57: "RH T3", 58: "RH T2", 59: "RH T1"
+        };
+        const getLogicalName = (index, kbType) => {
+            const kb = (kbType || '').toLowerCase() === 'go60' ? GO60_NAMES : GLOVE80_NAMES;
+            return kb[index] || index;
+        };
+
+        const PALETTE_DATA = {
+            Basic: [
+                { category: "Letter Keys", items: [ { label: 'A', code: 'A' }, { label: 'B', code: 'B' }, { label: 'C', code: 'C' }, { label: 'D', code: 'D' }, { label: 'E', code: 'E' }, { label: 'F', code: 'F' }, { label: 'G', code: 'G' }, { label: 'H', code: 'H' }, { label: 'I', code: 'I' }, { label: 'J', code: 'J' }, { label: 'K', code: 'K' }, { label: 'L', code: 'L' }, { label: 'M', code: 'M' }, { label: 'N', code: 'N' }, { label: 'O', code: 'O' }, { label: 'P', code: 'P' }, { label: 'Q', code: 'Q' }, { label: 'R', code: 'R' }, { label: 'S', code: 'S' }, { label: 'T', code: 'T' }, { label: 'U', code: 'U' }, { label: 'V', code: 'V' }, { label: 'W', code: 'W' }, { label: 'X', code: 'X' }, { label: 'Y', code: 'Y' }, { label: 'Z', code: 'Z' } ] },
+                { category: "Number Keys", items: [ { label: '1', code: 'N1' }, { label: '2', code: 'N2' }, { label: '3', code: 'N3' }, { label: '4', code: 'N4' }, { label: '5', code: 'N5' }, { label: '6', code: 'N6' }, { label: '7', code: 'N7' }, { label: '8', code: 'N8' }, { label: '9', code: 'N9' }, { label: '0', code: 'N0' } ] },
+                { category: "Symbol Keys", items: [
+                    { top: '!', bottom: '1', code: 'N1' }, { top: '@', bottom: '2', code: 'N2' }, { top: '#', bottom: '3', code: 'N3' }, { top: '$', bottom: '4', code: 'N4' }, { top: '%', bottom: '5', code: 'N5' }, { top: '^', bottom: '6', code: 'N6' }, { top: '&', bottom: '7', code: 'N7' }, { top: '*', bottom: '8', code: 'N8' }, { top: '(', bottom: '9', code: 'N9' }, { top: ')', bottom: '0', code: 'N0' },
+                    { top: '_', bottom: '-', code: 'MINUS' }, { top: '+', bottom: '=', code: 'EQUAL' }, { top: '~', bottom: '`', code: 'GRAVE' }, { top: '{', bottom: '[', code: 'LBKT' }, { top: '}', bottom: ']', code: 'RBKT' }, { top: '|', bottom: '\\', code: 'BSLH' }, { top: ':', bottom: ';', code: 'SEMI' }, { top: '"', bottom: "'", code: 'SQT' }, { top: '<', bottom: ',', code: 'COMMA' }, { top: '>', bottom: '.', code: 'DOT' }, { top: '?', bottom: '/', code: 'FSLH' },
+                    { label: '=', code: 'KP_EQUAL' }, { label: ',', code: 'KP_COMMA' }, { label: '÷', code: 'KP_DIVIDE' }, { label: '×', code: 'KP_MULTIPLY' }, { label: '-', code: 'KP_MINUS' }, { label: '+', code: 'KP_PLUS' }, { label: '.', code: 'KP_DOT' }
+                ] },
+                { category: "Function Keys", items: [
+                    { label: '▽', type: '&trans' }, { label: '∅ None', type: '&none' }, { label: 'F1', code: 'F1' }, { label: 'F2', code: 'F2' }, { label: 'F3', code: 'F3' }, { label: 'F4', code: 'F4' }, { label: 'F5', code: 'F5' }, { label: 'F6', code: 'F6' }, { label: 'F7', code: 'F7' }, { label: 'F8', code: 'F8' }, { label: 'F9', code: 'F9' }, { label: 'F10', code: 'F10' }, { label: 'F11', code: 'F11' }, { label: 'F12', code: 'F12' },
+                    { label: 'L shift', code: 'LSHFT' }, { label: 'R shift', code: 'RSHFT' }, { label: 'L ctrl', code: 'LCTRL' }, { label: 'R ctrl', code: 'RCTRL' }, { label: 'L win', code: 'LGUI' }, { label: 'R win', code: 'RGUI' }, { label: 'L Alt', code: 'LALT' }, { label: 'R Alt', code: 'RALT' },
+                    { label: 'Caps Lock', code: 'CAPS' }, { label: 'Tab', code: 'TAB' }, { label: 'Backspace', code: 'BSPC' }, { label: 'Enter', code: 'RET' }, { label: 'Space', code: 'SPACE' }, { label: 'Ins', code: 'INS' }, { label: 'Del', code: 'DEL' }, { label: 'Home', code: 'HOME' }, { label: 'End', code: 'END' }, { label: 'PgUp', code: 'PG_UP' }, { label: 'PgDn', code: 'PG_DN' }, { label: 'Esc', code: 'ESC' }, { label: 'Print', code: 'PRINTSCREEN' }, { label: 'Scroll', code: 'SLCK' }, { label: 'Pause', code: 'PAUSE_BREAK' }, { label: 'RApp', code: 'K_APP' }, { label: 'N.ent', code: 'KP_ENTER' }, { label: 'N.Lck', code: 'KP_NUM' }
+                ] }
+            ],
+            Media: [ { category: "", items: [{ label: 'Vol -', code: 'C_VOL_DN' }, { label: 'Vol +', code: 'C_VOL_UP' }, { label: 'Mute', code: 'C_MUTE' }, { label: 'Play', code: 'C_PP' }, { label: 'Mstp', code: 'C_STOP' }, { label: 'Prvs', code: 'C_PREV' }, { label: 'Next', code: 'C_NEXT' }, { label: 'Rewind', code: 'C_RW' }, { label: 'Mffd', code: 'C_FF' }, { label: 'Select', code: 'C_AL_SEL_TASK' }, { label: 'Eject', code: 'C_EJECT' }] } ],
+            SpecialKeys: [
+                { category: "General", items: [
+                    { label: 'Nuhs', code: 'NON_US_HASH' }, { label: 'Nubs', code: 'NON_US_BSLH' }, { label: 'Ro', code: 'INT3' }, { label: '¥', code: 'INT1' }, { label: '無変換', code: 'INT5' }, { label: '漢字', code: 'INT4' }, { label: '한영', code: 'LANG1' }, { label: '変換', code: 'INT4' }, { label: 'かな', code: 'INT2' }, { label: 'Esc `', code: 'GRAVE' }, { label: '(', type: '&kp', param1: 'LPAR' }, { label: ')', type: '&kp', param1: 'RPAR' }, { label: 'SftEnt', type: '&kp', param1: 'RET' }, { label: 'Reset', type: '&sys_reset' }, { label: 'Boot', type: '&bootloader' },
+                    { label: 'F13', code: 'F13' }, { label: 'F14', code: 'F14' }, { label: 'F15', code: 'F15' }, { label: 'F16', code: 'F16' }, { label: 'F17', code: 'F17' }, { label: 'F18', code: 'F18' }, { label: 'F19', code: 'F19' }, { label: 'Mouse ↑', type: '&mmv', param1: 'MOVE_UP' }, { label: 'Mouse ↓', type: '&mmv', param1: 'MOVE_DOWN' }, { label: 'Mouse ←', type: '&mmv', param1: 'MOVE_LEFT' }, { label: 'Mouse →', type: '&mmv', param1: 'MOVE_RIGHT' }, { label: 'Mouse Btn1', type: '&mkp', param1: 'MB1' }, { label: 'Mouse Btn2', type: '&mkp', param1: 'MB2' }, { label: 'Mouse Btn3', type: '&mkp', param1: 'MB3' }
+                ] },
+                { category: "Windows", items: [ { label: 'Lock Win', code: 'LGUI' }, { label: 'Calc', code: 'C_AL_CALC' }, { label: 'Mail', code: 'C_AL_EMAIL' }, { label: 'My Comp', code: 'C_AL_MY_COMPUTER' }, { label: 'Home', code: 'C_AC_HOME' }, { label: 'Back', code: 'C_AC_BACK' }, { label: 'Forward', code: 'C_AC_FORWARD' }, { label: 'Stop', code: 'C_AC_STOP' }, { label: 'Refresh', code: 'C_AC_REFRESH' }, { label: 'Favorites', code: 'C_AL_BOOKMARKS' }, { label: 'Search', code: 'C_AC_SEARCH' }, { label: 'Power', code: 'C_PWR' }, { label: 'Sleep', code: 'C_SLEEP' } ] },
+                { category: "Mac", items: [ { label: 'Power OSX', code: 'C_PWR' }, { label: 'MCtrl', code: 'LCTRL' }, { label: 'LPad', code: 'C_AL_LAUNCHPAD' }, { label: 'Wake', code: 'C_SLEEP' }, { label: 'Power', code: 'C_PWR' }, { label: 'Sleep', code: 'C_SLEEP' } ] },
+                { category: "Linux", items: [ { label: 'Help', code: 'C_AL_CALC' }, { label: 'Menu', code: 'K_CMENU' }, { label: 'Undo', code: 'C_AC_UNDO' }, { label: 'Cut', code: 'C_AC_CUT' }, { label: 'Copy', code: 'C_AC_COPY' }, { label: 'Paste', code: 'C_AC_PASTE' } ] }
+            ],
+            Lighting: [ { category: "", items: [{ label: 'RGB Tog', type: '&rgb_ug', param1: 'RGB_TOG' }, { label: 'Mode +', type: '&rgb_ug', param1: 'RGB_EFF' }, { label: 'Mode -', type: '&rgb_ug', param1: 'RGB_EFR' }, { label: 'Hue +', type: '&rgb_ug', param1: 'RGB_HUI' }, { label: 'Hue -', type: '&rgb_ug', param1: 'RGB_HUD' }, { label: 'Sat +', type: '&rgb_ug', param1: 'RGB_SAI' }, { label: 'Sat -', type: '&rgb_ug', param1: 'RGB_SAD' }, { label: 'Br +', type: '&rgb_ug', param1: 'RGB_BRI' }, { label: 'Br -', type: '&rgb_ug', param1: 'RGB_BRD' }] } ],
+            Custom: [
+                { category: "Modifiers & Systems", items: [ { label: 'L Opt', code: 'LALT' }, { label: 'R Opt', code: 'RALT' }, { label: 'L Cmd', code: 'LGUI' }, { label: 'R Cmd', code: 'RGUI' }, { label: 'MCtl', code: 'LCTRL' }, { label: 'LPad', code: 'C_AL_LAUNCHPAD' }, { label: 'Task', code: 'C_AL_SEL_TASK' }, { label: 'File', code: 'C_AL_FILES' }, { label: 'SShot', code: 'PRINTSCREEN' }, { label: 'Cortana', code: 'C_VOICE_COMMAND' }, { label: 'Siri', code: 'C_VOICE_COMMAND' }, { label: 'Any', type: 'Custom', param1: '' } ] },
+                { category: "Connectivity", items: [ { label: 'BTH1', type: '&bt', param1: 'BT_SEL', param2: 0 }, { label: 'BTH2', type: '&bt', param1: 'BT_SEL', param2: 1 }, { label: 'BTH3', type: '&bt', param1: 'BT_SEL', param2: 2 }, { label: '2.4G', type: '&out', param1: 'OUT_USB' }, { label: 'Batt', type: '&ext_power', param1: 'EP_TOG' }, { label: 'BT Clr', type: '&bt', param1: 'BT_CLR' }, { label: 'PROF1', type: '&none' }, { label: 'PROF2', type: '&none' }, { label: 'PROF3', type: '&none' } ] }
+            ]
+        };
+
+        const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
+        const MOD_ARM_LIST = [
+            { code: 'LC', label: 'L Ctrl' }, { code: 'RC', label: 'R Ctrl' },
+            { code: 'LA', label: 'L Alt' },  { code: 'RA', label: 'R Alt' },
+            { code: 'LS', label: 'L Shift' }, { code: 'RS', label: 'R Shift' },
+            { code: 'LG', label: null }, { code: 'RG', label: null },
+        ];
+        const RAW_MOD_CODES = new Set(['LSHFT', 'RSHFT', 'LCTRL', 'RCTRL', 'LALT', 'RALT', 'LGUI', 'RGUI']);
+
+        const FLAT_GRID_TABS = ['Basic', 'Media', 'Special Keys', 'Lighting', 'Custom', 'Style'];
+        const KEY_COLOR_PRESETS = ['#e5484d', '#f76b15', '#f5d90a', '#46a758', '#12a594', '#0091ff', '#8e4ec6', '#e93d82'];
+
+        function filterPaletteSections(sections, query) {
+            const q = query.trim().toLowerCase();
+            if (!q) return sections;
+            return sections
+                .map(section => ({
+                    ...section,
+                    items: section.items.filter(item => {
+                        const text = [item.label, item.top, item.bottom, item.code].filter(Boolean).join(' ').toLowerCase();
+                        return text.includes(q);
+                    })
+                }))
+                .filter(section => section.items.length > 0);
+        }
+
+        function searchAcrossAllPalette(query) {
+            if (!query.trim()) return [];
+            const results = [];
+            FLAT_GRID_TABS.forEach(tabName => {
+                if (tabName === 'Style') return; // Skip style tab in search
+                const sections = PALETTE_DATA[tabName.replace(' ', '')] || [];
+                filterPaletteSections(sections, query).forEach(section => {
+                    results.push({ tabName, category: section.category, items: section.items });
+                });
+            });
+            return results;
+        }
+
+        const getContrastColor = (hexcolor) => {
+            if (!hexcolor) return '#ffffff';
+            let cleanHex = hexcolor.replace("#", "");
+            if (cleanHex.length === 3) cleanHex = cleanHex.split('').map(c => c+c).join('');
+            const r = parseInt(cleanHex.substr(0,2),16); const g = parseInt(cleanHex.substr(2,2),16); const b = parseInt(cleanHex.substr(4,2),16);
+            return (((r*299)+(g*587)+(b*114))/1000 >= 128) ? '#000000' : '#ffffff';
+        };
+
+        const ZMK_MAP = {
+            LSHFT:'⇧', LCTRL:'Ctrl', LALT:'Alt', RSHFT:'⇧', RCTRL:'Ctrl', RALT:'Alt',
+            BSPC:'⌫', RET:'↵', PG_DN:'PgDn', PG_UP:'PgUp', UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→', ESC:'Esc', TAB:'Tab',
+            MINUS:'-', EQUAL:'=', GRAVE:'`', BSLH:'\\', SEMI:';', SQT:"'", FSLH:'/', LBKT:'[', RBKT:']', COMMA:',', DOT:'.', SPACE:'␣',
+            C_VOL_DN:'Vol -', C_VOL_UP:'Vol +', C_MUTE:'Mute', C_PP:'Play', C_NEXT:'Next', C_PREV:'Prev'
+        };
+        const MOD_WRAPPER_TO_FULL = { LS: 'LSHFT', RS: 'RSHFT', LC: 'LCTRL', RC: 'RCTRL', LA: 'LALT', RA: 'RALT', LG: 'LGUI', RG: 'RGUI' };
+        const FULL_TO_MOD_WRAPPER = Object.fromEntries(Object.entries(MOD_WRAPPER_TO_FULL).map(([k, v]) => [v, k]));
+
+        function unwrapModChain(node) {
+            const mods = [];
+            while (node && typeof node === 'object' && MOD_WRAPPER_TO_FULL[node.value] && node.params?.[0]) {
+                mods.push(MOD_WRAPPER_TO_FULL[node.value]);
+                node = node.params[0];
+            }
+            const keyVal = (node && typeof node === 'object') ? node.value : node;
+            return { mods, keyVal };
+        }
+
+        function composeKeycodeParam(baseCode, modCodes) {
+            let node = { value: baseCode, params: [] };
+            for (let i = modCodes.length - 1; i >= 0; i--) {
+                node = { value: modCodes[i], params: [node] };
+            }
+            return node;
+        }
+
+        const guiSymbol = (osMode) => osMode === 'mac' ? '⌘' : '⊞';
+
+        const formatKeycode = (val, osMode) => {
+            if (!val || val === 'none' || val === '&none') return '';
+            const normalized = val.toUpperCase().replace('&', '');
+            if (normalized === 'LGUI' || normalized === 'RGUI') return guiSymbol(osMode);
+            if (ZMK_MAP[normalized]) return ZMK_MAP[normalized];
+            if (val.length === 2 && val.startsWith('N') && '0123456789'.includes(val[1])) return val[1];
+            return val;
+        };
+
+        const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+        const getBeautifulLabel = (binding, osMode) => {
+            if (!binding) return '';
+            let val = binding.value;
+            if (!val || val === '&none' || val === 'none') return '';
+            if (val === '&trans') return `<span class="key-center text-[18px] font-bold text-white">▽</span>`;
+           
+            if (binding.decoration?.label) {
+                const labelStr = escapeHtml(binding.decoration.label);
+                const isLong = labelStr.length > 6;
+                const sizeClass = isLong ? 'text-[9px]' : 'text-[11px]';
+                return `<span class="key-custom-label ${sizeClass}">${labelStr}</span>`;
+            }
+           
+            if (val === 'Custom') return `<span class="key-center text-[10px] text-MoErgo-primary">${escapeHtml(binding.params?.[0]?.value || 'Custom')}</span>`;
+            let p1 = binding.params?.[0]?.value || '?';
+            let p2 = binding.params?.[1]?.value || '?';
+            if (val === '&kp') {
+                if (MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
+                    const { mods, keyVal } = unwrapModChain(binding.params[0]);
+                    const modSymbols = mods.map(m => formatKeycode(m, osMode)).join('+');
+                    return `<span class="key-shift">${modSymbols}</span><span class="key-main">${formatKeycode(keyVal, osMode)}</span>`;
+                }
+                return `<span class="key-center">${formatKeycode(p1, osMode)}</span>`;
+            }
+            if (val === '&mo' || val === '&tog' || val === '&to' || val === '&sl') return `<span class="key-center text-MoErgo-primary">L${p1}</span>`;
+            if (val === '&mt') return `<span class="key-shift">${formatKeycode(p1, osMode)}</span><span class="key-main">${formatKeycode(p2, osMode)}</span>`;
+            if (val === '&lt') return `<span class="key-shift text-MoErgo-primary">L${p1}</span><span class="key-main">${formatKeycode(p2, osMode)}</span>`;
+            if (val === '&rgb_ug') return `<span class="key-center">${formatKeycode(p1, osMode)}</span>`;
+            if (val === '&bt') return `<span class="key-center">BTH${p2}</span>`;
+            if (val.startsWith('&mac')) return `<span class="key-center text-[11px] font-bold text-amber-400">${escapeHtml(val.replace('&',''))}</span>`;
+            if (val.startsWith('&ht_auto_')) return `<span class="key-center text-[10px]">${escapeHtml(val.split('_').pop())}</span>`;
+            return `<span class="key-center">${escapeHtml(val.replace('&', ''))}</span>`;
+        };
+
+        const paletteLabel = (item, osMode) => {
+            if (item.code === 'LGUI') return osMode === 'mac' ? 'L Cmd' : 'L Win';
+            if (item.code === 'RGUI') return osMode === 'mac' ? 'R Cmd' : 'R Win';
+            return item.label;
+        };
+
+        const describeBinding = (binding) => {
+            if (!binding || !binding.value || binding.value === '&none' || binding.value === 'none') return 'Empty';
+            if (binding.value === '&trans') return 'Transparent (falls through to base layer)';
+            const val = binding.value;
+            const p1 = binding.params?.[0]?.value;
+            const p2 = binding.params?.[1]?.value;
+            if (val === '&kp') {
+                if (p1 && MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
+                    const { mods, keyVal } = unwrapModChain(binding.params[0]);
+                    return mods.map(m => formatKeycode(m)).join('+') + '+' + formatKeycode(keyVal);
+                }
+                return p1 ? String(p1) : '&kp';
+            }
+            if (val === '&mo') return `Momentary Layer ${p1}`;
+            if (val === '&tog') return `Toggle Layer ${p1}`;
+            if (val === '&to') return `Switch to Layer ${p1}`;
+            if (val === '&sl') return `Sticky Layer ${p1}`;
+            if (val === 'Custom') return p1 ? String(p1) : 'Custom';
+            if (val.startsWith('&')) return val.replace('&', '') + (p1 !== undefined ? ` ${p1}` : '') + (p2 !== undefined ? ` ${p2}` : '');
+            return val;
+        };
+
+        const KeyComponent = memo(({ index, geo, binding, isSelected, onSelect, osMode, onContextMenu, onKeyMouseDown, isDragSource, isDragOver }) => {
+            const labelHtml = getBeautifulLabel(binding, osMode);
+            const outerStyle = {
+                left: `${geo.x}px`, top: `${geo.y}px`,
+                width: `${geo.w || KEY_SIZE}px`, height: `${geo.h || KEY_SIZE}px`,
+                transform: geo.r ? `rotate(${geo.r}deg)` : 'none',
+                transformOrigin: geo.o || 'center',
+            };
+            const innerStyle = {};
+            const hasCustomBg = binding?.value !== '&trans' && binding?.value !== '&none' && binding?.decoration?.background;
+           
+            if (hasCustomBg) {
+                innerStyle.background = binding.decoration.background;
+                innerStyle.borderColor = binding.decoration.background;
+                // If text color is explicitly supplied, use it; otherwise auto-contrast
+                innerStyle.color = binding.decoration.color || getContrastColor(binding.decoration.background);
+            } else if (binding?.decoration?.color) {
+                innerStyle.color = binding.decoration.color;
+            }
+           
+            const titleText = binding?.decoration?.label || '';
+
+            return (
+                <div
+                    className={`p-key-outer ${isSelected ? 'selected' : ''} ${isDragOver ? 'drag-over' : ''}`}
+                    style={outerStyle}
+                    data-key-idx={index}
+                    title={titleText}
+                    onClick={(e) => { e.stopPropagation(); onSelect(index); }}
+                    onContextMenu={(e) => onContextMenu(e, index)}
+                    onMouseDown={(e) => onKeyMouseDown(e, index)}
+                >
+                    <div className={`p-key ${isSelected ? 'selected' : ''} ${hasCustomBg ? 'has-bg' : ''} ${isDragSource ? 'drag-source' : ''} ${isDragOver ? 'drag-over' : ''} ${geo.isRound ? 'is-round' : ''}`} style={innerStyle}>
+                        {labelHtml ? <div dangerouslySetInnerHTML={{ __html: labelHtml }} className="w-full h-full relative flex items-center justify-center" /> : null}
+                    </div>
+                </div>
+            );
+        });
+
+        function computeGeoBounds(geo) {
+            let maxX = 0, maxY = 0;
+            geo.forEach(k => {
+                maxX = Math.max(maxX, k.x + (k.w || KEY_SIZE));
+                const extraHeight = k.r ? 60 : 0;
+                maxY = Math.max(maxY, k.y + (k.h || KEY_SIZE) + extraHeight);
+            });
+            return { w: maxX + 40, h: maxY + 40 };
+        }
+
+const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, selectedKey, onSelectKey, scale, setScale, osMode, onContextAction, clipboard, styleClipboard, onSwapKeys }) => {
+            const containerRef = useRef(null);
+            const [autoFitScale, setAutoFitScale] = useState(1);
+            const [pan, setPan] = useState({ x: 0, y: 0 });
+            const [isDragging, setIsDragging] = useState(false);
+            const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+            const [contextMenu, setContextMenu] = useState(null);
+            const [dragSourceIdx, setDragSourceIdx] = useState(null);
+            const [dragOverIdx, setDragOverIdx] = useState(null);
+
+            const bounds = useMemo(() => computeGeoBounds(keyboardGeo), [keyboardGeo]);
+
+            useEffect(() => {
+                const el = containerRef.current;
+                if (!el) return;
+                const PADDING_FACTOR = 0.88;
+                const compute = () => {
+                    const { width, height } = el.getBoundingClientRect();
+                    if (width === 0 || height === 0) return;
+                    const fit = Math.min(width / bounds.w, height / bounds.h) * PADDING_FACTOR;
+                    setAutoFitScale(Math.max(0.2, Math.min(fit, 2)));
+                    setPan({ x: 0, y: 0 });
+                };
+                compute();
+                const ro = new ResizeObserver(compute);
+                ro.observe(el);
+                return () => ro.disconnect();
+            }, [keyboardGeo, bounds]);
+
+            const effectiveScale = autoFitScale * scale;
+
+            const handleMouseDown = (e) => {
+                if(e.target.closest('.p-key')) return;
+                setIsDragging(true);
+                setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+            };
+            const handleMouseMove = (e) => {
+                if(!isDragging) return;
+                setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+            };
+            const handleMouseUp = () => setIsDragging(false);
+
+            const handleKeyMouseDown = (e, index) => {
+                if (e.button !== 0) return;
+                const startX = e.clientX, startY = e.clientY;
+                let dragging = false;
+                const onMove = (e2) => {
+                    const dx = e2.clientX - startX, dy = e2.clientY - startY;
+                    if (!dragging && Math.hypot(dx, dy) > 6) {
+                        dragging = true;
+                        setDragSourceIdx(index);
+                    }
+                    if (dragging) {
+                        const el = document.elementFromPoint(e2.clientX, e2.clientY)?.closest('[data-key-idx]');
+                        const overIdx = el ? parseInt(el.dataset.keyIdx, 10) : null;
+                        setDragOverIdx(overIdx !== index ? overIdx : null);
+                    }
+                };
+                const onUp = (e2) => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    if (dragging) {
+                        const el = document.elementFromPoint(e2.clientX, e2.clientY)?.closest('[data-key-idx]');
+                        const targetIdx = el ? parseInt(el.dataset.keyIdx, 10) : null;
+                        if (targetIdx !== null && targetIdx !== index) onSwapKeys(index, targetIdx);
+                    }
+                    setDragSourceIdx(null);
+                    setDragOverIdx(null);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            };
+           
+            const openContextMenu = (e, index) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onSelectKey(index);
+                setContextMenu({ x: e.clientX, y: e.clientY, keyIndex: index });
+            };
+            const closeContextMenu = () => setContextMenu(null);
+            const runContextAction = (action) => {
+                if (contextMenu) onContextAction(action, contextMenu.keyIndex);
+                closeContextMenu();
+            };
+           
+            return (
+                <div ref={containerRef} className="canvas-container absolute inset-0 flex items-center justify-center" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onClick={() => { onSelectKey(null); closeContextMenu(); }}>
+                    <div className="absolute top-6 right-6 flex items-center gap-3 bg-MoErgo-tabBg p-1.5 rounded-full px-4 border border-[#333] shadow-lg z-20">
+                        <span className="text-xs text-gray-500 font-bold mr-2 hidden sm:inline">CANVAS</span>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(s + 0.1, 2)); }} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg></button>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(1); setPan({x:0,y:0}); }} className="text-xs font-mono font-bold w-12 text-center hover:text-white transition-colors" title="Reset to auto-fit and re-center">{Math.round(effectiveScale * 100)}%</button>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(s - 0.1, 0.4)); }} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg></button>
+                        <div className="w-px h-4 bg-[#444]"></div>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(1); setPan({x:0,y:0}); }} className="text-gray-400 hover:text-white" title="Fit and center the keyboard">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m-4 12h2a2 2 0 002-2v-2"></path></svg>
+                        </button>
+                    </div>
+                    <div className="absolute top-6 left-6 flex items-center gap-2 z-20 hidden md:flex">
+                        {(!clipboard && !styleClipboard) && (
+                            <div className="text-[11px] text-gray-500 bg-MoErgo-tabBg px-4 py-2 rounded-full border border-[#333] pointer-events-none">
+                                Right-click a key to copy, paste, or clear it
+                            </div>
+                        )}
+                        {clipboard && (
+                            <div className="text-[11px] text-gray-300 bg-MoErgo-tabBg px-3 py-2 rounded-full border border-[#333] flex items-center gap-1.5">
+                                📋 <span className="font-mono text-white">{describeBinding(clipboard)}</span>
+                            </div>
+                        )}
+                        {styleClipboard && (
+                            <div className="text-[11px] text-gray-300 bg-MoErgo-tabBg px-3 py-2 rounded-full border border-[#333] flex items-center gap-1.5">
+                                🎨
+                                {styleClipboard.background && <span className="w-3 h-3 rounded-full border border-white/20 ml-1" style={{ background: styleClipboard.background }}></span>}
+                                {styleClipboard.label && <span className="ml-1 text-gray-400 truncate max-w-[100px]">"{styleClipboard.label}"</span>}
+                            </div>
+                        )}
+                    </div>
+                    <div className="relative origin-center" style={{ width: `${bounds.w}px`, height: `${bounds.h}px`, transform: `translate(${pan.x}px, ${pan.y}px) scale(${effectiveScale})` }}>
+                        {keyboardGeo.map((geo, index) => (
+                            <KeyComponent key={`matrix-key-${index}`} index={index} geo={geo} binding={activeLayerBindings[index] || { value: '&none' }} isSelected={selectedKey === index} onSelect={onSelectKey} osMode={osMode} onContextMenu={openContextMenu} onKeyMouseDown={handleKeyMouseDown} isDragSource={dragSourceIdx === index} isDragOver={dragOverIdx === index} />
+                        ))}
+                    </div>
+                    {contextMenu && (
+                        <div className="fixed z-50 bg-[#2a2a2a] border border-[#444] rounded-lg shadow-2xl py-1.5 min-w-[170px] text-xs font-bold" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={(e) => e.stopPropagation()}>
+                            <button className="w-full text-left px-4 py-2 hover:bg-[#383838] text-white transition-colors" onClick={() => runContextAction('copy')}>📋 Copy</button>
+                            <button className={`w-full text-left px-4 py-2 transition-colors ${clipboard ? 'hover:bg-[#383838] text-white' : 'text-gray-600 cursor-not-allowed'}`} onClick={() => clipboard && runContextAction('paste')}>📥 Paste</button>
+                            <div className="my-1 border-t border-[#3a3a3a]"></div>
+                            <button className="w-full text-left px-4 py-2 hover:bg-[#383838] text-white transition-colors" onClick={() => runContextAction('copyStyle')}>🎨 Copy Style</button>
+                           
+                            {styleClipboard ? (
+                                <>
+                                    <button className="w-full text-left px-4 py-2 hover:bg-[#383838] text-white transition-colors flex items-center gap-2" onClick={() => runContextAction('pasteStyleAll')}>
+                                        <span className="w-3">🖌️</span> Paste All Style
+                                    </button>
+                                    {(styleClipboard.background || styleClipboard.color) && (
+                                        <button className="w-full text-left px-4 py-2 hover:bg-[#383838] text-gray-300 transition-colors flex items-center gap-2 pl-6 text-[11px]" onClick={() => runContextAction('pasteStyleColor')}>
+                                            <span className="w-3">💧</span> Paste Color Only
+                                        </button>
+                                    )}
+                                    {styleClipboard.label && (
+                                        <button className="w-full text-left px-4 py-2 hover:bg-[#383838] text-gray-300 transition-colors flex items-center gap-2 pl-6 text-[11px]" onClick={() => runContextAction('pasteStyleLabel')}>
+                                            <span className="w-3">📝</span> Paste Label Only
+                                        </button>
+                                    )}
+                                </>
+                            ) : (
+                                <button className="w-full text-left px-4 py-2 text-gray-600 cursor-not-allowed transition-colors">🖌️ Paste Style</button>
+                            )}
+                           
+                            <div className="my-1 border-t border-[#3a3a3a]"></div>
+                            <button className="w-full text-left px-4 py-2 hover:bg-red-950 text-red-400 transition-colors" onClick={() => runContextAction('clear')}>✕ Clear Key</button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
+        function remapLayerPointersAfterDelete(layers, deletedIdx) {
+            layers.forEach(layer => {
+                (layer || []).forEach(binding => {
+                    if (!binding || !LAYER_POINTER_BEHAVIORS.has(binding.value)) return;
+                    const p = binding.params?.[0];
+                    if (!p || typeof p.value !== 'number') return;
+                    if (p.value === deletedIdx) { binding.value = '&none'; binding.params = []; }
+                    else if (p.value > deletedIdx) p.value -= 1;
+                });
+            });
+        }
+
+        const App = () => {
+            const [config, setConfig] = useState(null);
+            const [activeLayer, setActiveLayer] = useState(0);
+            const [selectedKey, setSelectedKey] = useState(null);
+            const [activeTab, setActiveTab] = useState('Basic');
+            const [paletteScale, setPaletteScale] = useState(1.0);
+            const [paletteSearch, setPaletteSearch] = useState('');
+            const [armedMods, setArmedMods] = useState(new Set());
+           
+            const [bgHexInput, setBgHexInput] = useState('');
+            const [textHexInput, setTextHexInput] = useState('');
+            const [labelInput, setLabelInput] = useState('');
+            const [descriptionInput, setDescriptionInput] = useState('');
+            const [iconInput, setIconInput] = useState('');
+
+            // Sync inputs when selection changes
+            useEffect(() => {
+                const binding = (config && config.layers[activeLayer] && selectedKey !== null)
+                    ? config.layers[activeLayer][selectedKey]
+                    : null;
+                setBgHexInput('');
+                setTextHexInput('');
+                setLabelInput(binding?.decoration?.label || '');
+                setDescriptionInput(binding?.decoration?.description || '');
+                setIconInput(binding?.decoration?.icon || '');
+            }, [selectedKey, activeLayer, config]);
+
+            const [canvasScale, setCanvasScale] = useState(1.0);
+            const [osMode, setOsMode] = useState(() => /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '') ? 'mac' : 'win');
+            const [toast, setToast] = useState(null);
+            const [showQuickStart, setShowQuickStart] = useState(false);
+            const [isFetchingTemplate, setIsFetchingTemplate] = useState(false);
+            const [clipboard, setClipboard] = useState(null);
+            const [styleClipboard, setStyleClipboard] = useState(null);
+            const [renamingLayerIdx, setRenamingLayerIdx] = useState(null);
+            const [renameValue, setRenameValue] = useState('');
+            const [bottomPanelHeight, setBottomPanelHeight] = useState(340);
+            const resizeStateRef = useRef(null);
+
+            const handleBottomResizeStart = (e) => {
+                e.preventDefault();
+                resizeStateRef.current = { startY: e.clientY, startHeight: bottomPanelHeight };
+                const onMove = (e2) => {
+                    const dy = resizeStateRef.current.startY - e2.clientY;
+                    const next = Math.max(180, Math.min(resizeStateRef.current.startHeight + dy, window.innerHeight * 0.8));
+                    setBottomPanelHeight(next);
+                };
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            };
+
+            useEffect(() => {
+                const HEADER_H = 76;
+                const MIN_CANVAS_H = 220;
+                const clampToWindow = () => {
+                    const maxAllowed = Math.max(120, window.innerHeight - HEADER_H - MIN_CANVAS_H);
+                    setBottomPanelHeight(h => Math.min(h, maxAllowed));
+                };
+                clampToWindow();
+                window.addEventListener('resize', clampToWindow);
+                return () => window.removeEventListener('resize', clampToWindow);
+            }, []);
+
+            const [jsonStr, setJsonStr] = useState("");
+            const [jsonError, setJsonError] = useState("");
+            const [undoStack, setUndoStack] = useState([]);
+            const [redoStack, setRedoStack] = useState([]);
+
+            const keyboardGeo = useMemo(() => {
+                if (!config) return [];
+                const kb = config.keyboard?.toLowerCase();
+                if (kb === 'go60') return GO60_GEO;
+                if (kb === 'glove80') return GLOVE80_GEO;
+                const count = config.layers?.[0]?.length || 0;
+                return (count > 0 && count <= 65) ? GO60_GEO : GLOVE80_GEO;
+            }, [config]);
+
+            useEffect(() => {
+                if (!config || !Array.isArray(config.layers)) return;
+                if (activeLayer >= config.layers.length) setActiveLayer(Math.max(0, config.layers.length - 1));
+            }, [config]);
+
+            const currentLayerBindings = useMemo(() => {
+                if (!config || !Array.isArray(config.layers)) return [];
+                return config.layers[activeLayer] || [];
+            }, [config, activeLayer]);
+
+            const usedLayoutColors = useMemo(() => {
+                if (!config || !Array.isArray(config.layers)) return [];
+                const seen = new Set();
+                const presetSet = new Set(KEY_COLOR_PRESETS.map(c => c.toLowerCase()));
+                config.layers.forEach(layer => (layer || []).forEach(b => {
+                    const bg = b?.decoration?.background;
+                    if (bg && !presetSet.has(bg.toLowerCase())) seen.add(bg.toLowerCase());
+                }));
+                return Array.from(seen);
+            }, [config]);
+
+            useEffect(() => {
+                if (activeTab === 'JSON' && config && selectedKey !== null) {
+                    setJsonStr(JSON.stringify(currentLayerBindings[selectedKey] || {value: "&none"}, null, 2));
+                    setJsonError("");
+                }
+            }, [selectedKey, activeLayer, config, activeTab]);
+
+            const pushHistory = useCallback((newConfig) => {
+                setUndoStack(prev => [...prev.slice(-99), structuredClone(config)]);
+                setRedoStack([]); setConfig(newConfig);
+            }, [config]);
+
+            const undo = () => { if (undoStack.length === 0) return; const prevConfig = undoStack[undoStack.length - 1]; setRedoStack(prev => [...prev, structuredClone(config)]); setUndoStack(prev => prev.slice(0, -1)); setConfig(prevConfig); };
+            const redo = () => { if (redoStack.length === 0) return; const nextConfig = redoStack[redoStack.length - 1]; setUndoStack(prev => [...prev, structuredClone(config)]); setRedoStack(prev => prev.slice(0, -1)); setConfig(nextConfig); };
+
+            const showToast = useCallback((message, kind = 'default') => {
+                setToast({ message, kind, id: Date.now() });
+            }, []);
+            useEffect(() => {
+                if (!toast) return;
+                const t = setTimeout(() => setToast(null), 2200);
+                return () => clearTimeout(t);
+            }, [toast]);
+
+            const loadLayoutData = (parsed, sourceLabel) => {
+                let data = parsed?.keymap !== undefined ? parsed.keymap : parsed;
+                if (!data || !Array.isArray(data.layers)) throw new Error('Missing a "layers" array');
+                setConfig(data); setActiveLayer(0); setSelectedKey(null); setUndoStack([]); setRedoStack([]);
+                setCanvasScale(1.0);
+                showToast(`Loaded ${sourceLabel}`);
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const parsed = JSON.parse(event.target.result);
+                        loadLayoutData(parsed, `"${file.name}"`);
+                    } catch (err) { showToast(`Couldn't read that file — ${err.message}`, 'error'); }
+                };
+                reader.readAsText(file); e.target.value = '';
+            };
+
+            const TEMPLATE_URLS = {
+                glove80: 'https://gist.githubusercontent.com/moosylog/a71d65a4b2de4215d7e226449f3cadb2/raw/ee1661e9adbe197285b50ef0bd8997f6a80e795c/Glove80_default.json',
+                go60: 'https://gist.githubusercontent.com/moosylog/a71d65a4b2de4215d7e226449f3cadb2/raw/ee1661e9adbe197285b50ef0bd8997f6a80e795c/Go60_default.json',
+            };
+
+            const fetchTemplate = async (type) => {
+                setIsFetchingTemplate(true);
+                try {
+                    const response = await fetch(TEMPLATE_URLS[type]);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const text = await response.text();
+                    let cleanText = text.trim();
+                    if (!cleanText.startsWith('{') && !cleanText.startsWith('[')) {
+                        const firstBrace = cleanText.indexOf('{');
+                        if (firstBrace !== -1) cleanText = cleanText.substring(firstBrace);
+                    }
+                    const parsed = JSON.parse(cleanText);
+                    loadLayoutData(parsed, type === 'glove80' ? 'the Glove80 template' : 'the Go60 template');
+                } catch (err) {
+                    showToast(`Couldn't fetch the ${type === 'glove80' ? 'Glove80' : 'Go60'} template — ${err.message}`, 'error');
+                } finally {
+                    setIsFetchingTemplate(false);
+                }
+            };
+
+            const handleExport = () => {
+                if (!config) return;
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+                const anchor = document.createElement('a');
+                anchor.href = dataStr; anchor.download = `layout_${config.keyboard || 'custom'}.json`;
+                document.body.appendChild(anchor); anchor.click(); anchor.remove();
+                showToast('Layout exported');
+            };
+
+            const assignAction = (item) => {
+                if (selectedKey === null || !config || !config.layers[activeLayer]) return;
+                const newConfig = structuredClone(config);
+                let newBinding = { value: '&none' };
+                if (item.code) {
+                    const activeMods = (!RAW_MOD_CODES.has(item.code) && armedMods.size > 0)
+                        ? MOD_ARM_ORDER.filter(m => armedMods.has(m))
+                        : [];
+                    newBinding = { value: '&kp', params: [ composeKeycodeParam(item.code, activeMods) ] };
+                } else if (item.type) {
+                    newBinding.value = item.type;
+                    if (item.param1 !== undefined) {
+                        newBinding.params = [{ value: item.param1, params: [] }];
+                        if (item.param2 !== undefined) newBinding.params.push({ value: item.param2, params: [] });
+                    }
+                }
+                if (newConfig.layers[activeLayer][selectedKey]?.decoration) {
+                    newBinding.decoration = newConfig.layers[activeLayer][selectedKey].decoration;
+                }
+                newConfig.layers[activeLayer][selectedKey] = newBinding;
+                pushHistory(newConfig);
+                if (armedMods.size > 0) setArmedMods(new Set());
+            };
+
+            const saveCustomJson = () => {
+                if (selectedKey === null || !config || !config.layers[activeLayer]) return;
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    if (!parsed.value) throw new Error("Missing 'value' attribute.");
+                    const newConfig = structuredClone(config);
+                    newConfig.layers[activeLayer][selectedKey] = parsed;
+                    pushHistory(newConfig); setJsonError("");
+                    showToast('Applied');
+                } catch (err) { setJsonError(err.message); }
+            };
+
+            const updateDecorationProperty = (property, value) => {
+                if (selectedKey === null || !config || !config.layers[activeLayer]) return;
+                const newConfig = structuredClone(config);
+                const existing = newConfig.layers[activeLayer][selectedKey] || { value: '&none' };
+               
+                let updatedDeco = { ...(existing.decoration || {}) };
+                if (value === null || value === '') {
+                    delete updatedDeco[property];
+                } else {
+                    updatedDeco[property] = value;
+                }
+               
+                if (Object.keys(updatedDeco).length === 0) {
+                    delete existing.decoration;
+                } else {
+                    existing.decoration = updatedDeco;
+                }
+               
+                newConfig.layers[activeLayer][selectedKey] = existing;
+                pushHistory(newConfig);
+            };
+
+            const setKeyDecoration = (color) => {
+                updateDecorationProperty('background', color);
+                showToast(color ? 'Color applied' : 'Color cleared');
+            };
+
+            const applyBgHexInput = () => {
+                const v = bgHexInput.trim();
+                if (!v) return;
+                const normalized = v.startsWith('#') ? v : `#${v}`;
+                if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) {
+                    showToast('Enter a valid hex color, like #E55F2E', 'error');
+                    return;
+                }
+                setKeyDecoration(normalized);
+                setBgHexInput('');
+            };
+
+            const applyTextHexInput = () => {
+                const v = textHexInput.trim();
+                if (!v) return;
+                const normalized = v.startsWith('#') ? v : `#${v}`;
+                if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) {
+                    showToast('Enter a valid hex color, like #E55F2E', 'error');
+                    return;
+                }
+                updateDecorationProperty('color', normalized);
+                setTextHexInput('');
+            };
+           
+            const applyLabelInput = (v) => {
+                setLabelInput(v);
+                updateDecorationProperty('label', v || null);
+            };
+
+            const applyDescriptionInput = (v) => {
+                setDescriptionInput(v);
+                updateDecorationProperty('description', v || null);
+            };
+
+            const applyIconInput = (v) => {
+                setIconInput(v);
+                updateDecorationProperty('icon', v || null);
+            };
+
+            const renderColorPicker = (label, currentColor, onSetColor, hexVal, setHexVal, onApplyHex) => (
+                <div className="flex flex-col gap-3">
+                    <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">{label}</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                        {KEY_COLOR_PRESETS.map(c => (
+                            <button key={c} onClick={() => onSetColor(c)} title={c} className="w-8 h-8 rounded-full border border-black/30 hover:scale-110 transition-transform shrink-0 shadow-sm" style={{ background: c }} />
+                        ))}
+                        {usedLayoutColors.length > 0 && <div className="w-px h-6 bg-[#3a3a3a] shrink-0 mx-2"></div>}
+                        {usedLayoutColors.map(c => (
+                            <button key={c} onClick={() => onSetColor(c)} title={`${c} (used in this layout)`} className="w-8 h-8 rounded-full border border-black/30 hover:scale-110 transition-transform shrink-0 shadow-sm" style={{ background: c }} />
+                        ))}
+                        <div className="w-px h-6 bg-[#3a3a3a] shrink-0 mx-2"></div>
+                        <input type="color" value={currentColor || '#ffffff'} onChange={(e) => onSetColor(e.target.value)} title="Custom color" className="w-8 h-8 rounded-full border border-black/30 bg-transparent cursor-pointer p-0 shrink-0 shadow-sm" />
+                        <input
+                            type="text"
+                            value={hexVal}
+                            onChange={(e) => setHexVal(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') onApplyHex(); }}
+                            onBlur={onApplyHex}
+                            placeholder="#RRGGBB"
+                            maxLength={7}
+                            className="w-24 shrink-0 bg-[#1c1c1c] border border-[#3a3a3a] rounded-lg px-3 py-1.5 text-xs font-mono text-white placeholder-gray-600 outline-none focus:border-gray-500 ml-1"
+                        />
+                        <button onClick={() => onSetColor(null)} title="Clear color" className="h-8 px-3 rounded-lg border border-[#555] flex items-center justify-center text-gray-400 hover:text-white hover:bg-[#333] transition-colors text-xs font-medium ml-2">Clear</button>
+                    </div>
+                </div>
+            );
+
+            const handleKeyContextAction = useCallback((action, keyIndex) => {
+                if (!config || !config.layers[activeLayer]) return;
+                const existing = config.layers[activeLayer][keyIndex];
+                if (action === 'copy') {
+                    setClipboard(structuredClone(existing || { value: '&none' }));
+                    showToast(`Copied ${describeBinding(existing)}`);
+                } else if (action === 'paste') {
+                    if (!clipboard) { showToast('Clipboard is empty — copy a key first', 'error'); return; }
+                    const newConfig = structuredClone(config);
+                    const pasted = structuredClone(clipboard);
+                    const existingDecoration = newConfig.layers[activeLayer][keyIndex]?.decoration;
+                    if (existingDecoration && !pasted.decoration) pasted.decoration = existingDecoration;
+                    newConfig.layers[activeLayer][keyIndex] = pasted;
+                    pushHistory(newConfig);
+                    showToast('Pasted');
+                } else if (action === 'clear') {
+                    const newConfig = structuredClone(config);
+                    newConfig.layers[activeLayer][keyIndex] = { value: '&none' };
+                    pushHistory(newConfig);
+                    showToast('Cleared');
+                } else if (action === 'copyStyle') {
+                    if (!existing?.decoration) { showToast('This key has no style set', 'error'); return; }
+                    setStyleClipboard(structuredClone(existing.decoration));
+                    showToast('Style copied');
+                } else if (action.startsWith('pasteStyle')) {
+                    if (!styleClipboard) { showToast('No style copied yet — copy a colored key first', 'error'); return; }
+                    const newConfig = structuredClone(config);
+                    const target = newConfig.layers[activeLayer][keyIndex] || { value: '&none' };
+                   
+                    let currentDeco = target.decoration ? { ...target.decoration } : {};
+                   
+                    if (action === 'pasteStyleAll') {
+                        currentDeco = { ...currentDeco, ...structuredClone(styleClipboard) };
+                    } else if (action === 'pasteStyleColor') {
+                        if (styleClipboard.background) currentDeco.background = styleClipboard.background;
+                        else delete currentDeco.background;
+                        if (styleClipboard.color) currentDeco.color = styleClipboard.color;
+                        else delete currentDeco.color;
+                    } else if (action === 'pasteStyleLabel') {
+                        if (styleClipboard.label) currentDeco.label = styleClipboard.label;
+                        else delete currentDeco.label;
+                    }
+                   
+                    if (Object.keys(currentDeco).length === 0) delete target.decoration;
+                    else target.decoration = currentDeco;
+                   
+                    newConfig.layers[activeLayer][keyIndex] = target;
+                    pushHistory(newConfig);
+                    showToast('Style pasted');
+                }
+            }, [config, activeLayer, clipboard, styleClipboard, pushHistory, showToast]);
+
+            const swapKeys = useCallback((a, b) => {
+                if (!config || !config.layers[activeLayer] || a === b) return;
+                const newConfig = structuredClone(config);
+                const layer = newConfig.layers[activeLayer];
+                const temp = layer[a] || { value: '&none' };
+                layer[a] = layer[b] || { value: '&none' };
+                layer[b] = temp;
+                pushHistory(newConfig);
+                showToast(`Swapped Key ${getLogicalName(a, config?.keyboard)} ↔ Key ${getLogicalName(b, config?.keyboard)}`);
+            }, [config, activeLayer, pushHistory, showToast]);
+
+useEffect(() => {
+                const handler = (e) => {
+                    const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+                    if (e.key === 'Escape' && !typing) { setSelectedKey(null); return; }
+                    const isMod = e.ctrlKey || e.metaKey;
+                    if (!isMod || typing) return;
+                    const key = e.key.toLowerCase();
+                    if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+                    else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); redo(); }
+                    else if (key === 'c' && selectedKey !== null) { e.preventDefault(); handleKeyContextAction('copy', selectedKey); }
+                    else if (key === 'v' && selectedKey !== null) { e.preventDefault(); handleKeyContextAction('paste', selectedKey); }
+                };
+                window.addEventListener('keydown', handler);
+                return () => window.removeEventListener('keydown', handler);
+            }, [undoStack, redoStack, config, selectedKey, handleKeyContextAction]);
+
+            const addLayer = () => {
+                if (!config) return;
+                const newConfig = structuredClone(config);
+                const keyCount = newConfig.layers[0]?.length || keyboardGeo.length || 80;
+                newConfig.layers.push(Array.from({ length: keyCount }, () => ({ value: '&trans' })));
+                if (!Array.isArray(newConfig.layer_names)) newConfig.layer_names = newConfig.layers.slice(0, -1).map((_, i) => `Layer ${i}`);
+                newConfig.layer_names.push(`Layer ${newConfig.layers.length - 1}`);
+                pushHistory(newConfig);
+                setActiveLayer(newConfig.layers.length - 1);
+                setSelectedKey(null);
+                showToast('Layer added');
+            };
+
+            const deleteLayer = (idx) => {
+                if (!config || idx === 0 || config.layers.length <= 1) return;
+                const name = (Array.isArray(config.layer_names) && typeof config.layer_names[idx] === 'string') ? config.layer_names[idx] : `Layer ${idx}`;
+                if (!window.confirm(`Delete "${name}"? All its key bindings will be lost (Undo can still bring it back).`)) return;
+                const newConfig = structuredClone(config);
+                newConfig.layers.splice(idx, 1);
+                if (Array.isArray(newConfig.layer_names)) newConfig.layer_names.splice(idx, 1);
+                remapLayerPointersAfterDelete(newConfig.layers, idx);
+                pushHistory(newConfig);
+                setActiveLayer(prev => prev >= newConfig.layers.length ? newConfig.layers.length - 1 : (prev > idx ? prev - 1 : prev));
+                setSelectedKey(null);
+                showToast('Layer deleted');
+            };
+
+            const startRenameLayer = (idx, currentName) => { setRenamingLayerIdx(idx); setRenameValue(currentName); };
+            const commitRenameLayer = () => {
+                if (renamingLayerIdx === null || !config) { setRenamingLayerIdx(null); return; }
+                const newConfig = structuredClone(config);
+                if (!Array.isArray(newConfig.layer_names)) newConfig.layer_names = newConfig.layers.map((_, i) => `Layer ${i}`);
+                const trimmed = renameValue.trim();
+                newConfig.layer_names[renamingLayerIdx] = trimmed || `Layer ${renamingLayerIdx}`;
+                pushHistory(newConfig);
+                setRenamingLayerIdx(null);
+            };
+
+            const SIDEBAR_ITEMS = [
+                { id: 'Keymap', label: 'Keymap', action: () => setActiveTab('Basic'),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h2M10 10h2M14 10h2M6 14h10M18 10h.01M18 14h.01"/></svg> },
+                { id: 'Backlight', label: 'Backlight', action: () => setActiveTab('Lighting'),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2m0 14v2m8-10h2M3 12h2m13.071-7.071l-1.414 1.414M6.343 17.657l-1.414 1.414M17.657 17.657l1.414 1.414M6.343 6.343L4.929 4.929M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> },
+                { id: 'Macro', label: 'Macro', action: () => setActiveTab('Macro'),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path strokeLinecap="round" strokeLinejoin="round" d="M8 16V8l4 5 4-5v8"/></svg> },
+                { id: 'Style', label: 'Style & Labels', action: () => setActiveTab('Style'),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg> },
+                { id: 'QuickStart', label: 'Quick Start', action: () => setShowQuickStart(true),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><circle cx="12" cy="12" r="10"/><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V4L9 14h2v6l4-10h-2z"/></svg> },
+                { id: 'Advanced', label: 'Advanced Mode', action: () => setActiveTab('JSON'),
+                  icon: <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path strokeLinecap="round" strokeLinejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.646.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.352.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.991l1.005.828c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.353.49l-1.216-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.333.183-.582.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.35-.49l-1.298-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.991l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.352-.49l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.213-1.28z"/><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg> },
+            ];
+
+            return (
+                <div className="flex h-screen w-screen font-sans text-sm overflow-hidden">
+                    <aside className="w-[260px] bg-MoErgo-sidebar border-r border-MoErgo-card flex flex-col shrink-0 py-6 px-4 z-20 h-full overflow-y-auto">
+                        <div className="px-4 mb-1">
+                            <div className="text-2xl font-bold text-white tracking-tight">GLIDE</div>
+                            <div className="text-[10px] text-MoErgo-textMuted tracking-wide mt-0.5">Graphical Layout & Intent Definition Editor</div>
+                        </div>
+
+                        <div className="my-5 px-2">
+                            <div className="flex items-center gap-3 bg-MoErgo-card rounded-xl px-3 py-3">
+                                <div className="w-9 h-9 rounded-lg bg-MoErgo-cardHover flex items-center justify-center text-MoErgo-primary shrink-0">
+                                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h2M10 10h2M14 10h2M6 14h10M18 10h.01M18 14h.01"/></svg>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-white font-semibold text-xs truncate">{config ? (config.keyboard ? config.keyboard.toUpperCase() : 'MoErgo Keyboard') : 'No layout loaded'}</div>
+                                    <div className="text-MoErgo-textMuted text-[10px] truncate">{config ? `${config.layers.length} layer${config.layers.length === 1 ? '' : 's'}` : 'Load a JSON file to begin'}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1 flex-1 pl-2">
+                            {SIDEBAR_ITEMS.map((item) => {
+                                const isActive = item.id === 'Backlight' ? activeTab === 'Lighting'
+                                    : item.id === 'Macro' ? activeTab === 'Macro'
+                                    : item.id === 'Style' ? activeTab === 'Style'
+                                    : item.id === 'Advanced' ? activeTab === 'JSON'
+                                    : item.id === 'Keymap' ? !['Lighting', 'Macro', 'Style', 'JSON'].includes(activeTab)
+                                    : false;
+                                return (
+                                    <div key={item.id} onClick={item.action} className={`sidebar-item flex items-center gap-4 px-4 py-3 rounded-lg cursor-pointer font-medium transition-colors ${isActive ? 'bg-MoErgo-menuActiveBg text-white shadow-sm' : 'text-MoErgo-textMuted hover:bg-MoErgo-cardHover'}`}>
+                                        <div className={isActive ? 'text-MoErgo-primary' : 'text-gray-500'}>{item.icon}</div>
+                                        <span className="tracking-wide text-[14px] font-semibold">{item.label}</span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mt-auto border-t border-MoErgo-card pt-4 space-y-3">
+                            <a href="https://my.glove80.com" target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full text-MoErgo-textMuted hover:text-white text-xs font-medium py-2 transition-colors">
+                                MoErgo Configurator
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
+                            </a>
+                            <div>
+                                <div className="text-[10px] text-gray-500 uppercase tracking-widest mb-1.5 px-1">Start from a template</div>
+                                <div className="flex gap-2">
+                                    <button onClick={() => fetchTemplate('glove80')} disabled={isFetchingTemplate} className="flex-1 bg-MoErgo-card hover:bg-MoErgo-cardHover disabled:opacity-50 disabled:cursor-not-allowed border border-MoErgo-card text-white text-xs font-medium py-2.5 rounded-full transition-colors">Glove80</button>
+                                    <button onClick={() => fetchTemplate('go60')} disabled={isFetchingTemplate} className="flex-1 bg-MoErgo-card hover:bg-MoErgo-cardHover disabled:opacity-50 disabled:cursor-not-allowed border border-MoErgo-card text-white text-xs font-medium py-2.5 rounded-full transition-colors">Go60</button>
+                                </div>
+                            </div>
+                            <label className="block w-full bg-MoErgo-card hover:bg-MoErgo-cardHover border border-MoErgo-card text-white text-center py-3 rounded-full cursor-pointer transition-colors font-medium">Load JSON<input type="file" accept=".json" className="hidden" onChange={handleFileUpload} /></label>
+                            {config && <button onClick={handleExport} className="w-full bg-MoErgo-primary hover:bg-MoErgo-primaryHover text-white font-medium py-3 rounded-full transition-colors shadow-[0_0_10px_rgba(229,95,46,0.3)]">Export Layout</button>}
+                        </div>
+                    </aside>
+
+                    <main className="flex-1 flex flex-col bg-MoErgo-base relative z-10 h-full">
+                        <header className="h-[76px] shrink-0 border-b border-MoErgo-card flex items-center justify-between px-8 bg-MoErgo-surface z-20">
+                            <div className="flex items-center gap-4 min-w-0 flex-1">
+                                <span className="text-MoErgo-textMuted text-xs uppercase font-semibold shrink-0">Layer</span>
+                                <div className="flex bg-MoErgo-tabBg p-1 rounded-full items-center gap-1 min-w-0">
+                                    <div className="flex items-center gap-1 overflow-x-auto">
+                                    {config ? (config.layer_names || Array.from({length: config.layers.length})).map((name, i) => (
+                                        <div key={i} className="relative group shrink-0">
+                                            {renamingLayerIdx === i ? (
+                                                <input
+                                                    autoFocus
+                                                    value={renameValue}
+                                                    onChange={(e) => setRenameValue(e.target.value)}
+                                                    onBlur={commitRenameLayer}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') commitRenameLayer(); if (e.key === 'Escape') setRenamingLayerIdx(null); }}
+                                                    className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white text-black w-24 outline-none"
+                                                />
+                                            ) : (
+                                                <button
+                                                    onClick={() => { setActiveLayer(i); setSelectedKey(null); }}
+                                                    onDoubleClick={() => startRenameLayer(i, typeof name === 'string' ? name : `Layer ${i}`)}
+                                                    title="Double-click to rename"
+                                                    className={`px-5 py-1.5 rounded-full text-xs font-semibold transition-colors ${activeLayer === i ? 'palette-tab-active' : 'text-MoErgo-textMuted hover:text-white'}`}
+                                                >
+                                                    {typeof name === 'string' ? name : `Layer ${i}`}
+                                                </button>
+                                            )}
+                                            {i > 0 && config.layers.length > 1 && renamingLayerIdx !== i && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); deleteLayer(i); }}
+                                                    title="Delete layer"
+                                                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 hover:bg-red-500 text-white text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                                >✕</button>
+                                            )}
+                                        </div>
+                                    )) : (<div className="px-5 py-1.5 text-xs text-MoErgo-textMuted">No Layout</div>)}
+                                    </div>
+                                    {config && (
+                                        <button onClick={addLayer} title="Add layer" className="w-7 h-7 rounded-full bg-MoErgo-card hover:bg-MoErgo-cardHover text-white flex items-center justify-center text-sm font-bold shrink-0">+</button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                                <div className="flex bg-MoErgo-tabBg p-1 rounded-full mr-2" title="Changes how the GUI/Cmd key is labeled -- doesn't change the underlying keycode">
+                                    <button onClick={() => setOsMode('mac')} className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${osMode === 'mac' ? 'palette-tab-active' : 'text-MoErgo-textMuted hover:text-white'}`}>🍎<span className="hidden lg:inline"> Mac</span></button>
+                                    <button onClick={() => setOsMode('win')} className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-colors ${osMode === 'win' ? 'palette-tab-active' : 'text-MoErgo-textMuted hover:text-white'}`}>🪟<span className="hidden lg:inline"> Win</span></button>
+                                </div>
+                                <span className="hidden xl:inline text-xs text-gray-500 font-bold mr-2 tracking-widest">HISTORY</span>
+                                <button onClick={undo} disabled={undoStack.length === 0} className={`p-2 rounded-full border border-MoErgo-card flex items-center gap-2 px-3 lg:px-4 font-bold text-xs ${undoStack.length > 0 ? 'text-white bg-MoErgo-card hover:bg-MoErgo-cardHover' : 'text-MoErgo-textMuted opacity-50 cursor-not-allowed'}`} title="Undo">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a5 5 0 015 5v1m-15-6l4-4m-4 4l4 4"></path></svg><span className="hidden lg:inline"> Undo</span>
+                                </button>
+                                <button onClick={redo} disabled={redoStack.length === 0} className={`p-2 rounded-full border border-MoErgo-card flex items-center gap-2 px-3 lg:px-4 font-bold text-xs ${redoStack.length > 0 ? 'text-white bg-MoErgo-card hover:bg-MoErgo-cardHover' : 'text-MoErgo-textMuted opacity-50 cursor-not-allowed'}`} title="Redo">
+                                    <span className="hidden lg:inline">Redo </span><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 10H11a5 5 0 00-5 5v1m15-6l-4-4m4 4l-4 4"></path></svg>
+                                </button>
+                            </div>
+                        </header>
+                        <section className="flex-1 flex relative overflow-hidden">
+                            {!config ? (
+                                <div className="m-auto text-MoErgo-textMuted flex flex-col items-center gap-4 bg-MoErgo-panel p-8 rounded-2xl border border-MoErgo-card shadow-2xl">
+                                    <span className="font-medium">Upload a MoErgo JSON layout to begin.</span>
+                                </div>
+                            ) : <KeyboardContainer keyboardGeo={keyboardGeo} activeLayerBindings={currentLayerBindings} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={canvasScale} setScale={setCanvasScale} osMode={osMode} onContextAction={handleKeyContextAction} clipboard={clipboard} styleClipboard={styleClipboard} onSwapKeys={swapKeys} />}
+                        </section>
+                        {config && (
+                            <section style={{ height: `${bottomPanelHeight}px` }} className="shrink-0 bg-[#222222] border-t border-[#333] flex flex-col z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] relative">
+                                <div
+                                    onMouseDown={handleBottomResizeStart}
+                                    title="Drag to resize"
+                                    className="absolute -top-2 left-0 right-0 h-4 cursor-row-resize z-30 flex items-center justify-center group"
+                                >
+                                    <div className="w-14 h-1 rounded-full bg-[#3a3a3a] group-hover:bg-MoErgo-primary transition-colors"></div>
+                                </div>
+                                <div className="p-4 flex flex-wrap items-center gap-3">
+                                    <div className="bg-MoErgo-tabBg p-1.5 rounded-full inline-flex gap-2 overflow-x-auto max-w-full">
+                                        {['Basic', 'Media', 'Macro', 'Special Keys', 'Lighting', 'Custom', 'Layer', 'Style', 'JSON'].map(tab => (
+                                            <button key={tab} onClick={() => { setActiveTab(tab); setPaletteSearch(''); }} className={`shrink-0 px-5 py-1.5 rounded-full text-xs font-semibold transition-all ${activeTab === tab ? 'palette-tab-active' : 'text-gray-400 hover:text-white'}`}>
+                                                {tab}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    {FLAT_GRID_TABS.includes(activeTab) && activeTab !== 'Style' && (
+                                        <input
+                                            type="text"
+                                            value={paletteSearch}
+                                            onChange={(e) => setPaletteSearch(e.target.value)}
+                                            placeholder="Search all tabs…"
+                                            className="shrink-0 bg-MoErgo-tabBg border border-[#333] rounded-full px-4 py-1.5 text-xs text-white placeholder-gray-500 outline-none focus:border-gray-500 w-40"
+                                        />
+                                    )}
+                                    <div className="shrink-0 ml-auto flex items-center gap-3 bg-MoErgo-tabBg p-1.5 rounded-full px-4 border border-[#333]">
+                                        <span className="text-xs text-gray-500 font-bold mr-2 tracking-widest">PALETTE ZOOM</span>
+                                        <button onClick={() => setPaletteScale(s => Math.min(s + 0.2, 2))} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg></button>
+                                        <span className="text-xs font-mono font-bold w-10 text-center">{Math.round(paletteScale * 100)}%</span>
+                                        <button onClick={() => setPaletteScale(s => Math.max(s - 0.2, 0.6))} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg></button>
+                                    </div>
+                                </div>
+                                <div className="flex-1 px-6 pt-4 pb-6 overflow-y-auto">
+                                    {selectedKey === null ? (
+                                        <div className="h-full flex items-center text-gray-500 italic">Select a key on the canvas to assign a new binding.</div>
+                                    ) : (
+                                        <div className="flex flex-col gap-4">
+                                            <div className="text-xs text-gray-400 mb-1 leading-relaxed">
+                                                Editing <span className="text-white font-bold">Key {getLogicalName(selectedKey, config?.keyboard)}</span> on <span className="text-white font-bold">{(config.layer_names && typeof config.layer_names[activeLayer] === 'string') ? config.layer_names[activeLayer] : `Layer ${activeLayer}`}</span>
+                                                {' — currently: '}
+                                                <span className="font-mono text-MoErgo-primary">{describeBinding(currentLayerBindings[selectedKey])}</span>
+                                            </div>
+                                           
+                                            {activeTab === 'Basic' && (
+                                                <div className="flex items-center gap-2 flex-wrap mb-1 bg-[#1c1c1c] border border-[#333] rounded-xl px-3 py-2">
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-widest mr-1 shrink-0">Modifiers</span>
+                                                    {MOD_ARM_LIST.map(m => {
+                                                        const label = m.label || (m.code === 'LG' ? `L ${osMode === 'mac' ? 'Cmd' : 'Win'}` : `R ${osMode === 'mac' ? 'Cmd' : 'Win'}`);
+                                                        const active = armedMods.has(m.code);
+                                                        return (
+                                                            <button
+                                                                key={m.code}
+                                                                onClick={() => setArmedMods(prev => { const next = new Set(prev); next.has(m.code) ? next.delete(m.code) : next.add(m.code); return next; })}
+                                                                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${active ? 'bg-MoErgo-primary border-MoErgo-primary text-white' : 'bg-[#2a2a2a] border-[#3a3a3a] text-gray-400 hover:border-gray-500'}`}
+                                                            >{label}</button>
+                                                        );
+                                                    })}
+                                                    {armedMods.size > 0 && (
+                                                        <>
+                                                            <span className="text-[11px] font-mono text-MoErgo-primary ml-1">
+                                                                {MOD_ARM_ORDER.filter(m => armedMods.has(m)).map(m => formatKeycode(MOD_WRAPPER_TO_FULL[m], osMode)).join('+')} + _
+                                                            </span>
+                                                            <button onClick={() => setArmedMods(new Set())} className="text-[10px] text-gray-500 hover:text-red-400 ml-1">Clear</button>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            )}
+                                           
+                                            {activeTab === 'Style' ? (
+                                                <div className="flex flex-col gap-8 max-w-4xl mt-2">
+                                                    {renderColorPicker("Key Background Color", currentLayerBindings[selectedKey]?.decoration?.background, setKeyDecoration, bgHexInput, setBgHexInput, applyBgHexInput)}
+                                                    {renderColorPicker("Text Color Override", currentLayerBindings[selectedKey]?.decoration?.color, (c) => updateDecorationProperty('color', c), textHexInput, setTextHexInput, applyTextHexInput)}
+                                                   
+                                                    <div className="flex gap-8 flex-wrap">
+                                                        <div className="flex flex-col gap-2 flex-1 min-w-[240px]">
+                                                            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Custom Key Label</span>
+                                                            <input
+                                                                type="text"
+                                                                value={labelInput}
+                                                                onChange={(e) => applyLabelInput(e.target.value)}
+                                                                placeholder="e.g., Save, Mute, ⌘"
+                                                                maxLength={20}
+                                                                className="w-full bg-[#1c1c1c] border border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-gray-500"
+                                                            />
+                                                            <span className="text-[10px] text-gray-500 leading-relaxed">Overrides the default ZMK label rendering. Longer labels will wrap visually.</span>
+                                                        </div>
+                                                        <div className="flex flex-col gap-2 flex-1 min-w-[240px]">
+                                                            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Description Notes</span>
+                                                            <input
+                                                                type="text"
+                                                                value={descriptionInput}
+                                                                onChange={(e) => applyDescriptionInput(e.target.value)}
+                                                                placeholder="Detailed context or note"
+                                                                className="w-full bg-[#1c1c1c] border border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-gray-500"
+                                                            />
+                                                            <span className="text-[10px] text-gray-500 leading-relaxed">Metadata description (not rendered directly on the key itself).</span>
+                                                        </div>
+                                                        <div className="flex flex-col gap-2 flex-1 min-w-[240px]">
+                                                            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Icon Identifier</span>
+                                                            <input
+                                                                type="text"
+                                                                value={iconInput}
+                                                                onChange={(e) => applyIconInput(e.target.value)}
+                                                                placeholder="e.g., mdi-volume-high"
+                                                                className="w-full bg-[#1c1c1c] border border-[#3a3a3a] rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-gray-500"
+                                                            />
+                                                            <span className="text-[10px] text-gray-500 leading-relaxed">String identifier for iconography systems.</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : activeTab === 'Macro' ? (
+                                                <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                    {(config.macros && config.macros.length > 0) ? (
+                                                        config.macros.map((m, i) => (
+                                                            <button key={i} onClick={() => assignAction({ type: m.name })} className="palette-btn">
+                                                                {m.name.replace('&', '')}
+                                                            </button>
+                                                        ))
+                                                    ) : <div className="text-gray-500 text-xs">No custom macros defined in layout file.</div>}
+                                                </div>
+                                            ) : activeTab === 'Layer' ? (
+                                                <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                    {(config.layer_names || config.layers).map((n, i) => (
+                                                        <React.Fragment key={i}>
+                                                            <button onClick={() => assignAction({ type: '&mo', param1: i })} className="palette-btn text-purple-300">MO {i}</button>
+                                                            <button onClick={() => assignAction({ type: '&tog', param1: i })} className="palette-btn text-emerald-300">TOG {i}</button>
+                                                        </React.Fragment>
+                                                    ))}
+                                                </div>
+                                            ) : activeTab === 'JSON' ? (
+                                                <div className="flex flex-col w-full max-w-2xl">
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className="text-xs text-gray-400">Raw JSON AST (Layer {activeLayer}, Key {getLogicalName(selectedKey, config?.keyboard)})</span>
+                                                        <button onClick={saveCustomJson} className="bg-MoErgo-primary text-white text-xs px-4 py-1.5 rounded hover:bg-[#c54a1f] transition-colors">Apply JSON</button>
+                                                    </div>
+                                                    <textarea className={`w-full bg-[#111] text-emerald-400 font-mono text-xs p-4 rounded-lg border outline-none resize-y min-h-[120px] ${jsonError ? 'border-red-500' : 'border-[#333] focus:border-gray-500'}`} value={jsonStr} onChange={(e) => setJsonStr(e.target.value)} spellCheck="false" />
+                                                    {jsonError && <div className="text-red-400 text-xs mt-2">{jsonError}</div>}
+                                                </div>
+                                            ) : activeTab === 'Lighting' ? (
+                                                <div className="flex flex-col gap-6 w-full max-w-4xl">
+                                                    {renderColorPicker("Key Background Color", currentLayerBindings[selectedKey]?.decoration?.background, setKeyDecoration, bgHexInput, setBgHexInput, applyBgHexInput)}
+                                                   
+                                                    {PALETTE_DATA['Lighting'].map((section, sIdx) => (
+                                                        <div key={sIdx} className="mb-4">
+                                                            {section.category && <div className="text-white text-sm font-bold flex items-center gap-2 mb-3">{section.category}</div>}
+                                                            <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                                {section.items.map((item, idx) => (
+                                                                    <button key={idx} onClick={() => assignAction(item)} className="palette-btn">
+                                                                        {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                paletteSearch.trim() ? (
+                                                    searchAcrossAllPalette(paletteSearch).length === 0 ? (
+                                                        <div className="text-gray-500 text-xs italic">No keys match "{paletteSearch}" anywhere.</div>
+                                                    ) : searchAcrossAllPalette(paletteSearch).map((section, sIdx) => (
+                                                        <div key={sIdx} className="mb-4">
+                                                            <div className="text-white text-sm font-bold flex items-center gap-2 mb-3">
+                                                                <span className="text-[10px] uppercase tracking-widest text-MoErgo-primary bg-MoErgo-primary/10 px-2 py-0.5 rounded">{section.tabName}</span>
+                                                                {section.category}
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                                {section.items.map((item, idx) => (
+                                                                    <button key={idx} onClick={() => assignAction(item)} className="palette-btn">
+                                                                        {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    (PALETTE_DATA[activeTab.replace(' ', '')] || PALETTE_DATA['Basic']).map((section, sIdx) => (
+                                                        <div key={sIdx} className="mb-4">
+                                                            {section.category && <div className="text-white text-sm font-bold flex items-center gap-2 mb-3">{section.category}</div>}
+                                                            <div className="flex flex-wrap gap-2" style={{"--btn-scale": paletteScale}}>
+                                                                {section.items.map((item, idx) => (
+                                                                    <button key={idx} onClick={() => assignAction(item)} className="palette-btn">
+                                                                        {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                )
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+                    </main>
+
+                    {toast && (
+                        <div className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-full text-xs font-bold shadow-2xl border ${toast.kind === 'error' ? 'bg-red-950 border-red-600 text-red-200' : 'bg-[#2a2a2a] border-[#444] text-white'}`}>
+                            {toast.message}
+                        </div>
+                    )}
+
+                    {isFetchingTemplate && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm">
+                            <div className="flex flex-col items-center gap-3 text-white">
+                                <svg className="w-8 h-8 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                <span className="text-xs font-medium text-gray-300">Fetching template…</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {showQuickStart && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowQuickStart(false)}>
+                            <div className="bg-MoErgo-panel border border-MoErgo-card rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                                <h3 className="text-lg font-bold text-white mb-1">Quick Start</h3>
+                                <p className="text-xs text-MoErgo-textMuted mb-5">Six steps to a working layout.</p>
+                                <ol className="space-y-3 text-sm text-MoErgo-textMuted list-decimal list-inside">
+                                    <li><span className="text-white font-semibold">Load your layout</span> — "Load JSON" opens your file, or pick a factory template.</li>
+                                    <li><span className="text-white font-semibold">Click a key</span> on the keyboard to select it.</li>
+                                    <li><span className="text-white font-semibold">Pick what it does</span> from the tabs below — letters, symbols, macros, layers.</li>
+                                    <li><span className="text-white font-semibold">Right-click a key</span> to copy, paste, or clear it.</li>
+                                    <li><span className="text-white font-semibold">Switch or add layers</span> using the tabs up top.</li>
+                                    <li><span className="text-white font-semibold">Export</span> when you're done, and load the file into your MoErgo configurator.</li>
+                                </ol>
+                                <button onClick={() => setShowQuickStart(false)} className="mt-6 w-full bg-MoErgo-primary hover:bg-MoErgo-primaryHover text-white font-medium py-2.5 rounded-full transition-colors">Got it</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
