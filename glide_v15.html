@@ -1,0 +1,1490 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLIDE — Graphical Layout & Intent Definition Editor</title>
+   
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+   
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        MoErgo: {
+                            base: '#1a1a1a', surface: '#222222', panel: '#282828', sidebar: '#222327',
+                            card: '#333333', cardHover: '#444444', primary: '#e55f2e', primaryHover: '#c9531f', textMain: '#ffffff',
+                            textMuted: '#9ca3af', tabActive: '#e5e5e5', tabBg: '#2a2a2a', menuActiveBg: '#2f303a'
+                        }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }
+                }
+            }
+        }
+    </script>
+   
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+   
+    <style>
+        *, *::before, *::after { box-sizing: border-box; }
+        body { background-color: #1a1a1a; color: #ffffff; overflow: hidden; margin: 0; }
+       
+        .canvas-container {
+            background-color: #1a1a1a;
+            background-image: radial-gradient(circle, #333333 1px, transparent 1px);
+            background-size: 24px 24px;
+            cursor: grab; overflow: hidden;
+        }
+        .canvas-container:active { cursor: grabbing; }
+
+        .p-key-outer {
+            position: absolute; cursor: pointer; z-index: 1; user-select: none;
+        }
+        .p-key-outer:hover { z-index: 5; }
+        .p-key-outer.selected { z-index: 10; }
+        .p-key-outer.drag-over { z-index: 15; }
+        .p-key {
+            width: 100%; height: 100%; border-radius: 6px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s, border-color 0.1s;
+            background: linear-gradient(180deg, #3c3c3c 0%, #303030 55%, #2b2b2b 100%);
+            border: 1px solid #161616;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 -2px 0 rgba(0,0,0,0.35), 0 2px 3px rgba(0,0,0,0.45);
+            padding: 4px; text-align: center; overflow: hidden; color: #e5e5e5;
+        }
+        .p-key.is-round { border-radius: 50%; }
+        .p-key:active { transform: scale(0.96) translateY(1px); box-shadow: inset 0 2px 4px rgba(0,0,0,0.5); background: #282828; }
+        .p-key:hover { border-color: #6b6b6b; background: linear-gradient(180deg, #454545 0%, #383838 55%, #333333 100%); color: #ffffff; }
+        .p-key.selected { border-color: #b4b4ff !important; color: #ffffff !important; box-shadow: 0 0 0 2px rgba(180, 180, 255, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.12) !important; background: linear-gradient(180deg, #3d3d66 0%, #2a2a44 100%); }
+        .p-key.drag-source { opacity: 0.35; }
+        .p-key.drag-over { box-shadow: 0 0 0 2px #b4b4ff !important; transform: scale(1.08); }
+        .p-key:not(.selected).has-bg:hover { filter: brightness(1.2); border-color: #ffffff !important; }
+
+        .key-center { display: flex; align-items: center; justify-content: center; height: 100%; font-size: 11px; font-weight: 600; text-align: center; line-height: 1.2; word-break: break-word; color: inherit; }
+        .key-dual { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 600; color: inherit; }
+        .key-shift { position: absolute; top: 4px; left: 8px; font-size: 10px; opacity: 0.7; font-weight: 600; color: inherit; }
+        .key-main { position: absolute; bottom: 6px; left: 8px; font-weight: 700; font-size: 13px; color: inherit; }
+
+        .palette-btn {
+            min-width: calc(48px * var(--btn-scale, 1));
+            height: calc(48px * var(--btn-scale, 1));
+            background-color: #161616; border-radius: 8px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            font-size: calc(12px * var(--btn-scale, 1)); font-weight: 600; color: #e5e5e5;
+            cursor: pointer; transition: background-color 0.1s, border-color 0.1s;
+            padding: 4px; border: 1px solid #333; line-height: 1.2;
+        }
+        .palette-btn .key-dual { font-size: calc(11px * var(--btn-scale, 1)); gap: calc(4px * var(--btn-scale, 1)); }
+        .palette-btn:hover { background-color: #2a2a2a; border-color: #555; color: #ffffff; }
+       
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #6b7280; }
+    </style>
+</head>
+<body>
+    <div id="root" class="h-screen w-screen flex"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
+
+        const KEY_UNIT = 70;
+        const KEY_SIZE = 62;
+        const GLOVE80_TOTAL_WIDTH = 18;
+        const GO60_TOTAL_WIDTH = 17;
+
+        function mirrorSpecialKey(k, totalWidth) {
+            const w = k.w || 1;
+            const mirrored = { ...k, x: totalWidth - k.x - w };
+            if (k.r !== undefined) mirrored.r = -k.r;
+            if (k.rx !== undefined) mirrored.rx = totalWidth - k.rx;
+            return mirrored;
+        }
+
+        const GLOVE80_THUMB_A_LEFT = [
+            {x:6.4,y:4,r:20,rx:4,ry:4}, {x:7.8,y:3.3,r:30,rx:4,ry:3.3}, {x:10.1,y:1.5,r:45,rx:4,ry:1.5},
+        ];
+        const GLOVE80_THUMB_B_LEFT = [
+            {x:5.3,y:5.4,r:15,rx:4,ry:5.4}, {x:6.6,y:5,r:25,rx:4,ry:5}, {x:9,y:3.2,r:45,rx:4,ry:3.2},
+        ];
+        const GO60_THUMB_LEFT = [
+            {x:4,y:4.25,r:15,rx:4.5,ry:9}, {x:4,y:4.25,r:30,rx:4.5,ry:9}, {x:4,y:4.25,r:45,rx:4.5,ry:9},
+        ];
+        const GO60_ROUND_LEFT = {x:6.5,y:2.2,w:1.8,h:1.8,isRound:1};
+
+        const GLOVE80_GEO_RAW = [
+            {x:0,y:0.5},{x:1,y:0.5},{x:2,y:0},{x:3,y:0},{x:4,y:0},{x:13,y:0},{x:14,y:0},{x:15,y:0},{x:16,y:0.5},{x:17,y:0.5},
+            {x:0,y:1.5},{x:1,y:1.5},{x:2,y:1},{x:3,y:1},{x:4,y:1},{x:5,y:1},{x:12,y:1},{x:13,y:1},{x:14,y:1},{x:15,y:1},{x:16,y:1.5},{x:17,y:1.5},
+            {x:0,y:2.5},{x:1,y:2.5},{x:2,y:2},{x:3,y:2},{x:4,y:2},{x:5,y:2},{x:12,y:2},{x:13,y:2},{x:14,y:2},{x:15,y:2},{x:16,y:2.5},{x:17,y:2.5},
+            {x:0,y:3.5},{x:1,y:3.5},{x:2,y:3},{x:3,y:3},{x:4,y:3},{x:5,y:3},{x:12,y:3},{x:13,y:3},{x:14,y:3},{x:15,y:3},{x:16,y:3.5},{x:17,y:3.5},
+            {x:0,y:4.5},{x:1,y:4.5},{x:2,y:4},{x:3,y:4},{x:4,y:4},{x:5,y:4},
+            ...GLOVE80_THUMB_A_LEFT, ...[...GLOVE80_THUMB_A_LEFT].reverse().map(k => mirrorSpecialKey(k, GLOVE80_TOTAL_WIDTH)),
+            {x:12,y:4},{x:13,y:4},{x:14,y:4},{x:15,y:4},{x:16,y:4.5},{x:17,y:4.5},
+            {x:0,y:5.5},{x:1,y:5.5},{x:2,y:5},{x:3,y:5},{x:4,y:5},
+            ...GLOVE80_THUMB_B_LEFT, ...[...GLOVE80_THUMB_B_LEFT].reverse().map(k => mirrorSpecialKey(k, GLOVE80_TOTAL_WIDTH)),
+            {x:13,y:5},{x:14,y:5},{x:15,y:5},{x:16,y:5.5},{x:17,y:5.5}
+        ];
+
+        const GO60_GEO_RAW = [
+            {x:0,y:0.9},{x:1,y:0.9},{x:2,y:0.25},{x:3,y:0},{x:4,y:0.15},{x:5,y:0.25},{x:11,y:0.25},{x:12,y:0.15},{x:13,y:0},{x:14,y:0.25},{x:15,y:0.9},{x:16,y:0.9},
+            {x:0,y:1.9},{x:1,y:1.9},{x:2,y:1.25},{x:3,y:1},{x:4,y:1.15},{x:5,y:1.25},{x:11,y:1.25},{x:12,y:1.15},{x:13,y:1},{x:14,y:1.25},{x:15,y:1.9},{x:16,y:1.9},
+            {x:0,y:2.9},{x:1,y:2.9},{x:2,y:2.25},{x:3,y:2},{x:4,y:2.15},{x:5,y:2.25},{x:11,y:2.25},{x:12,y:2.15},{x:13,y:2},{x:14,y:2.25},{x:15,y:2.9},{x:16,y:2.9},
+            {x:0,y:3.9},{x:1,y:3.9},{x:2,y:3.25},{x:3,y:3},{x:4,y:3.15},{x:5,y:3.25},{x:11,y:3.25},{x:12,y:3.15},{x:13,y:3},{x:14,y:3.25},{x:15,y:3.9},{x:16,y:3.9},
+            {x:2,y:4.25},{x:3,y:4},{x:4,y:4.15},{x:12,y:4.15},{x:13,y:4},{x:14,y:4.25},
+            ...GO60_THUMB_LEFT, ...[...GO60_THUMB_LEFT].reverse().map(k => mirrorSpecialKey(k, GO60_TOTAL_WIDTH)),
+            GO60_ROUND_LEFT, mirrorSpecialKey(GO60_ROUND_LEFT, GO60_TOTAL_WIDTH)
+        ];
+
+        const GUTTER = (KEY_UNIT - KEY_SIZE) / 2;
+        function convertGeo(rawGeo) {
+            return rawGeo.map(k => {
+                const wUnits = k.w || 1, hUnits = k.h || 1;
+                const cellLeft = k.x * KEY_UNIT, cellTop = k.y * KEY_UNIT;
+                const w = wUnits * KEY_UNIT - (KEY_UNIT - KEY_SIZE);
+                const h = hUnits * KEY_UNIT - (KEY_UNIT - KEY_SIZE);
+                const out = { x: cellLeft + GUTTER, y: cellTop + GUTTER, w, h, isRound: !!k.isRound };
+                if (k.r) {
+                    out.r = k.r;
+                    const pivotX = (k.rx !== undefined ? k.rx : k.x) * KEY_UNIT;
+                    const pivotY = (k.ry !== undefined ? k.ry : k.y) * KEY_UNIT;
+                    const originX = pivotX - (cellLeft + GUTTER);
+                    const originY = pivotY - (cellTop + GUTTER);
+                    out.o = `${originX.toFixed(1)}px ${originY.toFixed(1)}px`;
+                }
+                return out;
+            });
+        }
+
+        const GLOVE80_GEO = convertGeo(GLOVE80_GEO_RAW);
+        const GO60_GEO = convertGeo(GO60_GEO_RAW);
+
+        const GLOVE80_NAMES = {
+            0: "LH C6R1", 1: "LH C5R1", 2: "LH C4R1", 3: "LH C3R1", 4: "LH C2R1",
+            10: "LH C6R2", 11: "LH C5R2", 12: "LH C4R2", 13: "LH C3R2", 14: "LH C2R2", 15: "LH C1R2",
+            22: "LH C6R3", 23: "LH C5R3", 24: "LH C4R3", 25: "LH C3R3", 26: "LH C2R3", 27: "LH C1R3",
+            34: "LH C6R4", 35: "LH C5R4", 36: "LH C4R4", 37: "LH C3R4", 38: "LH C2R4", 39: "LH C1R4",
+            46: "LH C6R5", 47: "LH C5R5", 48: "LH C4R5", 49: "LH C3R5", 50: "LH C2R5", 51: "LH C1R5",
+            64: "LH C6R6", 65: "LH C5R6", 66: "LH C4R6", 67: "LH C3R6", 68: "LH C2R6",
+            52: "LH T1", 53: "LH T2", 54: "LH T3", 69: "LH T4", 70: "LH T5", 71: "LH T6",
+            5: "RH C2R1", 6: "RH C3R1", 7: "RH C4R1", 8: "RH C5R1", 9: "RH C6R1",
+            16: "RH C1R2", 17: "RH C2R2", 18: "RH C3R2", 19: "RH C4R2", 20: "RH C5R2", 21: "RH C6R2",
+            28: "RH C1R3", 29: "RH C2R3", 30: "RH C3R3", 31: "RH C4R3", 32: "RH C5R3", 33: "RH C6R3",
+            40: "RH C1R4", 41: "RH C2R4", 42: "RH C3R4", 43: "RH C4R4", 44: "RH C5R4", 45: "RH C6R4",
+            58: "RH C1R5", 59: "RH C2R5", 60: "RH C3R5", 61: "RH C4R5", 62: "RH C5R5", 63: "RH C6R5",
+            75: "RH C2R6", 76: "RH C3R6", 77: "RH C4R6", 78: "RH C5R6", 79: "RH C6R6",
+            55: "RH T3", 56: "RH T2", 57: "RH T1", 72: "RH T6", 73: "RH T5", 74: "RH T4"
+        };
+        const GO60_NAMES = {
+            0: "LH C6R1", 1: "LH C5R1", 2: "LH C4R1", 3: "LH C3R1", 4: "LH C2R1", 5: "LH C1R1",
+            12: "LH C6R2", 13: "LH C5R2", 14: "LH C4R2", 15: "LH C3R2", 16: "LH C2R2", 17: "LH C1R2",
+            24: "LH C6R3", 25: "LH C5R3", 26: "LH C4R3", 27: "LH C3R3", 28: "LH C2R3", 29: "LH C1R3",
+            36: "LH C6R4", 37: "LH C5R4", 38: "LH C4R4", 39: "LH C3R4", 40: "LH C2R4", 41: "LH C1R4",
+            48: "LH C4R5", 49: "LH C3R5", 50: "LH C2R5",
+            54: "LH T1", 55: "LH T2", 56: "LH T3",
+            6: "RH C1R1", 7: "RH C2R1", 8: "RH C3R1", 9: "RH C4R1", 10: "RH C5R1", 11: "RH C6R1",
+            18: "RH C1R2", 19: "RH C2R2", 20: "RH C3R2", 21: "RH C4R2", 22: "RH C5R2", 23: "RH C6R2",
+            30: "RH C1R3", 31: "RH C2R3", 32: "RH C3R3", 33: "RH C4R3", 34: "RH C5R3", 35: "RH C6R3",
+            42: "RH C1R4", 43: "RH C2R4", 44: "RH C3R4", 45: "RH C4R4", 46: "RH C5R4", 47: "RH C6R4",
+            51: "RH C2R5", 52: "RH C3R5", 53: "RH C4R5",
+            57: "RH T3", 58: "RH T2", 59: "RH T1"
+        };
+        const getLogicalName = (index, kbType) => {
+            const kb = (kbType || '').toLowerCase() === 'go60' ? GO60_NAMES : GLOVE80_NAMES;
+            return kb[index] || index;
+        };
+
+        const PALETTE_DATA = {
+            Basic: [
+                { category: "Letters", items: [ { label: 'A', code: 'A' }, { label: 'B', code: 'B' }, { label: 'C', code: 'C' }, { label: 'D', code: 'D' }, { label: 'E', code: 'E' }, { label: 'F', code: 'F' }, { label: 'G', code: 'G' }, { label: 'H', code: 'H' }, { label: 'I', code: 'I' }, { label: 'J', code: 'J' }, { label: 'K', code: 'K' }, { label: 'L', code: 'L' }, { label: 'M', code: 'M' }, { label: 'N', code: 'N' }, { label: 'O', code: 'O' }, { label: 'P', code: 'P' }, { label: 'Q', code: 'Q' }, { label: 'R', code: 'R' }, { label: 'S', code: 'S' }, { label: 'T', code: 'T' }, { label: 'U', code: 'U' }, { label: 'V', code: 'V' }, { label: 'W', code: 'W' }, { label: 'X', code: 'X' }, { label: 'Y', code: 'Y' }, { label: 'Z', code: 'Z' } ] },
+                { category: "Numbers", items: [ { top: '!', bottom: '1', code: 'N1' }, { top: '@', bottom: '2', code: 'N2' }, { top: '#', bottom: '3', code: 'N3' }, { top: '$', bottom: '4', code: 'N4' }, { top: '%', bottom: '5', code: 'N5' }, { top: '^', bottom: '6', code: 'N6' }, { top: '&', bottom: '7', code: 'N7' }, { top: '*', bottom: '8', code: 'N8' }, { top: '(', bottom: '9', code: 'N9' }, { top: ')', bottom: '0', code: 'N0' } ] },
+                { category: "Symbols", items: [
+                    { top: '_', bottom: '-', code: 'MINUS' }, { top: '+', bottom: '=', code: 'EQUAL' }, { top: '~', bottom: '`', code: 'GRAVE' }, { top: '{', bottom: '[', code: 'LBKT' }, { top: '}', bottom: ']', code: 'RBKT' }, { top: '|', bottom: '\\', code: 'BSLH' }, { top: ':', bottom: ';', code: 'SEMI' }, { top: '"', bottom: "'", code: 'SQT' }, { top: '<', bottom: ',', code: 'COMMA' }, { top: '>', bottom: '.', code: 'DOT' }, { top: '?', bottom: '/', code: 'FSLH' },
+                    { label: '=', code: 'KP_EQUAL' }, { label: ',', code: 'KP_COMMA' }, { label: '÷', code: 'KP_DIVIDE' }, { label: '×', code: 'KP_MULTIPLY' }, { label: '-', code: 'KP_MINUS' }, { label: '+', code: 'KP_PLUS' }, { label: '.', code: 'KP_DOT' }, { label: '&', code: 'AMPS' }
+                ] },
+                { category: "Control", items: [
+                    { label: '▽', type: '&trans' }, { label: '∅ None', type: '&none' }, { label: 'F1', code: 'F1' }, { label: 'F2', code: 'F2' }, { label: 'F3', code: 'F3' }, { label: 'F4', code: 'F4' }, { label: 'F5', code: 'F5' }, { label: 'F6', code: 'F6' }, { label: 'F7', code: 'F7' }, { label: 'F8', code: 'F8' }, { label: 'F9', code: 'F9' }, { label: 'F10', code: 'F10' }, { label: 'F11', code: 'F11' }, { label: 'F12', code: 'F12' },
+                    { label: 'L shift', code: 'LSHFT' }, { label: 'R shift', code: 'RSHFT' }, { label: 'L ctrl', code: 'LCTRL' }, { label: 'R ctrl', code: 'RCTRL' }, { label: 'L win', code: 'LGUI' }, { label: 'R win', code: 'RGUI' }, { label: 'L Alt', code: 'LALT' }, { label: 'R Alt', code: 'RALT' },
+                    { label: 'Caps Lock', code: 'CAPS' }, { label: 'Tab', code: 'TAB' }, { label: 'Backspace', code: 'BSPC' }, { label: 'Enter', code: 'RET' }, { label: 'Space', code: 'SPACE' }, { label: 'Ins', code: 'INS' }, { label: 'Del', code: 'DEL' }, { label: 'Home', code: 'HOME' }, { label: 'End', code: 'END' }, { label: 'PgUp', code: 'PG_UP' }, { label: 'PgDn', code: 'PG_DN' }, { label: 'Esc', code: 'ESC' }, { label: 'Print', code: 'PRINTSCREEN' }, { label: 'Scroll', code: 'SLCK' }, { label: 'Pause', code: 'PAUSE_BREAK' }, { label: 'RApp', code: 'K_APP' }, { label: 'N.ent', code: 'KP_ENTER' }, { label: 'N.Lck', code: 'KP_NUM' }
+                ] }
+            ],
+            Media: [ { category: "Media & Editing", items: [{ label: 'Vol -', code: 'C_VOL_DN' }, { label: 'Vol +', code: 'C_VOL_UP' }, { label: 'Mute', code: 'C_MUTE' }, { label: 'Play', code: 'C_PP' }, { label: 'Mstp', code: 'C_STOP' }, { label: 'Prvs', code: 'C_PREV' }, { label: 'Next', code: 'C_NEXT' }, { label: 'Rewind', code: 'C_RW' }, { label: 'Mffd', code: 'C_FF' }, { label: 'Select', code: 'C_AL_SEL_TASK' }, { label: 'Eject', code: 'C_EJECT' }] } ],
+            SpecialKeys: [
+                { category: "General Special", items: [
+                    { label: 'Nuhs', code: 'NON_US_HASH' }, { label: 'Nubs', code: 'NON_US_BSLH' }, { label: 'Ro', code: 'INT3' }, { label: '¥', code: 'INT1' }, { label: '無変換', code: 'INT5' }, { label: '漢字', code: 'INT4' }, { label: '한영', code: 'LANG1' }, { label: '変換', code: 'INT4' }, { label: 'かな', code: 'INT2' }, { label: 'Esc `', code: 'GRAVE' }, { label: '(', type: '&kp', param1: 'LPAR' }, { label: ')', type: '&kp', param1: 'RPAR' }, { label: 'SftEnt', type: '&kp', param1: 'RET' }, { label: 'Reset', type: '&sys_reset' }, { label: 'Boot', type: '&bootloader' },
+                    { label: 'F13', code: 'F13' }, { label: 'F14', code: 'F14' }, { label: 'F15', code: 'F15' }, { label: 'F16', code: 'F16' }, { label: 'F17', code: 'F17' }, { label: 'F18', code: 'F18' }, { label: 'F19', code: 'F19' }, { label: 'Mouse ↑', type: '&mmv', param1: 'MOVE_UP' }, { label: 'Mouse ↓', type: '&mmv', param1: 'MOVE_DOWN' }, { label: 'Mouse ←', type: '&mmv', param1: 'MOVE_LEFT' }, { label: 'Mouse →', type: '&mmv', param1: 'MOVE_RIGHT' }, { label: 'Mouse Btn1', type: '&mkp', param1: 'MB1' }, { label: 'Mouse Btn2', type: '&mkp', param1: 'MB2' }, { label: 'Mouse Btn3', type: '&mkp', param1: 'MB3' }
+                ] }
+            ],
+            Custom: [
+                { category: "System & Connectivity", items: [ { label: 'BTH1', type: '&bt', param1: 'BT_SEL', param2: 0 }, { label: 'BTH2', type: '&bt', param1: 'BT_SEL', param2: 1 }, { label: 'BTH3', type: '&bt', param1: 'BT_SEL', param2: 2 }, { label: '2.4G', type: '&out', param1: 'OUT_USB' }, { label: 'Batt', type: '&ext_power', param1: 'EP_TOG' }, { label: 'BT Clr', type: '&bt', param1: 'BT_CLR' }, { label: 'PROF1', type: '&none' }, { label: 'PROF2', type: '&none' }, { label: 'PROF3', type: '&none' }, { label: 'Any', type: 'Custom', param1: '' } ] }
+            ]
+        };
+
+        const ALL_PALETTE_SECTIONS = [
+            ...PALETTE_DATA.Basic,
+            ...PALETTE_DATA.Media,
+            ...PALETTE_DATA.SpecialKeys,
+            ...PALETTE_DATA.Custom
+        ];
+
+const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
+        const MOD_ARM_LIST = [
+            { code: 'LC', label: 'L Ctrl' }, { code: 'RC', label: 'R Ctrl' },
+            { code: 'LA', label: 'L Alt' },  { code: 'RA', label: 'R Alt' },
+            { code: 'LS', label: 'L Shift' }, { code: 'RS', label: 'R Shift' },
+            { code: 'LG', label: null }, { code: 'RG', label: null },
+        ];
+        const RAW_MOD_CODES = new Set(['LSHFT', 'RSHFT', 'LCTRL', 'RCTRL', 'LALT', 'RALT', 'LGUI', 'RGUI', 'MOD_LSFT', 'MOD_RSFT']);
+
+        const KEY_COLOR_PRESETS = ['#e5484d', '#f76b15', '#f5d90a', '#46a758', '#12a594', '#0091ff', '#8e4ec6', '#e93d82'];
+
+        const getContrastColor = (hexcolor) => {
+            if (!hexcolor) return '#ffffff';
+            let cleanHex = hexcolor.replace("#", "");
+            if (cleanHex.length === 3) cleanHex = cleanHex.split('').map(c => c+c).join('');
+            const r = parseInt(cleanHex.substr(0,2),16); const g = parseInt(cleanHex.substr(2,2),16); const b = parseInt(cleanHex.substr(4,2),16);
+            return (((r*299)+(g*587)+(b*114))/1000 >= 128) ? '#000000' : '#ffffff';
+        };
+
+        const ZMK_MAP = {
+            LSHFT:'⇧', LCTRL:'Ctrl', LALT:'Alt', RSHFT:'⇧', RCTRL:'Ctrl', RALT:'Alt',
+            BSPC:'⌫', RET:'↵', PG_DN:'PgDn', PG_UP:'PgUp', UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→', ESC:'Esc', TAB:'Tab',
+            MINUS:'-', EQUAL:'=', GRAVE:'`', BSLH:'\\', SEMI:';', SQT:"'", FSLH:'/', LBKT:'[', RBKT:']', COMMA:',', DOT:'.', SPACE:'␣',
+            C_VOL_DN:'Vol -', C_VOL_UP:'Vol +', C_MUTE:'Mute', C_PP:'Play', C_NEXT:'Next', C_PREV:'Prev'
+        };
+        const MOD_WRAPPER_TO_FULL = { LS: 'LSHFT', RS: 'RSHFT', LC: 'LCTRL', RC: 'RCTRL', LA: 'LALT', RA: 'RALT', LG: 'LGUI', RG: 'RGUI' };
+        const FULL_TO_MOD_WRAPPER = Object.fromEntries(Object.entries(MOD_WRAPPER_TO_FULL).map(([k, v]) => [v, k]));
+
+        function unwrapModChain(node) {
+            const mods = [];
+            while (node && typeof node === 'object' && MOD_WRAPPER_TO_FULL[node.value] && node.params?.[0]) {
+                mods.push(MOD_WRAPPER_TO_FULL[node.value]);
+                node = node.params[0];
+            }
+            const keyVal = (node && typeof node === 'object') ? node.value : node;
+            return { mods, keyVal };
+        }
+
+        function composeKeycodeParam(baseCode, modCodes) {
+            let node = { value: baseCode, params: [] };
+            for (let i = modCodes.length - 1; i >= 0; i--) {
+                node = { value: modCodes[i], params: [node] };
+            }
+            return node;
+        }
+
+        // --- ZMK AST PARSERS, BUILDERS, AND GARBAGE COLLECTION ---
+
+        const runGC = (newConfig) => {
+            const usedNames = new Set();
+           
+            const extractNames = (node) => {
+                if (!node) return;
+                if (typeof node === 'object') {
+                    if (node.value && typeof node.value === 'string' && (node.value.startsWith('&ht_auto_') || node.value.startsWith('&td_') || node.value.startsWith('&mm_auto_'))) {
+                        usedNames.add(node.value);
+                    }
+                    if (Array.isArray(node.params)) node.params.forEach(extractNames);
+                    if (Array.isArray(node.bindings)) node.bindings.forEach(extractNames);
+                    if (Array.isArray(node.cases)) node.cases.forEach(c => extractNames(c.binding));
+                }
+            };
+
+            newConfig.layers?.forEach(layer => layer.forEach(extractNames));
+            newConfig.combos?.forEach(combo => extractNames(combo.binding));
+           
+            let size;
+            do {
+                size = usedNames.size;
+                ['holdTaps', 'tapDances', 'modMorphs'].forEach(arrKey => {
+                    (newConfig[arrKey] || []).forEach(beh => {
+                        if (usedNames.has(beh.name)) {
+                            if (beh.bindings) {
+                                beh.bindings.forEach(b => {
+                                    if (typeof b === 'object') extractNames(b);
+                                    else if (typeof b === 'string' && (b.startsWith('&ht_auto_') || b.startsWith('&td_') || b.startsWith('&mm_auto_'))) {
+                                        usedNames.add(b);
+                                    }
+                                });
+                            }
+                            if (beh.cases) beh.cases.forEach(c => extractNames(c.binding));
+                        }
+                    });
+                });
+            } while (usedNames.size > size);
+
+            if (newConfig.holdTaps) newConfig.holdTaps = newConfig.holdTaps.filter(h => !h.name.startsWith('&ht_auto_') || usedNames.has(h.name));
+            if (newConfig.tapDances) newConfig.tapDances = newConfig.tapDances.filter(t => !t.name.startsWith('&td_') || usedNames.has(t.name));
+            if (newConfig.modMorphs) newConfig.modMorphs = newConfig.modMorphs.filter(m => !m.name.startsWith('&mm_auto_') || usedNames.has(m.name));
+
+            if (newConfig.holdTaps && newConfig.holdTaps.length === 0) delete newConfig.holdTaps;
+            if (newConfig.tapDances && newConfig.tapDances.length === 0) delete newConfig.tapDances;
+            if (newConfig.modMorphs && newConfig.modMorphs.length === 0) delete newConfig.modMorphs;
+           
+            return newConfig;
+        };
+
+        const parseModMorph = (binding, config) => {
+            if (!binding || binding.value === '&none') return { tap: null, shiftTap: null };
+            if (binding.value.startsWith('&mm_auto_')) {
+                const mm = (config?.modMorphs || []).find(m => m.name === binding.value);
+                if (mm && mm.cases && mm.cases.length >= 2) {
+                    return { tap: mm.cases[0].binding, shiftTap: mm.cases[1].binding };
+                }
+            }
+            return { tap: binding, shiftTap: null };
+        };
+
+        const parseHoldTap = (binding, config) => {
+            if (!binding || binding.value === '&none') return { tap: null, hold: null };
+            if (binding.value === '&mt') return { hold: { value: binding.params?.[0]?.value }, tap: { value: '&kp', params: [binding.params?.[1]] } };
+            if (binding.value === '&lt') return { hold: { value: '&mo', params: [binding.params?.[0]] }, tap: { value: '&kp', params: [binding.params?.[1]] } };
+            if (binding.value.startsWith('&ht_auto_')) {
+                const ht = (config?.holdTaps || []).find(h => h.name === binding.value);
+                if (ht && ht.bindings && ht.bindings.length >= 2) {
+                    let pIdx = 0;
+                    const reconstruct = (val) => {
+                        const needsP = ['&kp', '&mo', '&to', '&tog', '&sl'].includes(val);
+                        if (needsP && binding.params?.[pIdx]) return { value: val, params: [binding.params[pIdx++]] };
+                        return { value: val };
+                    };
+                    return { hold: reconstruct(ht.bindings[0]), tap: reconstruct(ht.bindings[1]) };
+                }
+            }
+            return { tap: binding, hold: null };
+        };
+
+        const parseSlots = (binding, config) => {
+            let slots = { tap: null, shiftTap: null, hold: null, doubleTap: null };
+            if (!binding || binding.value === '&none') return slots;
+
+            let primaryBinding = binding;
+            let secondaryBinding = null;
+
+            if (primaryBinding.value.startsWith('&td_')) {
+                const td = (config?.tapDances || []).find(t => t.name === primaryBinding.value);
+                if (td && td.bindings && td.bindings.length >= 2) {
+                    primaryBinding = td.bindings[0];
+                    secondaryBinding = td.bindings[1];
+                }
+            }
+
+            const pHT = parseHoldTap(primaryBinding, config);
+            slots.hold = pHT.hold;
+           
+            const pMM = parseModMorph(pHT.tap, config);
+            slots.tap = pMM.tap;
+            slots.shiftTap = pMM.shiftTap;
+
+            slots.doubleTap = secondaryBinding;
+
+            return slots;
+        };
+
+        const makeModMorph = (tap, shiftTap, configRef) => {
+            if (!shiftTap || shiftTap.value === '&none') return tap;
+            if (!tap || tap.value === '&none') return shiftTap;
+
+            const tName = tap.params?.[0]?.value || tap.value.replace('&','');
+            const stName = shiftTap.params?.[0]?.value || shiftTap.value.replace('&','');
+            const mmName = `&mm_auto_${tName}_${stName}`;
+
+            if (!configRef.modMorphs) configRef.modMorphs = [];
+            if (!configRef.modMorphs.find(m => m.name === mmName)) {
+                configRef.modMorphs.push({
+                    name: mmName,
+                    cases: [
+                        { binding: tap, mods: [], keepMods: [] },
+                        { binding: shiftTap, mods: ["MOD_LSFT", "MOD_RSFT"], keepMods: [] }
+                    ]
+                });
+            }
+            return { value: mmName };
+        };
+
+        const makeHoldTap = (tap, hold, configRef) => {
+            if (!tap && !hold) return null;
+            if (tap && !hold) return tap;
+            if (!tap && hold) return hold;
+           
+            const holdVal = hold.value;
+            const tapVal = tap.value;
+           
+            const isLayer = holdVal === '&mo' || holdVal === '&to' || holdVal === '&tog' || holdVal === '&sl';
+            const isMod = RAW_MOD_CODES.has(holdVal) || ['LCTRL','RCTRL','LSHFT','RSHFT','LALT','RALT','LGUI','RGUI'].includes(holdVal);
+
+            if (tapVal === '&kp' || tapVal.startsWith('&mac')) {
+                if (tapVal === '&kp') {
+                    if (isLayer) return { value: '&lt', params: [hold.params?.[0] || {value: 0}, tap.params[0]] };
+                    if (isMod) return { value: '&mt', params: [{value: holdVal}, tap.params[0]] };
+                }
+            }
+           
+            const hName = hold.params?.[0]?.value || holdVal.replace('&','');
+            const tName = tap.params?.[0]?.value || tapVal.replace('&','');
+            const htName = `&ht_auto_${hName}_${tName}`;
+           
+            if (!configRef.holdTaps) configRef.holdTaps = [];
+            if (!configRef.holdTaps.find(h => h.name === htName)) {
+                configRef.holdTaps.push({
+                    name: htName, bindings: [holdVal, tapVal],
+                    tappingTermMs: 200, flavor: "tap-preferred", quickTapMs: -1, requirePriorIdleMs: 0
+                });
+            }
+            let params = [];
+            if (hold.params) params.push(...hold.params);
+            if (tap.params) params.push(...tap.params);
+            return { value: htName, params };
+        };
+
+        function buildBindingAndConfig(slots, currentConfig) {
+            let newConfig = structuredClone(currentConfig);
+           
+            const primaryTap = makeModMorph(slots.tap, slots.shiftTap, newConfig);
+            const primary = makeHoldTap(primaryTap, slots.hold, newConfig);
+            const secondary = slots.doubleTap && slots.doubleTap.value !== '&none' ? slots.doubleTap : null;
+
+            if (!primary && !secondary) return { newBinding: { value: '&none' }, newConfig };
+            if (primary && !secondary) return { newBinding: primary, newConfig };
+            if (!primary && secondary) return { newBinding: secondary, newConfig };
+
+            const tName = primary.params?.[0]?.value || primary.value.replace('&','');
+            const dtName = secondary.params?.[0]?.value || secondary.value.replace('&','');
+            const tdName = `&td_auto_${tName}_${dtName}`;
+
+            if (!newConfig.tapDances) newConfig.tapDances = [];
+            if (!newConfig.tapDances.find(t => t.name === tdName)) {
+                newConfig.tapDances.push({
+                    name: tdName, tappingTermMs: 200, bindings: [primary, secondary]
+                });
+            }
+           
+            return { newBinding: { value: tdName }, newConfig };
+        }
+
+        const guiSymbol = (osMode) => osMode === 'mac' ? '⌘' : '⊞';
+
+        const formatKeycode = (val, osMode) => {
+            if (!val || val === 'none' || val === '&none') return '';
+            const normalized = val.toUpperCase().replace('&', '');
+            if (normalized === 'LGUI' || normalized === 'RGUI') return guiSymbol(osMode);
+            if (ZMK_MAP[normalized]) return ZMK_MAP[normalized];
+            if (val.length === 2 && val.startsWith('N') && '0123456789'.includes(val[1])) return val[1];
+            return val;
+        };
+
+        const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+
+        const getBeautifulLabel = (binding, osMode) => {
+            if (!binding) return '';
+            let val = binding.value;
+            if (!val || val === '&none' || val === 'none') return '';
+            if (val === '&trans') return `<span class="key-center text-[18px] font-bold text-white">▽</span>`;
+            if (val === 'Custom') return `<span class="key-center text-[10px] text-[#b4b4ff]">${escapeHtml(binding.params?.[0]?.value || 'Custom')}</span>`;
+            let p1 = binding.params?.[0]?.value || '?';
+            let p2 = binding.params?.[1]?.value || '?';
+            if (val === '&kp') {
+                if (MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
+                    const { mods, keyVal } = unwrapModChain(binding.params[0]);
+                    const modSymbols = mods.map(m => formatKeycode(m, osMode)).join('+');
+                    return `<span class="key-shift">${modSymbols}</span><span class="key-main">${formatKeycode(keyVal, osMode)}</span>`;
+                }
+                return `<span class="key-center">${formatKeycode(p1, osMode)}</span>`;
+            }
+            if (val === '&mo' || val === '&tog' || val === '&to' || val === '&sl') return `<span class="key-center text-[#b4b4ff]">L${p1}</span>`;
+            if (val === '&mt') return `<span class="key-shift">${formatKeycode(p1, osMode)}</span><span class="key-main">${formatKeycode(p2, osMode)}</span>`;
+            if (val === '&lt') return `<span class="key-shift text-[#b4b4ff]">L${p1}</span><span class="key-main">${formatKeycode(p2, osMode)}</span>`;
+            if (val === '&rgb_ug') return `<span class="key-center">${formatKeycode(p1, osMode)}</span>`;
+            if (val === '&bt') return `<span class="key-center">BTH${p2}</span>`;
+            if (val.startsWith('&mac')) return `<span class="key-center text-[11px] font-bold text-amber-400">${escapeHtml(val.replace('&',''))}</span>`;
+            if (val.startsWith('&ht_auto_')) return `<span class="key-center text-[10px]">${escapeHtml(val.split('_').pop())}</span>`;
+            if (val.startsWith('&mm_auto_')) return `<span class="key-center text-[11px] text-[#b4b4ff]">${escapeHtml(val.replace('&mm_auto_', '').split('_')[0])}</span>`;
+            if (val.startsWith('&td_')) return `<span class="key-center text-[11px] text-[#b4b4ff]">${escapeHtml(val.replace('&td_', '').split('_')[0])}</span>`;
+            return `<span class="key-center">${escapeHtml(val.replace('&', ''))}</span>`;
+        };
+
+        const paletteLabel = (item, osMode) => {
+            if (item.code === 'LGUI') return osMode === 'mac' ? 'L Cmd' : 'L Win';
+            if (item.code === 'RGUI') return osMode === 'mac' ? 'R Cmd' : 'R Win';
+            return item.label;
+        };
+
+        const describeBinding = (binding) => {
+            if (!binding || !binding.value || binding.value === '&none' || binding.value === 'none') return 'Empty';
+            if (binding.value === '&trans') return 'Transparent';
+           
+            const val = binding.value;
+            const p1 = binding.params?.[0]?.value;
+            const p2 = binding.params?.[1]?.value;
+
+            if (RAW_MOD_CODES.has(val)) return formatKeycode(val);
+
+            if (val === '&kp') {
+                if (p1 && MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
+                    const { mods, keyVal } = unwrapModChain(binding.params[0]);
+                    return mods.map(m => formatKeycode(m)).join('+') + '+' + formatKeycode(keyVal);
+                }
+                return p1 ? String(p1) : '&kp';
+            }
+            if (val === '&mo') return `Momentary Layer ${p1}`;
+            if (val === '&tog') return `Toggle Layer ${p1}`;
+            if (val === '&to') return `Switch to Layer ${p1}`;
+            if (val === '&sl') return `Sticky Layer ${p1}`;
+            if (val === 'Custom') return p1 ? String(p1) : 'Custom';
+            if (val.startsWith('&')) return val.replace('&', '') + (p1 !== undefined ? ` ${p1}` : '') + (p2 !== undefined ? ` ${p2}` : '');
+            return val;
+        };
+
+        const KeyComponent = memo(({ index, geo, binding, isSelected, onSelect, osMode, onContextMenu, onKeyMouseDown, isDragSource, isDragOver, showLeds }) => {
+            const labelHtml = getBeautifulLabel(binding, osMode);
+            const outerStyle = {
+                left: `${geo.x}px`, top: `${geo.y}px`,
+                width: `${geo.w || KEY_SIZE}px`, height: `${geo.h || KEY_SIZE}px`,
+                transform: geo.r ? `rotate(${geo.r}deg)` : 'none',
+                transformOrigin: geo.o || 'center',
+            };
+            const innerStyle = {};
+            const hasCustomBg = showLeds && binding?.value !== '&trans' && binding?.value !== '&none' && binding?.decoration?.background;
+           
+            if (hasCustomBg) {
+                innerStyle.background = binding.decoration.background;
+                innerStyle.borderColor = binding.decoration.background;
+                innerStyle.color = getContrastColor(binding.decoration.background);
+            }
+
+            return (
+                <div
+                    className={`p-key-outer ${isSelected ? 'selected' : ''} ${isDragOver ? 'drag-over' : ''}`}
+                    style={outerStyle}
+                    data-key-idx={index}
+                    onClick={(e) => { e.stopPropagation(); onSelect(index); }}
+                    onContextMenu={(e) => onContextMenu(e, index)}
+                    onMouseDown={(e) => onKeyMouseDown(e, index)}
+                >
+                    <div className={`p-key ${isSelected ? 'selected' : ''} ${hasCustomBg ? 'has-bg' : ''} ${isDragSource ? 'drag-source' : ''} ${isDragOver ? 'drag-over' : ''} ${geo.isRound ? 'is-round' : ''}`} style={innerStyle}>
+                        {labelHtml ? <div dangerouslySetInnerHTML={{ __html: labelHtml }} className="w-full h-full relative flex items-center justify-center" /> : null}
+                    </div>
+                </div>
+            );
+        });
+
+        function computeGeoBounds(geo) {
+            let maxX = 0, maxY = 0;
+            geo.forEach(k => {
+                maxX = Math.max(maxX, k.x + (k.w || KEY_SIZE));
+                const extraHeight = k.r ? 60 : 0;
+                maxY = Math.max(maxY, k.y + (k.h || KEY_SIZE) + extraHeight);
+            });
+            return { w: maxX + 40, h: maxY + 40 };
+        }
+
+        const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, selectedKey, onSelectKey, scale, setScale, osMode, onContextAction, clipboard, styleClipboard, onSwapKeys, showLeds }) => {
+            const containerRef = useRef(null);
+            const [autoFitScale, setAutoFitScale] = useState(1);
+            const [pan, setPan] = useState({ x: 0, y: 0 });
+            const [isDragging, setIsDragging] = useState(false);
+            const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+            const [contextMenu, setContextMenu] = useState(null);
+            const [dragSourceIdx, setDragSourceIdx] = useState(null);
+            const [dragOverIdx, setDragOverIdx] = useState(null);
+
+            const bounds = useMemo(() => computeGeoBounds(keyboardGeo), [keyboardGeo]);
+
+            useEffect(() => {
+                const el = containerRef.current;
+                if (!el) return;
+                const PADDING_FACTOR = 0.88;
+                const compute = () => {
+                    const { width, height } = el.getBoundingClientRect();
+                    if (width === 0 || height === 0) return;
+                    const fit = Math.min(width / bounds.w, height / bounds.h) * PADDING_FACTOR;
+                    setAutoFitScale(Math.max(0.2, Math.min(fit, 2)));
+                    setPan({ x: 0, y: 0 });
+                };
+               
+                const timer = setTimeout(compute, 20);
+                const ro = new ResizeObserver(compute);
+                ro.observe(el);
+                return () => { clearTimeout(timer); ro.disconnect(); };
+            }, [keyboardGeo, bounds]);
+
+            const effectiveScale = autoFitScale * scale;
+
+            const handleMouseDown = (e) => {
+                if(e.target.closest('.p-key')) return;
+                setIsDragging(true);
+                setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+            };
+            const handleMouseMove = (e) => {
+                if(!isDragging) return;
+                setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+            };
+            const handleMouseUp = () => setIsDragging(false);
+
+            const handleKeyMouseDown = (e, index) => {
+                if (e.button !== 0) return;
+                const startX = e.clientX, startY = e.clientY;
+                let dragging = false;
+                const onMove = (e2) => {
+                    const dx = e2.clientX - startX, dy = e2.clientY - startY;
+                    if (!dragging && Math.hypot(dx, dy) > 6) {
+                        dragging = true;
+                        setDragSourceIdx(index);
+                    }
+                    if (dragging) {
+                        const el = document.elementFromPoint(e2.clientX, e2.clientY)?.closest('[data-key-idx]');
+                        const overIdx = el ? parseInt(el.dataset.keyIdx, 10) : null;
+                        setDragOverIdx(overIdx !== index ? overIdx : null);
+                    }
+                };
+                const onUp = (e2) => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                    if (dragging) {
+                        const el = document.elementFromPoint(e2.clientX, e2.clientY)?.closest('[data-key-idx]');
+                        const targetIdx = el ? parseInt(el.dataset.keyIdx, 10) : null;
+                        if (targetIdx !== null && targetIdx !== index) onSwapKeys(index, targetIdx);
+                    }
+                    setDragSourceIdx(null);
+                    setDragOverIdx(null);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            };
+           
+            const openContextMenu = (e, index) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onSelectKey(index);
+                setContextMenu({ x: e.clientX, y: e.clientY, keyIndex: index });
+            };
+            const closeContextMenu = () => setContextMenu(null);
+            const runContextAction = (action) => {
+                if (contextMenu) onContextAction(action, contextMenu.keyIndex);
+                closeContextMenu();
+            };
+           
+            return (
+                <div ref={containerRef} className="canvas-container absolute inset-0 flex items-center justify-center" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onClick={() => { onSelectKey(null); closeContextMenu(); }}>
+                    <div className="absolute top-6 right-6 flex items-center gap-3 bg-MoErgo-tabBg p-1.5 rounded-full px-4 border border-[#333] shadow-lg z-20">
+                        <span className="text-xs text-gray-500 font-bold mr-2 hidden sm:inline">CANVAS</span>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(s => Math.min(s + 0.1, 2)); }} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg></button>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(1); setPan({x:0,y:0}); }} className="text-xs font-mono font-bold w-12 text-center hover:text-white transition-colors" title="Reset to auto-fit and re-center">{Math.round(effectiveScale * 100)}%</button>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(s => Math.max(s - 0.1, 0.4)); }} className="text-gray-400 hover:text-white"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg></button>
+                        <div className="w-px h-4 bg-[#444]"></div>
+                        <button onClick={(e) => { e.stopPropagation(); setScale(1); setPan({x:0,y:0}); }} className="text-gray-400 hover:text-white" title="Fit and center the keyboard">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V6a2 2 0 012-2h2M4 16v2a2 2 0 002 2h2m8-16h2a2 2 0 012 2v2m-4 12h2a2 2 0 002-2v-2"></path></svg>
+                        </button>
+                    </div>
+                    <div className="absolute top-6 left-6 flex items-center gap-2 z-20 hidden md:flex">
+                        {(!clipboard && !styleClipboard) && (
+                            <div className="text-[11px] text-gray-500 bg-MoErgo-tabBg px-4 py-2 rounded-full border border-[#333] pointer-events-none">
+                                Right-click a key to copy, paste, or clear it
+                            </div>
+                        )}
+                        {clipboard && (
+                            <div className="text-[11px] text-gray-300 bg-MoErgo-tabBg px-3 py-2 rounded-full border border-[#333] flex items-center gap-1.5">
+                                📋 <span className="font-mono text-white">{describeBinding(clipboard)}</span>
+                            </div>
+                        )}
+                        {styleClipboard && (
+                            <div className="text-[11px] text-gray-300 bg-MoErgo-tabBg px-3 py-2 rounded-full border border-[#333] flex items-center gap-1.5">
+                                🎨 <span className="w-3 h-3 rounded-full border border-white/20 ml-1" style={{ background: styleClipboard.background }}></span>
+                            </div>
+                        )}
+                    </div>
+                    <div className="relative origin-center" style={{ width: `${bounds.w}px`, height: `${bounds.h}px`, transform: `translate(${pan.x}px, ${pan.y}px) scale(${effectiveScale})` }}>
+                        {keyboardGeo.map((geo, index) => (
+                            <KeyComponent key={`matrix-key-${index}`} index={index} geo={geo} binding={activeLayerBindings[index] || { value: '&none' }} isSelected={selectedKey === index} onSelect={onSelectKey} osMode={osMode} onContextMenu={openContextMenu} onKeyMouseDown={handleKeyMouseDown} isDragSource={dragSourceIdx === index} isDragOver={dragOverIdx === index} showLeds={showLeds} />
+                        ))}
+                    </div>
+                    {contextMenu && (
+                        <div className="fixed z-50 bg-[#2a2a2a] border border-[#444] rounded-lg shadow-2xl py-1.5 min-w-[170px] text-xs font-bold" style={{ left: contextMenu.x, top: contextMenu.y }} onClick={(e) => e.stopPropagation()}>
+                            <button className="w-full text-left px-4 py-2 hover:bg-[#383838] text-white transition-colors" onClick={() => runContextAction('copy')}>📋 Copy Action</button>
+                            <button className={`w-full text-left px-4 py-2 transition-colors ${clipboard ? 'hover:bg-[#383838] text-white' : 'text-gray-600 cursor-not-allowed'}`} onClick={() => clipboard && runContextAction('paste')}>📥 Paste Action</button>
+                            <div className="my-1 border-t border-[#3a3a3a]"></div>
+                            <button className="w-full text-left px-4 py-2 hover:bg-[#383838] text-white transition-colors" onClick={() => runContextAction('copyStyle')}>🎨 Copy LED Color</button>
+                            <button className={`w-full text-left px-4 py-2 transition-colors ${styleClipboard?.background ? 'hover:bg-[#383838] text-white' : 'text-gray-600 cursor-not-allowed'}`} onClick={() => styleClipboard?.background && runContextAction('pasteStyle')}>🖌️ Paste LED Color</button>
+                            <div className="my-1 border-t border-[#3a3a3a]"></div>
+                            <button className="w-full text-left px-4 py-2 hover:bg-red-950 text-red-400 transition-colors" onClick={() => runContextAction('clear')}>✕ Clear Key</button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
+        function remapLayerPointersAfterDelete(layers, deletedIdx) {
+            layers.forEach(layer => {
+                (layer || []).forEach(binding => {
+                    if (!binding || !LAYER_POINTER_BEHAVIORS.has(binding.value)) return;
+                    const p = binding.params?.[0];
+                    if (!p || typeof p.value !== 'number') return;
+                    if (p.value === deletedIdx) { binding.value = '&none'; binding.params = []; }
+                    else if (p.value > deletedIdx) p.value -= 1;
+                });
+            });
+        }
+
+        const App = () => {
+            const [config, setConfig] = useState(null);
+            const [activeLayer, setActiveLayer] = useState(0);
+            const [selectedKey, setSelectedKey] = useState(null);
+           
+            const [activeVerticalTab, setActiveVerticalTab] = useState('Keymap');
+            const [activeActionSlot, setActiveActionSlot] = useState('tap');
+            const [manuallyAddedSlots, setManuallyAddedSlots] = useState(new Set());
+            const [showLeds, setShowLeds] = useState(true);
+           
+            const [paletteScale, setPaletteScale] = useState(1.0);
+            const [armedMods, setArmedMods] = useState(new Set());
+            const [bgHexInput, setBgHexInput] = useState('');
+
+            useEffect(() => {
+                setBgHexInput('');
+                setActiveActionSlot('tap');
+                setManuallyAddedSlots(new Set());
+            }, [selectedKey, activeLayer, config]);
+
+            const [canvasScale, setCanvasScale] = useState(1.0);
+            const [osMode, setOsMode] = useState(() => /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent || '') ? 'mac' : 'win');
+            const [toast, setToast] = useState(null);
+            const [showQuickStart, setShowQuickStart] = useState(false);
+            const [isFetchingTemplate, setIsFetchingTemplate] = useState(false);
+            const [clipboard, setClipboard] = useState(null);
+            const [styleClipboard, setStyleClipboard] = useState(null);
+            const [renamingLayerIdx, setRenamingLayerIdx] = useState(null);
+            const [renameValue, setRenameValue] = useState('');
+            const [bottomPanelHeight, setBottomPanelHeight] = useState(380);
+            const resizeStateRef = useRef(null);
+
+            const handleBottomResizeStart = (e) => {
+                e.preventDefault();
+                resizeStateRef.current = { startY: e.clientY, startHeight: bottomPanelHeight };
+                const onMove = (e2) => {
+                    const dy = resizeStateRef.current.startY - e2.clientY;
+                    const next = Math.max(220, Math.min(resizeStateRef.current.startHeight + dy, window.innerHeight * 0.8));
+                    setBottomPanelHeight(next);
+                };
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove);
+                    document.removeEventListener('mouseup', onUp);
+                };
+                document.addEventListener('mousemove', onMove);
+                document.addEventListener('mouseup', onUp);
+            };
+
+            useEffect(() => {
+                const HEADER_H = 76;
+                const MIN_CANVAS_H = 220;
+                const clampToWindow = () => {
+                    const maxAllowed = Math.max(120, window.innerHeight - HEADER_H - MIN_CANVAS_H);
+                    setBottomPanelHeight(h => Math.min(h, maxAllowed));
+                };
+                clampToWindow();
+                window.addEventListener('resize', clampToWindow);
+                return () => window.removeEventListener('resize', clampToWindow);
+            }, []);
+
+            const [jsonStr, setJsonStr] = useState("");
+            const [jsonError, setJsonError] = useState("");
+            const [undoStack, setUndoStack] = useState([]);
+            const [redoStack, setRedoStack] = useState([]);
+
+            const keyboardGeo = useMemo(() => {
+                if (!config) return [];
+                const kb = config.keyboard?.toLowerCase();
+                if (kb === 'go60') return GO60_GEO;
+                if (kb === 'glove80') return GLOVE80_GEO;
+                const count = config.layers?.[0]?.length || 0;
+                return (count > 0 && count <= 65) ? GO60_GEO : GLOVE80_GEO;
+            }, [config]);
+
+            useEffect(() => {
+                if (!config || !Array.isArray(config.layers)) return;
+                if (activeLayer >= config.layers.length) setActiveLayer(Math.max(0, config.layers.length - 1));
+            }, [config]);
+
+            const currentLayerBindings = useMemo(() => {
+                if (!config || !Array.isArray(config.layers)) return [];
+                return config.layers[activeLayer] || [];
+            }, [config, activeLayer]);
+
+            const currentBinding = selectedKey !== null && config ? currentLayerBindings[selectedKey] : null;
+            const parsedSlots = useMemo(() => parseSlots(currentBinding, config), [currentBinding, config]);
+
+            const usedLayoutColors = useMemo(() => {
+                if (!config || !Array.isArray(config.layers)) return [];
+                const seen = new Set();
+                const presetSet = new Set(KEY_COLOR_PRESETS.map(c => c.toLowerCase()));
+                config.layers.forEach(layer => (layer || []).forEach(b => {
+                    const bg = b?.decoration?.background;
+                    if (bg && !presetSet.has(bg.toLowerCase())) seen.add(bg.toLowerCase());
+                }));
+                return Array.from(seen);
+            }, [config]);
+
+            useEffect(() => {
+                if (activeVerticalTab === 'JSON' && config && selectedKey !== null) {
+                    setJsonStr(JSON.stringify(currentLayerBindings[selectedKey] || {value: "&none"}, null, 2));
+                    setJsonError("");
+                }
+            }, [selectedKey, activeLayer, config, activeVerticalTab, currentLayerBindings]);
+
+            const pushHistory = useCallback((newConfig) => {
+                const cleanedConfig = runGC(newConfig);
+                setUndoStack(prev => [...prev.slice(-99), structuredClone(config)]);
+                setRedoStack([]); setConfig(cleanedConfig);
+            }, [config]);
+
+            const undo = () => { if (undoStack.length === 0) return; const prevConfig = undoStack[undoStack.length - 1]; setRedoStack(prev => [...prev, structuredClone(config)]); setUndoStack(prev => prev.slice(0, -1)); setConfig(prevConfig); };
+            const redo = () => { if (redoStack.length === 0) return; const nextConfig = redoStack[redoStack.length - 1]; setUndoStack(prev => [...prev, structuredClone(config)]); setRedoStack(prev => prev.slice(0, -1)); setConfig(nextConfig); };
+
+            const showToast = useCallback((message, kind = 'default') => {
+                setToast({ message, kind, id: Date.now() });
+            }, []);
+            useEffect(() => {
+                if (!toast) return;
+                const t = setTimeout(() => setToast(null), 2200);
+                return () => clearTimeout(t);
+            }, [toast]);
+
+            const loadLayoutData = (parsed, sourceLabel) => {
+                let data = parsed?.keymap !== undefined ? parsed.keymap : parsed;
+                if (!data || !Array.isArray(data.layers)) throw new Error('Missing a "layers" array');
+                setConfig(data); setActiveLayer(0); setSelectedKey(null); setUndoStack([]); setRedoStack([]);
+                setCanvasScale(1.0);
+                showToast(`Loaded ${sourceLabel}`);
+            };
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const parsed = JSON.parse(event.target.result);
+                        loadLayoutData(parsed, `"${file.name}"`);
+                    } catch (err) { showToast(`Couldn't read that file — ${err.message}`, 'error'); }
+                };
+                reader.readAsText(file); e.target.value = '';
+            };
+
+            const TEMPLATE_URLS = {
+                glove80: 'https://gist.githubusercontent.com/moosylog/a71d65a4b2de4215d7e226449f3cadb2/raw/ee1661e9adbe197285b50ef0bd8997f6a80e795c/Glove80_default.json',
+                go60: 'https://gist.githubusercontent.com/moosylog/a71d65a4b2de4215d7e226449f3cadb2/raw/ee1661e9adbe197285b50ef0bd8997f6a80e795c/Go60_default.json',
+            };
+
+            const fetchTemplate = async (type) => {
+                setIsFetchingTemplate(true);
+                try {
+                    const response = await fetch(TEMPLATE_URLS[type]);
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const text = await response.text();
+                    let cleanText = text.trim();
+                    if (!cleanText.startsWith('{') && !cleanText.startsWith('[')) {
+                        const firstBrace = cleanText.indexOf('{');
+                        if (firstBrace !== -1) cleanText = cleanText.substring(firstBrace);
+                    }
+                    const parsed = JSON.parse(cleanText);
+                    loadLayoutData(parsed, type === 'glove80' ? 'the Glove80 template' : 'the Go60 template');
+                } catch (err) {
+                    showToast(`Couldn't fetch the ${type === 'glove80' ? 'Glove80' : 'Go60'} template — ${err.message}`, 'error');
+                } finally {
+                    setIsFetchingTemplate(false);
+                }
+            };
+
+            const handleExport = () => {
+                if (!config) return;
+                const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(config, null, 2));
+                const anchor = document.createElement('a');
+                anchor.href = dataStr; anchor.download = `layout_${config.keyboard || 'custom'}.json`;
+                document.body.appendChild(anchor); anchor.click(); anchor.remove();
+                showToast('Layout exported');
+            };
+
+            const assignAction = (item) => {
+                if (selectedKey === null || !config || !config.layers[activeLayer]) return;
+
+                let newSlotBinding = { value: '&none' };
+                if (item.code) {
+                    const activeMods = (!RAW_MOD_CODES.has(item.code) && armedMods.size > 0)
+                        ? MOD_ARM_ORDER.filter(m => armedMods.has(m))
+                        : [];
+                    newSlotBinding = { value: '&kp', params: [ composeKeycodeParam(item.code, activeMods) ] };
+                } else if (item.type) {
+                    newSlotBinding = { value: item.type };
+                    if (item.param1 !== undefined) {
+                        newSlotBinding.params = [{ value: item.param1, params: [] }];
+                        if (item.param2 !== undefined) newSlotBinding.params.push({ value: item.param2, params: [] });
+                    }
+                }
+
+                const newSlots = { ...parsedSlots, [activeActionSlot]: newSlotBinding };
+                let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config);
+
+                if (currentBinding?.decoration) newBinding.decoration = currentBinding.decoration;
+
+                newConfig.layers[activeLayer][selectedKey] = newBinding;
+                pushHistory(newConfig);
+                if (armedMods.size > 0) setArmedMods(new Set());
+            };
+
+            const clearSlot = (slotKey) => {
+                if (selectedKey === null || !config) return;
+                const newSlots = { ...parsedSlots, [slotKey]: null };
+                let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config);
+               
+                if (currentBinding?.decoration) newBinding.decoration = currentBinding.decoration;
+
+                newConfig.layers[activeLayer][selectedKey] = newBinding;
+                pushHistory(newConfig);
+               
+                setManuallyAddedSlots(prev => {
+                    const next = new Set(prev);
+                    next.delete(slotKey);
+                    return next;
+                });
+                if (activeActionSlot === slotKey) setActiveActionSlot('tap');
+            };
+
+            const SLOT_LABELS = { tap: 'Tap', shiftTap: 'Shift + Tap', hold: 'Hold', doubleTap: 'Double Tap' };
+
+            const renderSlot = (slotKey, label) => {
+                const isSelected = activeActionSlot === slotKey;
+                const slotBinding = parsedSlots[slotKey];
+                const isFilled = !!slotBinding && slotBinding.value !== '&none';
+
+                if (isFilled) {
+                    return (
+                        <div key={slotKey} onClick={() => setActiveActionSlot(slotKey)} className={`rounded-xl px-4 py-3.5 text-sm font-semibold flex items-center justify-between cursor-pointer transition-colors border ${isSelected ? 'bg-[#b4b4ff] text-black border-[#b4b4ff]' : 'bg-transparent text-gray-300 border-[#333] hover:border-[#555]'} shadow-sm group`}>
+                            <span className="w-28 tracking-wide">{label}</span>
+                            <span className="opacity-40 px-2">→</span>
+                            <span className="flex-1 truncate font-mono text-[13px] text-right">{describeBinding(slotBinding)}</span>
+                            <button onClick={(e) => { e.stopPropagation(); clearSlot(slotKey); }} className={`ml-3 w-6 h-6 rounded flex items-center justify-center transition-colors border text-lg leading-none shrink-0 ${isSelected ? 'border-black/20 hover:bg-black/10 text-black' : 'border-[#444] text-gray-500 hover:text-white hover:border-white'}`} title="Clear slot">×</button>
+                        </div>
+                    );
+                } else {
+                    return (
+                        <div key={slotKey} onClick={() => setActiveActionSlot(slotKey)} className={`rounded-xl px-4 py-3.5 text-sm font-semibold flex items-center justify-between cursor-pointer transition-colors border border-dashed ${isSelected ? 'border-[#b4b4ff] text-[#b4b4ff] bg-[#b4b4ff]/5' : 'border-[#444] text-gray-500 hover:border-[#666] hover:text-gray-300'}`}>
+                            <span className="w-28 tracking-wide">{label}</span>
+                            <span className="opacity-40 px-2">→</span>
+                            <span className="flex-1 truncate font-mono text-[13px]"></span>
+                            <div className={`w-6 h-6 rounded flex items-center justify-center border transition-colors ${isSelected ? 'border-[#b4b4ff] text-[#b4b4ff]' : 'border-[#444] text-gray-500'}`}>
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M12 4v16m8-8H4"></path></svg>
+                            </div>
+                        </div>
+                    );
+                }
+            };
+
+            const saveCustomJson = () => {
+                if (selectedKey === null || !config || !config.layers[activeLayer]) return;
+                try {
+                    const parsed = JSON.parse(jsonStr);
+                    if (!parsed.value) throw new Error("Missing 'value' attribute.");
+                    const newConfig = structuredClone(config);
+                    newConfig.layers[activeLayer][selectedKey] = parsed;
+                    pushHistory(newConfig); setJsonError("");
+                    showToast('Applied');
+                } catch (err) { setJsonError(err.message); }
+            };
+
+            const updateDecorationProperty = (property, value) => {
+                if (selectedKey === null || !config || !config.layers[activeLayer]) return;
+                const newConfig = structuredClone(config);
+                const existing = newConfig.layers[activeLayer][selectedKey] || { value: '&none' };
+               
+                let updatedDeco = { ...(existing.decoration || {}) };
+                if (value === null || value === '') {
+                    delete updatedDeco[property];
+                } else {
+                    updatedDeco[property] = value;
+                }
+               
+                if (Object.keys(updatedDeco).length === 0) {
+                    delete existing.decoration;
+                } else {
+                    existing.decoration = updatedDeco;
+                }
+               
+                newConfig.layers[activeLayer][selectedKey] = existing;
+                pushHistory(newConfig);
+            };
+
+            const setKeyDecoration = (color) => {
+                updateDecorationProperty('background', color);
+            };
+
+            const applyBgHexInput = () => {
+                const v = bgHexInput.trim();
+                if (!v) return;
+                const normalized = v.startsWith('#') ? v : `#${v}`;
+                if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) {
+                    showToast('Enter a valid hex color, like #E55F2E', 'error');
+                    return;
+                }
+                setKeyDecoration(normalized);
+                setBgHexInput('');
+            };
+
+            const handleKeyContextAction = useCallback((action, keyIndex) => {
+                if (!config || !config.layers[activeLayer]) return;
+                const existing = config.layers[activeLayer][keyIndex];
+                if (action === 'copy') {
+                    setClipboard(structuredClone(existing || { value: '&none' }));
+                    showToast(`Copied Action`);
+                } else if (action === 'paste') {
+                    if (!clipboard) { showToast('Clipboard is empty — copy a key first', 'error'); return; }
+                    const newConfig = structuredClone(config);
+                    const pasted = structuredClone(clipboard);
+                    const existingDecoration = newConfig.layers[activeLayer][keyIndex]?.decoration;
+                    if (existingDecoration && !pasted.decoration) pasted.decoration = existingDecoration;
+                    newConfig.layers[activeLayer][keyIndex] = pasted;
+                    pushHistory(newConfig);
+                    showToast('Pasted Action');
+                } else if (action === 'clear') {
+                    const newConfig = structuredClone(config);
+                    newConfig.layers[activeLayer][keyIndex] = { value: '&none' };
+                    pushHistory(newConfig);
+                    showToast('Cleared Key');
+                } else if (action === 'copyStyle') {
+                    if (!existing?.decoration?.background) { showToast('This key has no LED color set', 'error'); return; }
+                    setStyleClipboard({ background: existing.decoration.background });
+                    showToast('LED Color copied');
+                } else if (action === 'pasteStyle') {
+                    if (!styleClipboard?.background) { showToast('No LED color copied yet', 'error'); return; }
+                    const newConfig = structuredClone(config);
+                    const target = newConfig.layers[activeLayer][keyIndex] || { value: '&none' };
+                    target.decoration = { ...(target.decoration || {}), background: styleClipboard.background };
+                    newConfig.layers[activeLayer][keyIndex] = target;
+                    pushHistory(newConfig);
+                    showToast('LED Color pasted');
+                }
+            }, [config, activeLayer, clipboard, styleClipboard, pushHistory, showToast]);
+
+            const swapKeys = useCallback((a, b) => {
+                if (!config || !config.layers[activeLayer] || a === b) return;
+                const newConfig = structuredClone(config);
+                const layer = newConfig.layers[activeLayer];
+                const temp = layer[a] || { value: '&none' };
+                layer[a] = layer[b] || { value: '&none' };
+                layer[b] = temp;
+                pushHistory(newConfig);
+                showToast(`Swapped Key ${getLogicalName(a, config?.keyboard)} ↔ Key ${getLogicalName(b, config?.keyboard)}`);
+            }, [config, activeLayer, pushHistory, showToast]);
+
+            useEffect(() => {
+                const handler = (e) => {
+                    const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
+                    if (e.key === 'Escape' && !typing) { setSelectedKey(null); return; }
+                    const isMod = e.ctrlKey || e.metaKey;
+                    if (!isMod || typing) return;
+                    const key = e.key.toLowerCase();
+                    if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
+                    else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); redo(); }
+                    else if (key === 'c' && selectedKey !== null) { e.preventDefault(); handleKeyContextAction('copy', selectedKey); }
+                    else if (key === 'v' && selectedKey !== null) { e.preventDefault(); handleKeyContextAction('paste', selectedKey); }
+                };
+                window.addEventListener('keydown', handler);
+                return () => window.removeEventListener('keydown', handler);
+            }, [undoStack, redoStack, config, selectedKey, handleKeyContextAction]);
+
+            const addLayer = () => {
+                if (!config) return;
+                const newConfig = structuredClone(config);
+                const keyCount = newConfig.layers[0]?.length || keyboardGeo.length || 80;
+                newConfig.layers.push(Array.from({ length: keyCount }, () => ({ value: '&trans' })));
+                if (!Array.isArray(newConfig.layer_names)) newConfig.layer_names = newConfig.layers.slice(0, -1).map((_, i) => `Layer ${i}`);
+                newConfig.layer_names.push(`Layer ${newConfig.layers.length - 1}`);
+                pushHistory(newConfig);
+                setActiveLayer(newConfig.layers.length - 1);
+                setSelectedKey(null);
+                showToast('Layer added');
+            };
+
+            const deleteLayer = (idx) => {
+                if (!config || idx === 0 || config.layers.length <= 1) return;
+                const name = (Array.isArray(config.layer_names) && typeof config.layer_names[idx] === 'string') ? config.layer_names[idx] : `Layer ${idx}`;
+                if (!window.confirm(`Delete "${name}"? All its key bindings will be lost.`)) return;
+                const newConfig = structuredClone(config);
+                newConfig.layers.splice(idx, 1);
+                if (Array.isArray(newConfig.layer_names)) newConfig.layer_names.splice(idx, 1);
+                remapLayerPointersAfterDelete(newConfig.layers, idx);
+                pushHistory(newConfig);
+                setActiveLayer(prev => prev >= newConfig.layers.length ? newConfig.layers.length - 1 : (prev > idx ? prev - 1 : prev));
+                setSelectedKey(null);
+                showToast('Layer deleted');
+            };
+
+            const startRenameLayer = (idx, currentName) => { setRenamingLayerIdx(idx); setRenameValue(currentName); };
+            const commitRenameLayer = () => {
+                if (renamingLayerIdx === null || !config) { setRenamingLayerIdx(null); return; }
+                const newConfig = structuredClone(config);
+                if (!Array.isArray(newConfig.layer_names)) newConfig.layer_names = newConfig.layers.map((_, i) => `Layer ${i}`);
+                const trimmed = renameValue.trim();
+                newConfig.layer_names[renamingLayerIdx] = trimmed || `Layer ${renamingLayerIdx}`;
+                pushHistory(newConfig);
+                setRenamingLayerIdx(null);
+            };
+
+            // Calculate Visible Dynamic Slots
+            const activeSlotKeys = ['tap'];
+            if (parsedSlots.shiftTap || manuallyAddedSlots.has('shiftTap')) activeSlotKeys.push('shiftTap');
+            if (parsedSlots.hold || manuallyAddedSlots.has('hold')) activeSlotKeys.push('hold');
+            if (parsedSlots.doubleTap || manuallyAddedSlots.has('doubleTap')) activeSlotKeys.push('doubleTap');
+
+            const availableToAdd = ['shiftTap', 'hold', 'doubleTap'].filter(k => !activeSlotKeys.includes(k));
+
+            return (
+                <div className="flex h-screen w-screen font-sans text-sm overflow-hidden">
+                    <main className="flex-1 flex flex-col bg-MoErgo-base relative z-10 h-full">
+                        <header className="h-[76px] shrink-0 border-b border-MoErgo-card flex items-center justify-between px-8 bg-MoErgo-surface z-20">
+                            <div className="flex items-center gap-4 min-w-0 flex-1">
+                                <div className="text-xl font-bold text-white tracking-tight mr-4 flex gap-3 items-center">
+                                    GLIDE <div className="w-px h-6 bg-[#444]"></div>
+                                </div>
+                                <span className="text-MoErgo-textMuted text-[10px] uppercase font-bold tracking-widest shrink-0">Layer</span>
+                                <div className="flex bg-MoErgo-tabBg p-1 rounded-full items-center gap-1 min-w-0">
+                                    <div className="flex items-center gap-1 overflow-x-auto">
+                                    {config ? (config.layer_names || Array.from({length: config.layers.length})).map((name, i) => (
+                                        <div key={i} className="relative group shrink-0">
+                                            {renamingLayerIdx === i ? (
+                                                <input
+                                                    autoFocus
+                                                    value={renameValue}
+                                                    onChange={(e) => setRenameValue(e.target.value)}
+                                                    onBlur={commitRenameLayer}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') commitRenameLayer(); if (e.key === 'Escape') setRenamingLayerIdx(null); }}
+                                                    className="px-3 py-1.5 rounded-full text-xs font-semibold bg-white text-black w-24 outline-none"
+                                                />
+                                            ) : (
+                                                <button
+                                                    onClick={() => { setActiveLayer(i); setSelectedKey(null); }}
+                                                    onDoubleClick={() => startRenameLayer(i, typeof name === 'string' ? name : `Layer ${i}`)}
+                                                    title="Double-click to rename"
+                                                    className={`px-5 py-1.5 rounded-full text-xs font-semibold transition-colors ${activeLayer === i ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                                                >
+                                                    {typeof name === 'string' ? name : `Layer ${i}`}
+                                                </button>
+                                            )}
+                                            {i > 0 && config.layers.length > 1 && renamingLayerIdx !== i && (
+                                                <button
+                                                    onClick={(e) => { e.stopPropagation(); deleteLayer(i); }}
+                                                    className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-red-600 hover:bg-red-500 text-white text-[10px] leading-none opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                                                >✕</button>
+                                            )}
+                                        </div>
+                                    )) : (<div className="px-5 py-1.5 text-xs text-gray-500">No Layout</div>)}
+                                    </div>
+                                    {config && (
+                                        <button onClick={addLayer} title="Add layer" className="w-7 h-7 rounded-full bg-[#333] hover:bg-[#444] text-white flex items-center justify-center text-sm font-bold shrink-0 ml-1">+</button>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-4 shrink-0">
+                                <div className="flex bg-[#1c1c1c] border border-[#333] p-1 rounded-full mr-2">
+                                    <button onClick={() => setOsMode('mac')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${osMode === 'mac' ? 'bg-[#333] text-white' : 'text-gray-500 hover:text-white'}`}>Mac</button>
+                                    <button onClick={() => setOsMode('win')} className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${osMode === 'win' ? 'bg-[#333] text-white' : 'text-gray-500 hover:text-white'}`}>Win</button>
+                                </div>
+                                <button onClick={undo} disabled={undoStack.length === 0} className={`p-2 rounded-full border border-MoErgo-card flex items-center justify-center w-8 h-8 ${undoStack.length > 0 ? 'text-white bg-[#333] hover:bg-[#444]' : 'text-gray-600 opacity-50 cursor-not-allowed'}`} title="Undo">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 10h10a5 5 0 015 5v1m-15-6l4-4m-4 4l4 4"></path></svg>
+                                </button>
+                                <button onClick={redo} disabled={redoStack.length === 0} className={`p-2 rounded-full border border-MoErgo-card flex items-center justify-center w-8 h-8 ${redoStack.length > 0 ? 'text-white bg-[#333] hover:bg-[#444]' : 'text-gray-600 opacity-50 cursor-not-allowed'}`} title="Redo">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 10H11a5 5 0 00-5 5v1m15-6l-4-4m4 4l-4 4"></path></svg>
+                                </button>
+                                <div className="w-px h-6 bg-[#333] mx-1"></div>
+                                <label className="bg-[#333] hover:bg-[#444] border border-[#444] text-white text-xs font-medium px-4 py-2 rounded-full cursor-pointer transition-colors">Load<input type="file" accept=".json" className="hidden" onChange={handleFileUpload} /></label>
+                                {config && <button onClick={handleExport} className="bg-[#b4b4ff] hover:bg-[#9c9cff] text-black text-xs font-bold px-4 py-2 rounded-full transition-colors shadow-sm">Export</button>}
+                            </div>
+                        </header>
+
+                        <section className="flex-1 flex relative overflow-hidden">
+                            {!config ? (
+                                <div className="m-auto text-gray-400 flex flex-col items-center gap-6 bg-[#111] p-10 rounded-2xl border border-[#333] shadow-2xl max-w-md text-center">
+                                    <div className="w-16 h-16 rounded-full bg-[#222] flex items-center justify-center text-[#b4b4ff]">
+                                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h2 className="text-xl font-bold text-white">Start a Layout</h2>
+                                        <p className="text-sm">Load an existing JSON layout to begin editing.</p>
+                                    </div>
+                                    <div className="flex gap-3 w-full">
+                                        <label className="flex-1 bg-[#b4b4ff] hover:bg-[#9c9cff] text-black font-bold py-3 rounded-xl cursor-pointer transition-colors text-center">Load File<input type="file" accept=".json" className="hidden" onChange={handleFileUpload} /></label>
+                                    </div>
+                                    <div className="w-full flex items-center gap-4">
+                                        <div className="h-px bg-[#333] flex-1"></div>
+                                        <span className="text-[10px] uppercase font-bold tracking-widest text-gray-500">Or Templates</span>
+                                        <div className="h-px bg-[#333] flex-1"></div>
+                                    </div>
+                                    <div className="flex gap-3 w-full">
+                                        <button onClick={() => fetchTemplate('glove80')} disabled={isFetchingTemplate} className="flex-1 bg-[#222] hover:bg-[#333] border border-[#444] text-white py-2.5 rounded-xl transition-colors font-medium">Glove80</button>
+                                        <button onClick={() => fetchTemplate('go60')} disabled={isFetchingTemplate} className="flex-1 bg-[#222] hover:bg-[#333] border border-[#444] text-white py-2.5 rounded-xl transition-colors font-medium">Go60</button>
+                                    </div>
+                                </div>
+                            ) : <KeyboardContainer keyboardGeo={keyboardGeo} activeLayerBindings={currentLayerBindings} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={canvasScale} setScale={setCanvasScale} osMode={osMode} onContextAction={handleKeyContextAction} clipboard={clipboard} styleClipboard={styleClipboard} onSwapKeys={swapKeys} showLeds={showLeds} />}
+                        </section>
+
+                        {/* Picker Interface (Bottom Panel) */}
+                        {config && (
+                            <section style={{ height: `${bottomPanelHeight}px` }} className="shrink-0 bg-[#000000] border-t border-[#222] flex flex-row z-20 shadow-[0_-10px_30px_rgba(0,0,0,0.5)] relative">
+                                {/* Drag Handle */}
+                                <div onMouseDown={handleBottomResizeStart} title="Drag to resize" className="absolute -top-2 left-0 right-0 h-4 cursor-row-resize z-30 flex items-center justify-center group">
+                                    <div className="w-14 h-1 rounded-full bg-[#3a3a3a] group-hover:bg-[#b4b4ff] transition-colors"></div>
+                                </div>
+
+                                {/* Left Pane: Key Selection Details */}
+                                <div className="w-[380px] shrink-0 border-r border-[#222] flex flex-col p-8 overflow-y-auto bg-[#050505]">
+                                    <div className="text-white font-bold mb-8 text-[15px] flex justify-between items-center">
+                                        <span>key ({selectedKey !== null ? getLogicalName(selectedKey, config?.keyboard) : 'None'})</span>
+                                        <button className="text-gray-500 hover:text-white transition-colors" title="Clear All Slots" onClick={() => { if(window.confirm('Clear all behaviors for this key?')) { clearSlot('tap'); clearSlot('shiftTap'); clearSlot('hold'); clearSlot('doubleTap'); } }}>
+                                            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM14 12a2 2 0 11-4 0 2 2 0 014 0zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                                        </button>
+                                    </div>
+
+                                    <div className="flex text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-4 px-2">
+                                        <div className="w-24">Behavior</div>
+                                        <div className="w-8 text-center">→</div>
+                                        <div className="flex-1">Action</div>
+                                    </div>
+                                    <div className="h-px w-full bg-[#222] mb-6"></div>
+
+                                    {selectedKey !== null ? (
+                                        <div className="flex flex-col gap-3">
+                                            {activeSlotKeys.map(slotKey => renderSlot(slotKey, SLOT_LABELS[slotKey]))}
+
+                                            {availableToAdd.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    {availableToAdd.map(slotKey => (
+                                                        <div key={slotKey} onClick={() => { setManuallyAddedSlots(prev => new Set(prev).add(slotKey)); setActiveActionSlot(slotKey); }} className="rounded-xl px-4 py-2.5 text-xs font-semibold flex items-center justify-center cursor-pointer transition-colors border border-dashed border-[#333] hover:border-[#555] text-gray-500 hover:text-gray-300">
+                                                            <span className="mr-2 text-lg leading-none">+</span> Add {SLOT_LABELS[slotKey]}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {/* Armed Modifiers logic for Tap assignment */}
+                                            {activeVerticalTab === 'Keymap' && (
+                                                <div className="mt-6 flex flex-col gap-3 p-4 border border-[#222] rounded-xl bg-[#0a0a0a]">
+                                                    <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Arm Modifiers (Next Assignment)</span>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {MOD_ARM_LIST.map(m => {
+                                                            const label = m.label || (m.code === 'LG' ? `L ${osMode === 'mac' ? 'Cmd' : 'Win'}` : `R ${osMode === 'mac' ? 'Cmd' : 'Win'}`);
+                                                            const active = armedMods.has(m.code);
+                                                            return (
+                                                                <button
+                                                                    key={m.code}
+                                                                    onClick={() => setArmedMods(prev => { const next = new Set(prev); next.has(m.code) ? next.delete(m.code) : next.add(m.code); return next; })}
+                                                                    className={`px-3 py-1.5 rounded-md text-[11px] font-bold border transition-all ${active ? 'bg-[#b4b4ff] border-[#b4b4ff] text-black shadow-sm' : 'bg-[#111] border-[#333] text-gray-400 hover:border-[#555] hover:text-gray-200'}`}
+                                                                >{label}</button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ) : (
+                                        <div className="text-gray-600 text-[12px] italic leading-relaxed text-center mt-10">Select a key on the canvas to configure behaviors.</div>
+                                    )}
+                                </div>
+
+                                {/* Middle Pane: Vertical Tabs */}
+                                <div className="w-[64px] shrink-0 border-r border-[#222] bg-[#0a0a0a] flex flex-col items-center py-6 gap-3">
+                                    <button onClick={() => setActiveVerticalTab('Keymap')} className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-lg transition-colors ${activeVerticalTab === 'Keymap' ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Keymap">B</button>
+                                    <button onClick={() => setActiveVerticalTab('Macro')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'Macro' ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Macros">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"></path></svg>
+                                    </button>
+                                    <button onClick={() => setActiveVerticalTab('Layer')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'Layer' ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Layers">
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+                                    </button>
+                                    <div className="w-6 h-px bg-[#222] my-1"></div>
+                                    <button onClick={() => setActiveVerticalTab('Lighting')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'Lighting' ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="Lighting">
+                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                                    </button>
+                                    <button onClick={() => setActiveVerticalTab('JSON')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${activeVerticalTab === 'JSON' ? 'bg-[#b4b4ff] text-black shadow-sm' : 'text-gray-500 hover:text-white hover:bg-[#222]'}`} title="JSON">
+                                         <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg>
+                                    </button>
+                                </div>
+
+                                {/* Right Pane: Content Grid */}
+                                <div className="flex-1 p-8 overflow-y-auto bg-[#050505]">
+                                    {activeVerticalTab === 'Keymap' && (
+                                        <div className="flex flex-col gap-10 w-full">
+                                             {ALL_PALETTE_SECTIONS.map((section, sIdx) => (
+                                                 <div key={sIdx}>
+                                                     <div className="text-gray-400 text-[11px] font-bold mb-4 flex items-center gap-2 tracking-wide">
+                                                         <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+                                                         {section.category}
+                                                     </div>
+                                                     <div className="flex flex-wrap gap-2.5">
+                                                         {section.items.map((item, idx) => (
+                                                             <button key={idx} onClick={() => assignAction(item)} className="palette-btn">
+                                                                 {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
+                                                             </button>
+                                                         ))}
+                                                     </div>
+                                                 </div>
+                                             ))}
+                                        </div>
+                                    )}
+
+                                    {activeVerticalTab === 'Lighting' && (
+                                        <div className="flex flex-col gap-8 w-full text-white pl-2">
+                                            {/* LED View Toggle */}
+                                            <div className="flex flex-col gap-3">
+                                                <div className="text-[11px] text-gray-500 font-bold tracking-wide uppercase">LED View Toggle</div>
+                                                <div className="h-px w-full bg-[#222]"></div>
+                                                <button onClick={() => setShowLeds(!showLeds)} className={`w-8 h-8 mt-1 flex items-center justify-center rounded transition-colors border cursor-pointer ${showLeds ? 'text-white bg-[#222] border-[#444]' : 'text-gray-500 border-transparent hover:border-[#444]'}`}>
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
+                                                </button>
+                                            </div>
+
+                                            {/* LED Color Palette */}
+                                            <div className="flex flex-col gap-3">
+                                                <div className="text-[11px] text-gray-500 font-bold tracking-wide uppercase">LED Color Palette</div>
+                                                <div className="h-px w-full bg-[#222]"></div>
+                                                <div className="flex items-center gap-3 mt-1 flex-wrap">
+                                                    <button onClick={() => setKeyDecoration(null)} title="Turns LED OFF" className="w-6 h-6 rounded-full flex items-center justify-center text-gray-500 relative shrink-0 group">
+                                                        <div className="absolute inset-0 rounded-full border-2 border-gray-600 group-hover:border-white transition-colors"></div>
+                                                        <div className="absolute w-[2px] h-[120%] bg-gray-600 group-hover:bg-white transition-colors rotate-45"></div>
+                                                    </button>
+                                                    <div className="w-px h-6 bg-[#333] shrink-0 mx-1"></div>
+                                                   
+                                                    {KEY_COLOR_PRESETS.map(c => (
+                                                        <button key={c} onClick={() => setKeyDecoration(c)} className="w-5 h-5 rounded-full hover:scale-125 transition-transform" style={{backgroundColor: c}}></button>
+                                                    ))}
+                                                   
+                                                    {usedLayoutColors.length > 0 && <div className="w-px h-6 bg-[#333] shrink-0 mx-1"></div>}
+                                                    {usedLayoutColors.map(c => (
+                                                        <button key={c} onClick={() => setKeyDecoration(c)} className="w-5 h-5 rounded-full hover:scale-125 transition-transform" style={{backgroundColor: c}}></button>
+                                                    ))}
+
+                                                    <div className="flex items-center gap-2 ml-2 bg-[#161616] rounded-full border border-[#333] px-2 py-1 shadow-inner">
+                                                        <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 border border-[#333] relative hover:scale-110 transition-transform">
+                                                            <input type="color" className="absolute -top-2 -left-2 w-10 h-10 cursor-pointer" value={currentLayerBindings[selectedKey]?.decoration?.background || '#ffffff'} onChange={(e) => setKeyDecoration(e.target.value)} />
+                                                        </div>
+                                                        <input type="text" className="w-16 bg-transparent text-[11px] font-mono text-gray-300 outline-none uppercase" placeholder="#HEX" value={bgHexInput} onChange={(e) => setBgHexInput(e.target.value)} onBlur={applyBgHexInput} onKeyDown={e => e.key === 'Enter' && applyBgHexInput()} />
+                                                        <div className="w-5 h-5 rounded-full border border-gray-600 flex items-center justify-center text-gray-400 text-xs shrink-0 cursor-pointer hover:text-white hover:border-white transition-colors">+</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Animations (Static UI Match) */}
+                                            <div className="flex flex-col gap-3 mt-4">
+                                                <div className="text-[11px] text-gray-500 font-bold tracking-wide uppercase">Animations</div>
+                                                <div className="h-px w-full bg-[#222]"></div>
+                                                <div className="flex gap-4 mt-1 w-full max-w-[600px]">
+                                                    <div className="border border-[#222] bg-[#0a0a0a] rounded-lg p-5 flex-1 flex items-center gap-3 cursor-pointer hover:border-[#444] transition-colors">
+                                                        <input type="checkbox" checked readOnly className="w-3.5 h-3.5 accent-transparent border border-white" style={{appearance: 'none', background: 'transparent', boxShadow: 'inset 0 0 0 2px #0a0a0a, inset 0 0 0 4px #b4b4ff'}} />
+                                                        <span className="text-sm font-semibold tracking-wide">solid</span>
+                                                    </div>
+                                                    <div className="border border-[#222] bg-[#0a0a0a] rounded-lg p-5 flex-1 flex flex-col justify-center">
+                                                        <span className="text-[10px] text-gray-500 font-bold mb-1 tracking-widest uppercase">CURRENT LAYER</span>
+                                                        <span className="text-sm font-semibold tracking-wide">{(config?.layer_names && config.layer_names[activeLayer]) || `Layer ${activeLayer}`}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeVerticalTab === 'Macro' && (
+                                        <div className="flex flex-col gap-10 w-full">
+                                            <div>
+                                                 <div className="text-gray-400 text-[11px] font-bold mb-4 flex items-center gap-2 tracking-wide uppercase">
+                                                     <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+                                                     Custom Macros
+                                                 </div>
+                                                <div className="flex flex-wrap gap-2.5">
+                                                    {(config.macros && config.macros.length > 0) ? (
+                                                        config.macros.map((m, i) => (
+                                                            <button key={i} onClick={() => assignAction({ type: m.name })} className="palette-btn">
+                                                                {m.name.replace('&', '')}
+                                                            </button>
+                                                        ))
+                                                    ) : <div className="text-gray-600 text-xs italic">No custom macros defined in layout file.</div>}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeVerticalTab === 'Layer' && (
+                                        <div className="flex flex-col gap-10 w-full">
+                                            <div>
+                                                 <div className="text-gray-400 text-[11px] font-bold mb-4 flex items-center gap-2 tracking-wide uppercase">
+                                                     <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+                                                     Layer Jumps (MO) & Toggles (TOG)
+                                                 </div>
+                                                <div className="flex flex-wrap gap-2.5">
+                                                    {(config.layer_names || config.layers).map((n, i) => (
+                                                        <React.Fragment key={i}>
+                                                            <button onClick={() => assignAction({ type: '&mo', param1: i })} className="palette-btn !text-purple-300 border-purple-900/50 hover:bg-purple-900/20">MO {i}</button>
+                                                            <button onClick={() => assignAction({ type: '&tog', param1: i })} className="palette-btn !text-emerald-300 border-emerald-900/50 hover:bg-emerald-900/20">TOG {i}</button>
+                                                        </React.Fragment>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {activeVerticalTab === 'JSON' && (
+                                        <div className="flex flex-col w-full max-w-3xl">
+                                            <div className="flex justify-between items-center mb-3">
+                                                <span className="text-[11px] text-gray-500 font-bold uppercase tracking-widest">Raw JSON AST (Layer {activeLayer}, Key {getLogicalName(selectedKey, config?.keyboard)})</span>
+                                                <button onClick={saveCustomJson} className="bg-[#b4b4ff] text-black font-bold text-xs px-5 py-2 rounded-lg hover:bg-[#9c9cff] transition-colors shadow-sm">Apply JSON</button>
+                                            </div>
+                                            <textarea className={`w-full bg-[#111] text-[#b4b4ff] font-mono text-xs p-5 rounded-xl border outline-none resize-y min-h-[160px] shadow-inner ${jsonError ? 'border-red-500' : 'border-[#333] focus:border-gray-500'}`} value={jsonStr} onChange={(e) => setJsonStr(e.target.value)} spellCheck="false" />
+                                            {jsonError && <div className="text-red-400 text-xs mt-3 font-semibold">{jsonError}</div>}
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
+                        )}
+                    </main>
+
+                    {toast && (
+                        <div className={`fixed bottom-8 left-1/2 -translate-x-1/2 z-50 px-6 py-3.5 rounded-full text-xs font-bold shadow-2xl border ${toast.kind === 'error' ? 'bg-red-950 border-red-600 text-red-200' : 'bg-[#2a2a2a] border-[#444] text-white'}`}>
+                            {toast.message}
+                        </div>
+                    )}
+
+                    {isFetchingTemplate && (
+                        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+                            <div className="flex flex-col items-center gap-4 text-[#b4b4ff]">
+                                <svg className="w-10 h-10 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path></svg>
+                                <span className="text-xs font-bold tracking-widest uppercase">Fetching template…</span>
+                            </div>
+                        </div>
+                    )}
+
+                    {showQuickStart && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={() => setShowQuickStart(false)}>
+                            <div className="bg-[#111] border border-[#333] rounded-2xl shadow-2xl p-10 max-w-lg w-full mx-4" onClick={(e) => e.stopPropagation()}>
+                                <h3 className="text-xl font-bold text-white mb-1">Quick Start</h3>
+                                <p className="text-xs text-gray-400 mb-6">Six steps to a working layout.</p>
+                                <ol className="space-y-4 text-sm text-gray-400 list-decimal list-inside leading-relaxed">
+                                    <li><span className="text-white font-semibold">Load your layout</span> — Use the "Load" button or pick a template from the sidebar.</li>
+                                    <li><span className="text-white font-semibold">Click a key</span> on the canvas to select it.</li>
+                                    <li><span className="text-white font-semibold">Pick what it does</span> from the bottom pane — letters, macros, layers.</li>
+                                    <li><span className="text-white font-semibold">Right-click a key</span> to copy, paste, or clear it.</li>
+                                    <li><span className="text-white font-semibold">Switch or add layers</span> using the tabs up top.</li>
+                                    <li><span className="text-white font-semibold">Export</span> when you're done, and load the file into the MoErgo configurator.</li>
+                                </ol>
+                                <button onClick={() => setShowQuickStart(false)} className="mt-8 w-full bg-[#b4b4ff] hover:bg-[#9c9cff] text-black font-bold py-3 rounded-xl transition-colors">Got it</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
