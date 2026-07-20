@@ -76,11 +76,13 @@
             background-color: #161616; border-radius: 8px;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             font-size: calc(12px * var(--btn-scale, 1)); font-weight: 600; color: #e5e5e5;
-            cursor: pointer; transition: background-color 0.1s, border-color 0.1s;
+            cursor: pointer; transition: background-color 0.1s, border-color 0.1s, color 0.1s;
             padding: 4px; border: 1px solid #333; line-height: 1.2;
         }
         .palette-btn .key-dual { font-size: calc(11px * var(--btn-scale, 1)); gap: calc(4px * var(--btn-scale, 1)); }
         .palette-btn:hover { background-color: #2a2a2a; border-color: #555; color: #ffffff; }
+        .palette-btn.selected { background-color: #b4b4ff; border-color: #b4b4ff; color: #000000; box-shadow: 0 0 10px rgba(180, 180, 255, 0.3); }
+        .palette-btn.selected:hover { background-color: #9c9cff; }
        
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -259,7 +261,6 @@
             ...PALETTE_DATA.Custom
         ];
 
-
 const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
         const MOD_BASES = [
             { base: 'C', mac: '⌃', win: 'Ct', nameMac: 'Control', nameWin: 'Control' },
@@ -279,7 +280,6 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             return (((r*299)+(g*587)+(b*114))/1000 >= 128) ? '#000000' : '#ffffff';
         };
 
-        // AST Symbol Masking dictionary (translating ZMK to real symbols)
         const ZMK_MAP = {
             BSPC:'⌫', RET:'↵', PG_DN:'PgDn', PG_UP:'PgUp', UP:'↑', DOWN:'↓', LEFT:'←', RIGHT:'→', ESC:'Esc', TAB:'Tab',
             MINUS:'-', EQUAL:'=', GRAVE:'`', BSLH:'\\', SEMI:';', SQT:"'", FSLH:'/', LBKT:'[', RBKT:']', COMMA:',', DOT:'.', SPACE:'␣',
@@ -307,8 +307,6 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             }
             return node;
         }
-
-        // --- ZMK AST PARSERS, BUILDERS, AND GARBAGE COLLECTION ---
 
         const runGC = (newConfig) => {
             const usedNames = new Set();
@@ -585,6 +583,34 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             return val;
         };
 
+        const getModSymbol = (code, os) => {
+            const isMac = os === 'mac';
+            const isRight = code.startsWith('R');
+            let sym = '';
+            if (code.endsWith('C')) sym = isMac ? '⌃' : 'Ct';
+            else if (code.endsWith('A')) sym = isMac ? '⌥' : 'Alt';
+            else if (code.endsWith('S')) sym = '⇧';
+            else if (code.endsWith('G')) sym = isMac ? '⌘' : '⊞';
+           
+            return (
+                <span className="flex items-start justify-center w-full">
+                    <span>{sym}</span>
+                    {isRight && <sup className="text-[7px] -ml-0.5 mt-0.5 opacity-70">R</sup>}
+                </span>
+            );
+        };
+
+        const getModName = (code, os) => {
+            const isMac = os === 'mac';
+            const side = code.startsWith('R') ? 'Right' : 'Left';
+            let name = '';
+            if (code.endsWith('C')) name = 'Control';
+            else if (code.endsWith('A')) name = isMac ? 'Option' : 'Alt';
+            else if (code.endsWith('S')) name = 'Shift';
+            else if (code.endsWith('G')) name = isMac ? 'Command' : 'Windows';
+            return `${side} ${name}`;
+        };
+
         const KeyComponent = memo(({ index, geo, binding, isSelected, onSelect, osMode, onContextMenu, onKeyMouseDown, isDragSource, isDragOver, showLeds }) => {
             const labelHtml = getBeautifulLabel(binding, osMode);
             const outerStyle = {
@@ -643,7 +669,7 @@ const MOD_ARM_ORDER = ['LC', 'RC', 'LA', 'RA', 'LS', 'RS', 'LG', 'RG'];
             useEffect(() => {
                 const el = containerRef.current;
                 if (!el) return;
-                const PADDING_FACTOR = 0.65;
+                const PADDING_FACTOR = 0.95;
                 const compute = () => {
                     const { width, height } = el.getBoundingClientRect();
                     if (width === 0 || height === 0) return;
@@ -1031,7 +1057,6 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
 
                 newConfig.layers[activeLayer][selectedKey] = newBinding;
                 pushHistory(newConfig);
-                if (armedMods.size > 0) setArmedMods(new Set());
             };
 
             const clearSlot = (slotKey) => {
@@ -1051,6 +1076,30 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                 });
                 if (activeActionSlot === slotKey) setActiveActionSlot('tap');
             };
+
+            const isItemActive = useCallback((item) => {
+                if (selectedKey === null || !config) return false;
+                const slotBinding = parsedSlots[activeActionSlot];
+                if (!slotBinding || slotBinding.value === '&none') return false;
+
+                if (item.code) {
+                    if (RAW_MOD_CODES.has(item.code)) return slotBinding.value === item.code;
+                    if (slotBinding.value === '&kp') {
+                        let p1 = slotBinding.params?.[0]?.value;
+                        if (MOD_WRAPPER_TO_FULL[p1] && slotBinding.params[0].params) {
+                            const unwrapped = unwrapModChain(slotBinding.params[0]);
+                            return unwrapped.keyVal === item.code;
+                        }
+                        return p1 === item.code;
+                    }
+                    return false;
+                } else if (item.type) {
+                    if (slotBinding.value !== item.type) return false;
+                    if (item.param1 !== undefined) return slotBinding.params?.[0]?.value === item.param1;
+                    return true;
+                }
+                return false;
+            }, [selectedKey, config, parsedSlots, activeActionSlot]);
 
             const SLOT_LABELS = { tap: 'Tap', shiftTap: 'Shift + Tap', hold: 'Hold', doubleTap: 'Double Tap' };
 
@@ -1338,19 +1387,19 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
 
                                 {/* Left Pane: Key Selection Details */}
                                 <div className="w-[380px] shrink-0 border-r border-[#222] flex flex-col p-8 overflow-y-auto bg-[#050505]">
-                                    <div className="text-white font-bold mb-8 text-[15px] flex justify-between items-center">
+                                    <div className="text-white font-bold mb-4 text-[15px] flex justify-between items-center">
                                         <span>key ({selectedKey !== null ? getLogicalName(selectedKey, config?.keyboard) : 'None'})</span>
                                         <button className="text-gray-500 hover:text-white transition-colors" title="Clear All Slots" onClick={() => { if(window.confirm('Clear all behaviors for this key?')) { clearSlot('tap'); clearSlot('shiftTap'); clearSlot('hold'); clearSlot('doubleTap'); } }}>
                                             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM14 12a2 2 0 11-4 0 2 2 0 014 0zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                                         </button>
                                     </div>
 
-                                    <div className="flex text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-4 px-2">
-                                        <div className="w-24">Behavior</div>
+                                    <div className="flex text-[11px] text-gray-500 uppercase tracking-widest font-bold mb-2 px-2">
+                                        <div className="w-28">Behavior</div>
                                         <div className="w-8 text-center">→</div>
                                         <div className="flex-1 text-right">Action</div>
                                     </div>
-                                    <div className="h-px w-full bg-[#222] mb-6"></div>
+                                    <div className="h-px w-full bg-[#222] mb-4"></div>
 
                                     {selectedKey !== null ? (
                                         <div className="flex flex-col gap-3">
@@ -1363,49 +1412,6 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                             <span className="mr-2 text-lg leading-none">+</span> Add {SLOT_LABELS[slotKey]}
                                                         </div>
                                                     ))}
-                                                </div>
-                                            )}
-
-                                            {/* Armed Modifiers logic for Tap assignment */}
-                                            {activeVerticalTab === 'Keymap' && (
-                                                <div className="mt-6 flex flex-col gap-3 p-4 border border-[#222] rounded-xl bg-[#0a0a0a]">
-                                                    <div className="flex items-center justify-between">
-                                                        <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Modifiers</span>
-                                                        <div className="flex bg-[#111] border border-[#333] p-0.5 rounded-full">
-                                                            <button onClick={() => setModSide('L')} className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-colors ${modSide === 'L' ? 'bg-[#b4b4ff] text-black' : 'text-gray-500 hover:text-white'}`}>Left</button>
-                                                            <button onClick={() => setModSide('R')} className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-colors ${modSide === 'R' ? 'bg-[#b4b4ff] text-black' : 'text-gray-500 hover:text-white'}`}>Right</button>
-                                                        </div>
-                                                    </div>
-                                                    <div className="grid grid-cols-4 gap-2 mt-1">
-                                                        {MOD_BASES.map(m => {
-                                                            const code = modSide + m.base;
-                                                            let active = armedMods.has(code);
-                                                           
-                                                            const slotBinding = parsedSlots[activeActionSlot];
-                                                            if (slotBinding && slotBinding.value === '&kp') {
-                                                                let p1 = slotBinding.params?.[0]?.value;
-                                                                if (MOD_WRAPPER_TO_FULL[p1] && slotBinding.params[0].params) {
-                                                                    const unwrapped = unwrapModChain(slotBinding.params[0]);
-                                                                    const currentMods = unwrapped.mods.map(full => FULL_TO_MOD_WRAPPER[full]);
-                                                                    if (currentMods.includes(code)) active = true;
-                                                                }
-                                                            }
-
-                                                            const sym = osMode === 'mac' ? m.mac : m.win;
-                                                            const isRight = modSide === 'R';
-
-                                                            return (
-                                                                <button
-                                                                    key={code}
-                                                                    title={`Toggle ${isRight ? 'Right' : 'Left'} ${osMode === 'mac' ? m.nameMac : m.nameWin}`}
-                                                                    onClick={() => toggleModifier(code)}
-                                                                    className={`w-full aspect-square rounded-lg text-xl font-bold border transition-all flex items-center justify-center pt-1 ${active ? 'bg-[#b4b4ff] border-[#b4b4ff] text-black shadow-sm' : 'bg-[#111] border-[#333] text-gray-400 hover:border-[#555] hover:text-gray-200'}`}
-                                                                >
-                                                                    <span>{sym}{isRight && <sup className="text-[10px] opacity-70">ᴿ</sup>}</span>
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
                                                 </div>
                                             )}
                                         </div>
@@ -1435,50 +1441,91 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                 {/* Right Pane: Content Grid */}
                                 <div className="flex-1 p-8 overflow-y-auto bg-[#050505] relative">
                                     {activeVerticalTab === 'Keymap' && (
-                                        <div className="flex flex-col gap-6 w-full max-w-7xl relative">
-                                            {/* Sticky Universal Search */}
-                                            <div className="sticky top-[-32px] bg-[#050505] z-10 pb-4 pt-1">
-                                                <div className="relative">
+                                        <div className="flex flex-col w-full max-w-7xl relative">
+                                           
+                                            {/* Sticky Unified Header */}
+                                            <div className="sticky top-[-32px] bg-[#050505] z-10 pb-4 pt-1 flex items-center justify-between gap-4 border-b border-[#222] mb-6">
+                                               
+                                                <div className="flex items-center gap-3">
+                                                    {/* Compact Left/Right Toggle */}
+                                                    <div className="flex flex-col bg-[#111] border border-[#333] p-0.5 rounded-lg h-[48px] justify-between">
+                                                        <button onClick={() => setModSide('L')} className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-colors ${modSide === 'L' ? 'bg-[#b4b4ff] text-black' : 'text-gray-500 hover:text-white'}`}>L</button>
+                                                        <button onClick={() => setModSide('R')} className={`px-2 py-0.5 text-[10px] font-bold rounded-md transition-colors ${modSide === 'R' ? 'bg-[#b4b4ff] text-black' : 'text-gray-500 hover:text-white'}`}>R</button>
+                                                    </div>
+                                                   
+                                                    {/* Square Modifier Grid */}
+                                                    <div className="flex gap-2">
+                                                        {MOD_BASES.map(m => {
+                                                            const code = modSide + m.base;
+                                                            let active = armedMods.has(code);
+                                                           
+                                                            const slotBinding = parsedSlots[activeActionSlot];
+                                                            if (slotBinding && slotBinding.value === '&kp') {
+                                                                let p1 = slotBinding.params?.[0]?.value;
+                                                                if (MOD_WRAPPER_TO_FULL[p1] && slotBinding.params[0].params) {
+                                                                    const unwrapped = unwrapModChain(slotBinding.params[0]);
+                                                                    const currentMods = unwrapped.mods.map(full => FULL_TO_MOD_WRAPPER[full]);
+                                                                    if (currentMods.includes(code)) active = true;
+                                                                }
+                                                            }
+
+                                                            return (
+                                                                <button
+                                                                    key={code}
+                                                                    title={`Toggle ${modSide === 'R' ? 'Right' : 'Left'} ${osMode === 'mac' ? m.nameMac : m.nameWin}`}
+                                                                    onClick={() => toggleModifier(code)}
+                                                                    className={`palette-btn ${active ? 'selected' : ''}`}
+                                                                >
+                                                                    {getModSymbol(code, osMode)}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+
+                                                <div className="relative w-72">
                                                     <svg className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-                                                    <input type="text" value={paletteSearch} onChange={(e) => setPaletteSearch(e.target.value)} placeholder="Search for a key..." className="w-full max-w-2xl bg-[#111] border border-[#333] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-600 outline-none focus:border-[#555] transition-colors shadow-sm" />
+                                                    <input type="text" value={paletteSearch} onChange={(e) => setPaletteSearch(e.target.value)} placeholder="Search for a key..." className="w-full bg-[#111] border border-[#333] rounded-xl pl-10 pr-4 py-2 text-sm text-white placeholder-gray-600 outline-none focus:border-[#555] transition-colors shadow-sm" />
                                                 </div>
                                             </div>
 
-                                            {paletteSearch.trim() ? (
-                                                searchAcrossAllPalette(paletteSearch).length === 0 ? (
-                                                    <div className="text-gray-500 text-xs italic">No keys match "{paletteSearch}" anywhere.</div>
-                                                ) : searchAcrossAllPalette(paletteSearch).map((section, sIdx) => (
-                                                    <div key={sIdx}>
-                                                        <div className="text-gray-400 text-[11px] font-bold mb-4 flex items-center gap-2 tracking-wide uppercase">
-                                                            <span className="text-[9px] uppercase tracking-widest text-[#111] bg-[#b4b4ff] px-2 py-0.5 rounded">{section.tabName}</span>
-                                                            {section.category || 'General'}
+                                            <div className="flex flex-col gap-10">
+                                                {paletteSearch.trim() ? (
+                                                    searchAcrossAllPalette(paletteSearch).length === 0 ? (
+                                                        <div className="text-gray-500 text-xs italic">No keys match "{paletteSearch}" anywhere.</div>
+                                                    ) : searchAcrossAllPalette(paletteSearch).map((section, sIdx) => (
+                                                        <div key={sIdx}>
+                                                            <div className="text-gray-400 text-[11px] font-bold mb-4 flex items-center gap-2 tracking-wide uppercase">
+                                                                <span className="text-[9px] uppercase tracking-widest text-[#111] bg-[#b4b4ff] px-2 py-0.5 rounded">{section.tabName}</span>
+                                                                {section.category || 'General'}
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2.5">
+                                                                {section.items.map((item, idx) => (
+                                                                    <button key={idx} onClick={() => assignAction(item)} className={`palette-btn ${isItemActive(item) ? 'selected' : ''}`}>
+                                                                        {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                        <div className="flex flex-wrap gap-2.5">
-                                                            {section.items.map((item, idx) => (
-                                                                <button key={idx} onClick={() => assignAction(item)} className="palette-btn">
-                                                                    {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
-                                                                </button>
-                                                            ))}
+                                                    ))
+                                                ) : (
+                                                    ALL_PALETTE_SECTIONS.map((section, sIdx) => (
+                                                        <div key={sIdx}>
+                                                            <div className="text-gray-400 text-[11px] font-bold mb-4 flex items-center gap-2 tracking-wide uppercase">
+                                                                <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
+                                                                {section.category || 'General'}
+                                                            </div>
+                                                            <div className="flex flex-wrap gap-2.5">
+                                                                {section.items.map((item, idx) => (
+                                                                    <button key={idx} onClick={() => assignAction(item)} className={`palette-btn ${isItemActive(item) ? 'selected' : ''}`}>
+                                                                        {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
+                                                                    </button>
+                                                                ))}
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                ALL_PALETTE_SECTIONS.map((section, sIdx) => (
-                                                    <div key={sIdx}>
-                                                        <div className="text-gray-400 text-[11px] font-bold mb-4 flex items-center gap-2 tracking-wide uppercase">
-                                                            <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 15l7-7 7 7"></path></svg>
-                                                            {section.category || 'General'}
-                                                        </div>
-                                                        <div className="flex flex-wrap gap-2.5">
-                                                            {section.items.map((item, idx) => (
-                                                                <button key={idx} onClick={() => assignAction(item)} className="palette-btn">
-                                                                    {item.top ? <div className="key-dual"><span>{item.top}</span><span>{item.bottom}</span></div> : paletteLabel(item, osMode)}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            )}
+                                                    ))
+                                                )}
+                                            </div>
                                         </div>
                                     )}
 
@@ -1491,21 +1538,6 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                 <button onClick={() => setShowLeds(!showLeds)} className={`w-8 h-8 mt-1 flex items-center justify-center rounded transition-colors border cursor-pointer ${showLeds ? 'text-white bg-[#222] border-[#444]' : 'text-gray-500 border-transparent hover:border-[#444]'}`}>
                                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
                                                 </button>
-                                            </div>
-
-                                            {/* LED Mapping Tools */}
-                                            <div className="flex flex-col gap-3">
-                                                <div className="text-[11px] text-gray-500 font-bold tracking-wide uppercase">LED Mapping Tools</div>
-                                                <div className="h-px w-full max-w-[600px] bg-[#222]"></div>
-                                                <div className="flex border border-[#333] rounded-lg w-max overflow-hidden mt-1 shadow-sm">
-                                                    <button className="w-14 h-10 flex items-center justify-center bg-[#b4b4ff] text-black">
-                                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71 7.04c.39-.39.39-1.04 0-1.41l-2.34-2.34c-.37-.39-1.02-.39-1.41 0l-1.84 1.83 3.75 3.75M3 17.25V21h3.75L17.81 9.93l-3.75-3.75L3 17.25z"/></svg>
-                                                    </button>
-                                                    <div className="w-px h-10 bg-[#333]"></div>
-                                                    <button className="w-14 h-10 flex items-center justify-center text-gray-400 hover:text-white bg-[#111] hover:bg-[#22]">
-                                                        <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M19.36 10.04L13.96 4.64C13.57 4.25 12.93 4.25 12.54 4.64L3.64 13.54C3.25 13.93 3.25 14.57 3.64 14.96L9.04 20.36C9.43 20.75 10.07 20.75 10.46 20.36L19.36 11.46C19.75 11.07 19.75 10.43 19.36 10.04M14 17H5L12 10L14 12V17Z"/></svg>
-                                                    </button>
-                                                </div>
                                             </div>
 
                                             {/* LED Color Palette */}
@@ -1566,7 +1598,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                 <div className="flex flex-wrap gap-2.5">
                                                     {(config.macros && config.macros.length > 0) ? (
                                                         config.macros.map((m, i) => (
-                                                            <button key={i} onClick={() => assignAction({ type: m.name })} className="palette-btn">
+                                                            <button key={i} onClick={() => assignAction({ type: m.name })} className={`palette-btn ${isItemActive({type: m.name}) ? 'selected' : ''}`}>
                                                                 {m.name.replace('&', '')}
                                                             </button>
                                                         ))
@@ -1586,8 +1618,8 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                 <div className="flex flex-wrap gap-2.5">
                                                     {(config.layer_names || config.layers).map((n, i) => (
                                                         <React.Fragment key={i}>
-                                                            <button onClick={() => assignAction({ type: '&mo', param1: i })} className="palette-btn !text-purple-300 border-purple-900/50 hover:bg-purple-900/20">MO {i}</button>
-                                                            <button onClick={() => assignAction({ type: '&tog', param1: i })} className="palette-btn !text-emerald-300 border-emerald-900/50 hover:bg-emerald-900/20">TOG {i}</button>
+                                                            <button onClick={() => assignAction({ type: '&mo', param1: i })} className={`palette-btn ${isItemActive({type: '&mo', param1: i}) ? 'selected' : '!text-purple-300 border-purple-900/50 hover:bg-purple-900/20'}`}>MO {i}</button>
+                                                            <button onClick={() => assignAction({ type: '&tog', param1: i })} className={`palette-btn ${isItemActive({type: '&tog', param1: i}) ? 'selected' : '!text-emerald-300 border-emerald-900/50 hover:bg-emerald-900/20'}`}>TOG {i}</button>
                                                         </React.Fragment>
                                                     ))}
                                                 </div>
