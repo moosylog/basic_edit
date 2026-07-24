@@ -599,9 +599,6 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
         function remapLayerPointersAfterDelete(layers, deletedIdx) {
             layers.forEach(layer => { (layer || []).forEach(binding => { if (!binding || !LAYER_POINTER_BEHAVIORS.has(binding.value)) return; const p = binding.params?.[0]; if (!p || typeof p.value !== 'number') return; if (p.value === deletedIdx) { binding.value = '&none'; binding.params = []; } else if (p.value > deletedIdx) p.value -= 1; }); });
         }
-        function remapLayerPointersAfterSwap(layers, a, b) {
-            layers.forEach(layer => { (layer || []).forEach(binding => { if (!binding || !LAYER_POINTER_BEHAVIORS.has(binding.value)) return; const p = binding.params?.[0]; if (!p || typeof p.value !== 'number') return; if (p.value === a) p.value = b; else if (p.value === b) p.value = a; }); });
-        }
         function remapLayerPointersAfterInsert(layers, insertIdx) {
             layers.forEach(layer => { (layer || []).forEach(binding => { if (!binding || !LAYER_POINTER_BEHAVIORS.has(binding.value)) return; const p = binding.params?.[0]; if (!p || typeof p.value !== 'number') return; if (p.value >= insertIdx) p.value += 1; }); });
         }
@@ -641,6 +638,10 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
             const [armedMods, setArmedMods] = useState(new Set());
             const [bgHexInput, setBgHexInput] = useState('');
             const [modSide, setModSide] = useState('L');
+           
+            // Drag and Drop State for Layers
+            const [draggedLayerIdx, setDraggedLayerIdx] = useState(null);
+            const [dragOverLayerIdx, setDragOverLayerIdx] = useState(null);
 
             useEffect(() => {
                 setBgHexInput(''); setActiveActionSlot('tap'); setActiveConfigSlot(null); setManuallyAddedSlots(new Set());
@@ -1037,7 +1038,12 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                     <span className="tracking-wide text-app-accent">{label}</span>
                                     <button onClick={(e) => { e.stopPropagation(); clearSlot('label'); }} className={`w-5 h-5 rounded flex items-center justify-center transition-all text-md leading-none shrink-0 ${isSelected ? 'text-app-accent hover:bg-app-accent/20' : 'text-app-textMuted hover:text-app-text hover:bg-white/10'}`} title="Remove label">✕</button>
                                 </div>
-                                {isSelected && <input autoFocus type="text" value={currentLabel} onChange={(e) => updateDecorationProperty('label', e.target.value)} placeholder="Type custom keycap text..." className="w-full bg-app-surface border border-app-borderHighlight rounded-lg px-3 py-2 mt-1 text-app-text outline-none font-mono" onClick={e => e.stopPropagation()} />}
+                                {isSelected && (
+                                    <div className="flex gap-2 mt-1">
+                                        <input autoFocus type="text" value={currentLabel} onChange={(e) => updateDecorationProperty('label', e.target.value)} onKeyDown={(e) => { if(e.key === 'Enter') { e.stopPropagation(); setActiveActionSlot(null); } }} placeholder="Type custom text..." className="w-full bg-app-surface border border-app-borderHighlight rounded-lg px-3 py-2 text-app-text outline-none font-mono" onClick={e => e.stopPropagation()} />
+                                        <button onClick={(e) => { e.stopPropagation(); setActiveActionSlot(null); }} className="w-9 shrink-0 flex items-center justify-center bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/50 rounded-lg transition-colors shadow-sm" title="Confirm">✓</button>
+                                    </div>
+                                )}
                                 {!isSelected && <span className="text-app-text font-mono truncate">{currentLabel || '(Empty)'}</span>}
                             </div>
                         </div>
@@ -1144,15 +1150,6 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                 setActiveLayer(prev => prev >= newConfig.layers.length ? newConfig.layers.length - 1 : (prev > idx ? prev - 1 : prev)); setSelectedKey(null); showToast('Layer deleted');
             };
 
-            const moveLayer = (idx, dir) => {
-                if (!config || idx + dir < 0 || idx + dir >= config.layers.length) return;
-                const newConfig = structuredClone(config);
-                const tempLayer = newConfig.layers[idx]; newConfig.layers[idx] = newConfig.layers[idx + dir]; newConfig.layers[idx + dir] = tempLayer;
-                if (Array.isArray(newConfig.layer_names)) { const tempName = newConfig.layer_names[idx]; newConfig.layer_names[idx] = newConfig.layer_names[idx + dir]; newConfig.layer_names[idx + dir] = tempName; }
-                remapLayerPointersAfterSwap(newConfig.layers, idx, idx + dir); pushHistory(newConfig);
-                if (activeLayer === idx) setActiveLayer(idx + dir); else if (activeLayer === idx + dir) setActiveLayer(idx);
-            };
-
             const cloneLayer = (idx) => {
                 if (!config) return;
                 const newConfig = structuredClone(config);
@@ -1169,6 +1166,27 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                 const trimmed = renameValue.trim(); newConfig.layer_names[renamingLayerIdx] = trimmed || `Layer ${renamingLayerIdx}`; pushHistory(newConfig); setRenamingLayerIdx(null);
             };
 
+            // Deep AST Remapping for physical drag and drop Layer reordering
+            const moveLayerReorder = (fromIdx, toIdx) => {
+                if (!config || fromIdx === toIdx) return;
+                const newConfig = structuredClone(config);
+                const [movedLayer] = newConfig.layers.splice(fromIdx, 1); newConfig.layers.splice(toIdx, 0, movedLayer);
+                if (Array.isArray(newConfig.layer_names)) { const [movedName] = newConfig.layer_names.splice(fromIdx, 1); newConfig.layer_names.splice(toIdx, 0, movedName); }
+                newConfig.layers.forEach(layer => {
+                    (layer || []).forEach(binding => {
+                        if (!binding || !LAYER_POINTER_BEHAVIORS.has(binding.value)) return;
+                        const p = binding.params?.[0]; if (!p || typeof p.value !== 'number') return;
+                        if (p.value === fromIdx) p.value = toIdx;
+                        else if (fromIdx < toIdx && p.value > fromIdx && p.value <= toIdx) p.value -= 1;
+                        else if (fromIdx > toIdx && p.value >= toIdx && p.value < fromIdx) p.value += 1;
+                    });
+                });
+                pushHistory(newConfig);
+                if (activeLayer === fromIdx) setActiveLayer(toIdx);
+                else if (fromIdx < activeLayer && toIdx >= activeLayer) setActiveLayer(activeLayer - 1);
+                else if (fromIdx > activeLayer && toIdx <= activeLayer) setActiveLayer(activeLayer + 1);
+            };
+
             const saveCustomJson = () => {
                 if (selectedKey === null || !config || !config.layers[activeLayer]) return;
                 try {
@@ -1181,16 +1199,13 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
             if (parsedSlots.shiftTap || manuallyAddedSlots.has('shiftTap')) activeSlotKeys.push('shiftTap');
             if (parsedSlots.hold || manuallyAddedSlots.has('hold')) activeSlotKeys.push('hold');
             if (parsedSlots.doubleTap || manuallyAddedSlots.has('doubleTap')) activeSlotKeys.push('doubleTap');
-           
             const hasCustomLabel = !!currentBinding?.decoration?.label;
             if (hasCustomLabel || manuallyAddedSlots.has('label')) activeSlotKeys.push('label');
-
             const availableToAdd = ['shiftTap', 'hold', 'doubleTap', 'label'].filter(k => !activeSlotKeys.includes(k));
 
             return (
                 <div className="flex h-screen w-screen font-sans text-sm overflow-hidden bg-app-base text-app-text transition-colors duration-300" onClick={() => setActiveConfigSlot(null)}>
                    
-                    {/* LEFT SIDEBAR - LAYERS */}
                     <aside className="w-[240px] shrink-0 bg-app-sidebar border-r border-app-borderHighlight flex flex-col z-30 transition-colors">
                         <div className="h-[76px] flex items-center px-6 border-b border-app-borderHighlight shrink-0">
                             <span className="font-bold text-xl tracking-widest flex items-center gap-3">GLIDE <div className="w-px h-5 bg-app-borderHighlight"></div></span>
@@ -1201,31 +1216,42 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                     <div className="text-[10px] font-bold text-app-textMuted uppercase tracking-widest mb-2 px-2">Layers</div>
                                     {(config.layer_names || Array.from({length: config.layers.length})).map((name, i) => {
                                         const displayName = (typeof name === 'string' && name.trim() !== '') ? name : `Layer ${i}`;
+                                        const isDragged = draggedLayerIdx === i;
+                                        const isDropTarget = dragOverLayerIdx === i && draggedLayerIdx !== null && draggedLayerIdx !== i;
+                                       
                                         return (
-                                            <div key={i} className="relative group">
+                                            <div
+                                                key={i}
+                                                className={`relative group flex items-center rounded-xl transition-all duration-200
+                                                    ${activeLayer === i ? 'bg-app-card border border-app-accent shadow-sm' : 'border border-transparent hover:border-app-borderHighlight hover:bg-app-surface'}
+                                                    ${isDragged ? 'opacity-40 scale-95 border-dashed border-app-borderHighlight' : ''}
+                                                    ${isDropTarget ? 'border-t-2 border-t-app-accent' : ''}
+                                                `}
+                                                draggable
+                                                onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; setDraggedLayerIdx(i); }}
+                                                onDragOver={(e) => { e.preventDefault(); setDragOverLayerIdx(i); }}
+                                                onDrop={(e) => { e.preventDefault(); moveLayerReorder(draggedLayerIdx, i); setDraggedLayerIdx(null); setDragOverLayerIdx(null); }}
+                                                onDragEnd={() => { setDraggedLayerIdx(null); setDragOverLayerIdx(null); }}
+                                            >
                                                 {renamingLayerIdx === i ? (
-                                                    <input autoFocus value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onBlur={commitRenameLayer} onKeyDown={(e) => { if (e.key === 'Enter') commitRenameLayer(); if (e.key === 'Escape') setRenamingLayerIdx(null); }} className="w-full px-4 py-2.5 rounded-lg text-xs font-semibold bg-white text-black outline-none shadow-sm" />
+                                                    <input autoFocus value={renameValue} onChange={(e) => setRenameValue(e.target.value)} onBlur={commitRenameLayer} onKeyDown={(e) => { if (e.key === 'Enter') commitRenameLayer(); if (e.key === 'Escape') setRenamingLayerIdx(null); }} className="w-full mx-2 my-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-black outline-none shadow-sm" />
                                                 ) : (
-                                                    <div onClick={() => { setActiveLayer(i); setSelectedKey(null); }} onDoubleClick={() => startRenameLayer(i, displayName)} className={`w-full text-left px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex justify-between items-center cursor-pointer border relative overflow-hidden group ${activeLayer === i ? 'border-app-accent bg-app-accentGhost text-app-text shadow-sm' : 'border-transparent text-app-textMuted hover:text-app-text hover:bg-app-card/50'}`} title="Double-click to rename">
-                                                        <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
-                                                            <span className="opacity-30 text-[10px] cursor-grab shrink-0">∷</span>
-                                                            <span className="opacity-50 font-mono text-[10px] w-3 text-right shrink-0">{i}</span>
-                                                            <span className="truncate flex-1">{displayName}</span>
+                                                    <>
+                                                        <div className="px-3 cursor-grab opacity-20 group-hover:opacity-60 hover:!opacity-100 text-app-textMuted text-[12px] flex items-center justify-center shrink-0 transition-opacity" title="Drag to reorder">
+                                                            ∷
                                                         </div>
-                                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-app-surface/90 backdrop-blur-md px-1 py-1 rounded-lg border border-app-borderHighlight shadow-lg transform translate-x-2 group-hover:translate-x-0">
-                                                            <button onClick={(e) => { e.stopPropagation(); moveLayer(i, -1); }} disabled={i===0} className="w-6 h-6 flex items-center justify-center hover:bg-app-card rounded disabled:opacity-30 transition-colors" title="Move Up">▲</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); moveLayer(i, 1); }} disabled={i===config.layers.length-1} className="w-6 h-6 flex items-center justify-center hover:bg-app-card rounded disabled:opacity-30 transition-colors" title="Move Down">▼</button>
-                                                            <div className="w-px h-3 bg-app-borderHighlight mx-0.5"></div>
-                                                            <button onClick={(e) => { e.stopPropagation(); cloneLayer(i); }} className="w-6 h-6 flex items-center justify-center hover:bg-app-card rounded transition-colors" title="Clone layer">⧉</button>
-                                                            <button onClick={(e) => { e.stopPropagation(); startRenameLayer(i, displayName); }} className="w-6 h-6 flex items-center justify-center hover:bg-app-card rounded transition-colors" title="Rename layer">✎</button>
+                                                        <div onClick={() => { setActiveLayer(i); setSelectedKey(null); }} onDoubleClick={() => startRenameLayer(i, displayName)} className="flex-1 flex items-center gap-2 py-2.5 min-w-0 cursor-pointer" title="Double-click to rename">
+                                                            <span className="opacity-50 font-mono text-[10px] w-3 text-right shrink-0">{i}</span>
+                                                            <span className={`truncate flex-1 font-bold text-xs ${activeLayer === i ? 'text-app-accent' : ''}`}>{displayName}</span>
+                                                        </div>
+                                                        <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity pr-2 shrink-0">
+                                                            <button onClick={(e) => { e.stopPropagation(); cloneLayer(i); }} className="w-6 h-6 flex items-center justify-center text-app-textMuted hover:text-app-text hover:bg-white/10 rounded transition-colors" title="Clone layer">⧉</button>
+                                                            <button onClick={(e) => { e.stopPropagation(); startRenameLayer(i, displayName); }} className="w-6 h-6 flex items-center justify-center text-app-textMuted hover:text-app-text hover:bg-white/10 rounded transition-colors" title="Rename layer">✎</button>
                                                             {config.layers.length > 1 && (
-                                                                <>
-                                                                    <div className="w-px h-3 bg-app-borderHighlight mx-0.5"></div>
-                                                                    <button onClick={(e) => { e.stopPropagation(); deleteLayer(i); }} className="w-6 h-6 flex items-center justify-center hover:bg-red-900/50 hover:text-red-400 rounded transition-colors" title="Delete layer">✕</button>
-                                                                </>
+                                                                <button onClick={(e) => { e.stopPropagation(); deleteLayer(i); }} className="w-6 h-6 flex items-center justify-center text-red-500/70 hover:text-red-400 hover:bg-red-900/50 rounded transition-colors" title="Delete layer">✕</button>
                                                             )}
                                                         </div>
-                                                    </div>
+                                                    </>
                                                 )}
                                             </div>
                                         );
@@ -1242,7 +1268,6 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                         )}
                     </aside>
 
-                    {/* MAIN AREA */}
                     <main className={`flex-1 flex ${layoutMode === 'right' ? 'flex-row' : 'flex-col'} min-w-0 relative z-10 overflow-hidden`}>
                         <section className="flex-1 flex relative overflow-hidden bg-transparent">
                             {!config ? (
@@ -1282,6 +1307,7 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                                     {availableToAdd.map((slotKey, index) => {
                                                         const isLast = index === availableToAdd.length - 1; const isSecondToLast = index === availableToAdd.length - 2;
                                                         let separator = ''; if (availableToAdd.length > 2 && !isLast) separator = ', '; if (availableToAdd.length >= 2 && isSecondToLast) separator = availableToAdd.length > 2 ? ', or ' : ' or ';
+                                                       
                                                         const linkLabel = SLOT_LINK_LABELS[slotKey];
                                                        
                                                         return ( <React.Fragment key={slotKey}><span className="text-app-accent hover:text-app-text cursor-pointer underline decoration-app-accentGhost hover:decoration-app-borderHighlight transition-colors" onClick={() => { setManuallyAddedSlots(prev => new Set(prev).add(slotKey)); setActiveActionSlot(slotKey); }}>{linkLabel}</span>{separator}</React.Fragment> );
@@ -1302,7 +1328,6 @@ const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
                                 </div>
 
                                 <div className="flex-1 p-8 overflow-y-auto bg-app-surface relative flex flex-col transition-colors">
-                                   
                                     {activeVerticalTab === 'Keymap' && (
                                         <div className="flex flex-col gap-6 w-full max-w-7xl relative">
                                             <div className="sticky top-[-32px] bg-app-surface z-10 pb-4 pt-1 flex items-center justify-between gap-4 border-b border-app-borderHighlight mb-6 transition-colors">
