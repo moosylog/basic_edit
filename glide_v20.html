@@ -30,8 +30,6 @@
         }
     </script>
    
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-   
     <style>
         :root {
             --bg-base: #f3f4f6; --bg-surface: #ffffff; --bg-panel: #e5e7eb; --bg-card: #f9fafb;
@@ -109,7 +107,7 @@
         .p-key.drag-source { opacity: 0.35; transform: scale(0.95); }
         .p-key.drag-over { box-shadow: 0 0 0 3px var(--bg-base), 0 0 0 5px var(--accent-primary) !important; border-style: dashed !important; transform: scale(1.08); }
 
-        /* Unified & Safe Keycap Typography */
+        /* Unified & Strict Keycap Typography */
         .kc-grid { width: 100%; height: 100%; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; overflow: hidden; padding: 2px; box-sizing: border-box; }
        
         .kc-main {
@@ -144,14 +142,12 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border-highlight); border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-       
-        .combo-svg-line { stroke: var(--accent-primary); stroke-width: 2.5; stroke-dasharray: 4 4; fill: none; opacity: 0.6; pointer-events: none; animation: dash 15s linear infinite; }
-        @keyframes dash { to { stroke-dashoffset: -100; } }
     </style>
 </head>
 <body>
     <div id="root" class="h-screen w-screen flex overflow-hidden text-app-text bg-app-base transition-colors duration-300"></div>
     <script type="text/babel">
+
 
 
 const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
@@ -161,7 +157,9 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
 
         const SLOT_LABELS = { tap: 'Primary Action', shiftTap: 'Shift Action', hold: 'Hold Action', doubleTap: 'Double-Tap Action', label: 'Custom Key Text' };
         const SLOT_LINK_LABELS = { shiftTap: 'when tapped with Shift', hold: 'when held', doubleTap: 'when double-tapped', label: 'add text label to the key' };
-        const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt']);
+       
+        // &layer added for proprietary MoErgo support
+        const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt', '&layer']);
        
         const detectOs = () => { const platform = navigator.userAgent.toLowerCase(); if (platform.includes('mac')) return 'mac'; if (platform.includes('linux')) return 'linux'; return 'win'; };
 
@@ -321,7 +319,7 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
                 const ht = (config?.holdTaps || []).find(h => h.name === binding.value);
                 if (ht && ht.bindings && ht.bindings.length >= 2) {
                     let pIdx = 0;
-                    const reconstruct = (val) => { const needsP = ['&kp', '&mo', '&to', '&tog', '&sl'].includes(val); if (needsP && binding.params?.[pIdx]) return { value: val, params: [binding.params[pIdx++]] }; return { value: val }; };
+                    const reconstruct = (val) => { const needsP = ['&kp', '&mo', '&to', '&tog', '&sl', '&layer'].includes(val); if (needsP && binding.params?.[pIdx]) return { value: val, params: [binding.params[pIdx++]] }; return { value: val }; };
                     return { hold: reconstruct(ht.bindings[0]), tap: reconstruct(ht.bindings[1]) };
                 }
             }
@@ -349,7 +347,7 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
         const makeHoldTap = (tap, hold, configRef, forceCustom = false) => {
             if (!tap && !hold) return null; if (tap && !hold) return tap; if (!tap && hold) return hold;
             const holdVal = hold.value; const tapVal = tap.value;
-            const isLayer = holdVal === '&mo' || holdVal === '&to' || holdVal === '&tog' || holdVal === '&sl';
+            const isLayer = holdVal === '&mo' || holdVal === '&to' || holdVal === '&tog' || holdVal === '&sl' || holdVal === '&layer';
             const isMod = RAW_MOD_CODES.has(holdVal) || ['LCTRL','RCTRL','LSHFT','RSHFT','LALT','RALT','LGUI','RGUI'].includes(holdVal);
             if (!forceCustom && (tapVal === '&kp' || tapVal.startsWith('&mac'))) {
                 if (tapVal === '&kp') { if (isLayer) return { value: '&lt', params: [hold.params?.[0] || {value: 0}, tap.params[0]] }; if (isMod) return { value: '&mt', params: [{value: holdVal}, tap.params[0]] }; }
@@ -375,7 +373,42 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
             return { newBinding: { value: tdName }, newConfig };
         }
 
-const getContrastColor = (hexcolor) => {
+
+function computeGeoBounds(geo) {
+            let maxX = 0, maxY = 0;
+            geo.forEach(k => { maxX = Math.max(maxX, k.x + (k.w || KEY_SIZE)); const extraHeight = k.r ? 60 : 0; maxY = Math.max(maxY, k.y + (k.h || KEY_SIZE) + extraHeight); });
+            return { w: maxX + 40, h: maxY + 40 };
+        }
+
+        const MiniKeyboardMap = memo(({ geo, selectedKeys = [], onKeyToggle, scale = 0.2, readonly = false }) => {
+            const bounds = useMemo(() => computeGeoBounds(geo), [geo]);
+            return (
+                <div className="relative overflow-hidden flex items-center justify-center rounded-xl w-full h-[120px] bg-app-panel/50 border border-app-borderHighlight shadow-inner">
+                    <div className="relative origin-center" style={{ width: bounds.w, height: bounds.h, transform: `scale(${scale})` }}>
+                        {geo.map((k, i) => {
+                            const isSel = selectedKeys.includes(i);
+                            return (
+                                <div key={i} onClick={(e) => { e.stopPropagation(); if (!readonly && onKeyToggle) onKeyToggle(i); }}
+                                     style={{
+                                         position: 'absolute', left: k.x, top: k.y, width: k.w || KEY_SIZE, height: k.h || KEY_SIZE,
+                                         transform: k.r ? `rotate(${k.r}deg)` : 'none', transformOrigin: k.o || 'center',
+                                         backgroundColor: isSel ? 'var(--accent-primary)' : 'var(--bg-surface)',
+                                         border: `2px solid ${isSel ? 'var(--accent-primary)' : 'var(--border-highlight)'}`,
+                                         borderRadius: k.isRound ? '50%' : '12px',
+                                         cursor: readonly ? 'default' : 'pointer',
+                                         transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                         opacity: isSel ? 1 : 0.6,
+                                         boxShadow: isSel ? '0 10px 30px rgba(229, 95, 46, 0.5)' : 'none'
+                                     }}
+                                />
+                            )
+                        })}
+                    </div>
+                </div>
+            );
+        });
+
+        const getContrastColor = (hexcolor) => {
             if (!hexcolor) return '#ffffff';
             let cleanHex = hexcolor.replace("#", "");
             if (cleanHex.length === 3) cleanHex = cleanHex.split('').map(c => c+c).join('');
@@ -453,6 +486,7 @@ const getContrastColor = (hexcolor) => {
             }
 
             let p1 = binding.params?.[0]?.value ?? ''; let p2 = binding.params?.[1]?.value ?? '';
+            let combinedParams = [formatParam(p1, layerNames), formatParam(p2, layerNames)].filter(x => x).join(' ');
            
             if (val === '&kp') {
                 if (p1 && MOD_WRAPPER_TO_FULL[p1] && binding.params[0].params) {
@@ -460,12 +494,11 @@ const getContrastColor = (hexcolor) => {
                     const modSymbols = mods.map(m => formatKeycode(m, osMode)).join('+');
                     return renderStructured(formatKeycode(keyVal, osMode), modSymbols);
                 }
-                let combinedParams = [formatParam(p1, layerNames), formatParam(p2, layerNames)].filter(x => x).join(' ');
                 return renderStructured(combinedParams ? formatKeycode(combinedParams, osMode) : '');
             }
            
-            if (val === '&mo' || val === '&tog' || val === '&to' || val === '&sl') {
-                let icon = val === '&mo' ? '⭕' : (val === '&tog' ? '🔁' : (val === '&to' ? '➡️' : '📌'));
+            if (val === '&mo' || val === '&tog' || val === '&to' || val === '&sl' || val === '&layer') {
+                let icon = val === '&mo' || val === '&layer' ? '⭕' : (val === '&tog' ? '🔁' : (val === '&to' ? '➡️' : '📌'));
                 return `<div class="kc-grid"><span class="kc-main ${cc('text-app-accent')}">${escapeHtml(formatParam(p1, layerNames))}</span><span class="kc-tr ${cc('text-app-textMuted')}">${icon}</span></div>`;
             }
            
@@ -477,12 +510,11 @@ const getContrastColor = (hexcolor) => {
             if (val === '&rgb_ug') return renderStructured(`RGB ${String(p1).replace('RGB_','')}`, '', '💡');
             if (val === '&ext_power') return renderStructured(`PWR ${String(p1).replace('EP_','')}`, '', '🔋');
             if (val === '&magic') return renderStructured(`Magic ${p1}`, '', '✨');
-           
-            let combinedFallback = [formatParam(p1, layerNames), formatParam(p2, layerNames)].filter(x => x).join(' ');
-            if (val === '&sk') return renderStructured(combinedFallback ? formatKeycode(combinedFallback, osMode) : '', '', '📌');
+            if (val === '&sk') return renderStructured(combinedParams ? formatKeycode(combinedParams, osMode) : '', '', '📌');
+
             if (val.startsWith('&mac')) return renderStructured(val.replace('&',''), '', '⚡');
            
-            return renderStructured(combinedFallback, val.replace('&', ''));
+            return renderStructured(combinedParams, val.replace('&', ''));
         };
 
         const paletteLabel = (item, osMode) => {
@@ -504,7 +536,7 @@ const getContrastColor = (hexcolor) => {
             }
            
             const lName = formatParamFull(p1, layerNames);
-            if (val === '&mo') return `Momentary ${lName}`; if (val === '&tog') return `Toggle ${lName}`; if (val === '&to') return `Switch to ${lName}`; if (val === '&sl') return `Sticky ${lName}`; if (val === '&lt') return `Layer-Tap (${lName})`;
+            if (val === '&mo' || val === '&layer') return `Momentary ${lName}`; if (val === '&tog') return `Toggle ${lName}`; if (val === '&to') return `Switch to ${lName}`; if (val === '&sl') return `Sticky Layer ${lName}`; if (val === '&lt') return `Layer-Tap (${lName})`;
             if (val === 'Custom') return p1 ? String(p1) : 'Custom';
            
             if (val === '&bt') return `Bluetooth: ${p1} ${p2 ?? ''}`; if (val === '&out') return `Output: ${p1}`; if (val === '&rgb_ug') return `RGB: ${p1}`; if (val === '&magic') return `Magic Lock (L${p1}, Status: ${p2})`;
@@ -526,33 +558,27 @@ const getContrastColor = (hexcolor) => {
             return <span className="flex items-start justify-center w-full"><span>{sym}</span>{isRight && <sup className="text-[7px] -ml-0.5 mt-0.5 opacity-70">R</sup>}</span>;
         };
 
-        const KeyComponent = memo(({ index, geo, binding, isSelected, isComboSelected, isComboHovered, comboMode, onSelect, osMode, onContextMenu, onKeyMouseDown, isDragSource, isDragOver, showLeds, isTouchpad, config, layerNames }) => {
-            const renderBlank = comboMode || isComboHovered;
-            const hasCustomBg = !renderBlank && showLeds && !isTouchpad && binding?.value !== '&trans' && binding?.value !== '&none' && binding?.decoration?.background;
+        const KeyComponent = memo(({ index, geo, binding, isSelected, isComboSelected, isZenMode, onSelect, osMode, onContextMenu, onKeyMouseDown, isDragSource, isDragOver, showLeds, isTouchpad, config, layerNames }) => {
+            const hasCustomBg = !isZenMode && showLeds && !isTouchpad && binding?.value !== '&trans' && binding?.value !== '&none' && binding?.decoration?.background;
            
-            const labelHtml = renderBlank ? '' : getBeautifulLabel(binding, osMode, hasCustomBg, config, layerNames);
+            const labelHtml = isZenMode ? '' : getBeautifulLabel(binding, osMode, hasCustomBg, config, layerNames);
            
             const outerStyle = { left: `${geo.x}px`, top: `${geo.y}px`, width: `${geo.w || KEY_SIZE}px`, height: `${geo.h || KEY_SIZE}px`, transform: geo.r ? `rotate(${geo.r}deg)` : 'none', transformOrigin: geo.o || 'center' };
             const innerStyle = {};
             if (hasCustomBg) { innerStyle.background = binding.decoration.background; innerStyle.borderColor = binding.decoration.background; innerStyle.color = getContrastColor(binding.decoration.background); }
-            if (renderBlank && !isComboSelected && !isComboHovered) { innerStyle.opacity = '0.25'; innerStyle.filter = 'grayscale(100%)'; }
+            if (isZenMode && !isComboSelected) { innerStyle.opacity = '0.25'; innerStyle.filter = 'grayscale(100%)'; }
 
             return (
-                <div className={`p-key-outer ${isSelected ? 'selected' : ''} ${(isComboSelected || isComboHovered) ? 'combo-highlight' : ''} ${isDragOver ? 'drag-over' : ''} ${isTouchpad ? 'is-touchpad' : ''}`} style={outerStyle} data-key-idx={index} onClick={(e) => { e.stopPropagation(); if (!isTouchpad) onSelect(index); }} onContextMenu={(e) => { if (!isTouchpad) onContextMenu(e, index); }} onMouseDown={(e) => { if (!isTouchpad) onKeyMouseDown(e, index); }}>
-                    <div className={`p-key ${hasCustomBg ? 'has-bg' : ''} ${isDragSource ? 'drag-source' : ''} ${isDragOver ? 'drag-over' : ''} ${geo.isRound ? 'is-round' : ''} ${(isComboSelected || isComboHovered) ? 'combo-selected' : ''}`} style={innerStyle}>
+                <div className={`p-key-outer ${isSelected ? 'selected' : ''} ${isComboSelected ? 'combo-highlight' : ''} ${isDragOver ? 'drag-over' : ''} ${isTouchpad ? 'is-touchpad' : ''}`} style={outerStyle} data-key-idx={index} onClick={(e) => { e.stopPropagation(); if (!isTouchpad) onSelect(index); }} onContextMenu={(e) => { if (!isTouchpad) onContextMenu(e, index); }} onMouseDown={(e) => { if (!isTouchpad) onKeyMouseDown(e, index); }}>
+                    <div className={`p-key ${hasCustomBg ? 'has-bg' : ''} ${isDragSource ? 'drag-source' : ''} ${isDragOver ? 'drag-over' : ''} ${geo.isRound ? 'is-round' : ''} ${isComboSelected ? 'combo-selected' : ''}`} style={innerStyle}>
                         {!isTouchpad && labelHtml ? <div dangerouslySetInnerHTML={{ __html: labelHtml }} className="w-full h-full flex items-center justify-center relative overflow-hidden" /> : null}
                     </div>
                 </div>
             );
         });
 
-function computeGeoBounds(geo) {
-            let maxX = 0, maxY = 0;
-            geo.forEach(k => { maxX = Math.max(maxX, k.x + (k.w || KEY_SIZE)); const extraHeight = k.r ? 60 : 0; maxY = Math.max(maxY, k.y + (k.h || KEY_SIZE) + extraHeight); });
-            return { w: maxX + 40, h: maxY + 40 };
-        }
 
-        const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, selectedKey, onSelectKey, scale, setScale, osMode, onContextAction, clipboard, styleClipboard, onSwapKeys, showLeds, undo, redo, handleExport, undoDisabled, redoDisabled, hasConfig, isGo60, onOpenSettings, config, comboMode, selectedComboKeys, hoveredComboIdx, layerNames, activeCombos }) => {
+const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, selectedKey, onSelectKey, scale, setScale, osMode, onContextAction, clipboard, styleClipboard, onSwapKeys, showLeds, undo, redo, handleExport, undoDisabled, redoDisabled, hasConfig, isGo60, onOpenSettings, config, isZenMode, selectedComboKeys, layerNames }) => {
             const containerRef = useRef(null);
             const [autoFitScale, setAutoFitScale] = useState(1);
             const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -582,7 +608,7 @@ function computeGeoBounds(geo) {
             const handleMouseUp = () => setIsDragging(false);
 
             const handleKeyMouseDown = (e, index) => {
-                if (comboMode || e.button !== 0 || (isGo60 && (index === 60 || index === 61))) return;
+                if (isZenMode || e.button !== 0 || (isGo60 && (index === 60 || index === 61))) return;
                 const startX = e.clientX, startY = e.clientY; let dragging = false;
                 const onMove = (e2) => {
                     const dx = e2.clientX - startX, dy = e2.clientY - startY;
@@ -605,26 +631,18 @@ function computeGeoBounds(geo) {
                 document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
             };
            
-            const openContextMenu = (e, index) => { e.preventDefault(); e.stopPropagation(); if (comboMode || (isGo60 && (index === 60 || index === 61))) return; onSelectKey(index); setContextMenu({ x: e.clientX, y: e.clientY, keyIndex: index }); };
+            const openContextMenu = (e, index) => { e.preventDefault(); e.stopPropagation(); if (isZenMode || (isGo60 && (index === 60 || index === 61))) return; onSelectKey(index); setContextMenu({ x: e.clientX, y: e.clientY, keyIndex: index }); };
             const closeContextMenu = () => setContextMenu(null);
             const runContextAction = (action) => { if (contextMenu) onContextAction(action, contextMenu.keyIndex); closeContextMenu(); };
-           
-            const activeComboPositions = useMemo(() => {
-                if (hoveredComboIdx !== null && activeCombos) {
-                    return activeCombos[hoveredComboIdx]?.keyPositions || activeCombos[hoveredComboIdx]?.key_positions || [];
-                }
-                return [];
-            }, [hoveredComboIdx, activeCombos]);
 
             return (
-                <div ref={containerRef} className={`canvas-container absolute inset-0 flex items-center justify-center`} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onClick={() => { if(!comboMode) onSelectKey(null); closeContextMenu(); }}>
+                <div ref={containerRef} className={`canvas-container absolute inset-0 flex items-center justify-center ${isZenMode ? 'bg-app-panel/50' : ''}`} onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onClick={() => { if(!isZenMode) onSelectKey(null); closeContextMenu(); }}>
                    
-                    {/* FLOATING CLIPBOARD DOCK */}
                     <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-3 z-30 pointer-events-auto backdrop-blur-xl bg-app-card/80 border border-app-borderHighlight px-4 py-2 rounded-2xl shadow-2xl transition-all">
-                        {comboMode ? (
+                        {isZenMode ? (
                             <div className="flex items-center gap-2 text-xs font-semibold text-app-text">
                                 <span className="w-2 h-2 rounded-full bg-app-accent animate-pulse"></span>
-                                <span className="text-app-text font-bold">Combo Focus Mode</span>
+                                <span className="text-app-text font-bold">Focus Mode: Click keys to toggle</span>
                                 <span className="text-app-textMuted ml-2">{selectedComboKeys.length} keys active</span>
                             </div>
                         ) : clipboard ? (
@@ -660,11 +678,10 @@ function computeGeoBounds(geo) {
                     <div className="relative origin-center" style={{ width: `${bounds.w}px`, height: `${bounds.h}px`, transform: `translate(${pan.x}px, ${pan.y}px) scale(${effectiveScale})` }}>
                         {keyboardGeo.map((geo, index) => {
                             const isTouchpad = isGo60 && (index === 60 || index === 61);
-                            const isSelected = !comboMode && selectedKey === index;
-                            const isComboSel = comboMode && selectedComboKeys.includes(index);
-                            const isComboHov = !comboMode && activeComboPositions.includes(index);
+                            const isSelected = !isZenMode && selectedKey === index;
+                            const isComboSel = isZenMode && selectedComboKeys.includes(index);
                            
-                            return <KeyComponent key={`matrix-key-${index}`} index={index} geo={geo} binding={activeLayerBindings[index] || { value: '&none' }} isSelected={isSelected} isComboSelected={isComboSel} isComboHovered={isComboHov} comboMode={comboMode} onSelect={onSelectKey} osMode={osMode} onContextMenu={openContextMenu} onKeyMouseDown={handleKeyMouseDown} isDragSource={dragSourceIdx === index} isDragOver={dragOverIdx === index} showLeds={showLeds} isTouchpad={isTouchpad} config={config} layerNames={layerNames} />;
+                            return <KeyComponent key={`matrix-key-${index}`} index={index} geo={geo} binding={activeLayerBindings[index] || { value: '&none' }} isSelected={isSelected} isComboSelected={isComboSel} isZenMode={isZenMode} onSelect={onSelectKey} osMode={osMode} onContextMenu={openContextMenu} onKeyMouseDown={handleKeyMouseDown} isDragSource={dragSourceIdx === index} isDragOver={dragOverIdx === index} showLeds={showLeds} isTouchpad={isTouchpad} config={config} layerNames={layerNames} />;
                         })}
                     </div>
                    
@@ -676,7 +693,7 @@ function computeGeoBounds(geo) {
                             <button className="w-full text-left px-5 py-2.5 hover:bg-white/10 transition-colors flex items-center gap-2" onClick={() => runContextAction('copyStyle')}><span>🎨</span> Copy LED Color</button>
                             <button className={`w-full text-left px-5 py-2.5 transition-colors flex items-center gap-2 ${styleClipboard?.background ? 'hover:bg-white/10' : 'text-app-textMuted cursor-not-allowed'}`} onClick={() => styleClipboard?.background && runContextAction('pasteStyle')}><span>🖌️</span> Paste LED Color</button>
                             <div className="my-1 border-t border-app-borderHighlight"></div>
-                            <button className="w-full text-left px-5 py-2.5 hover:bg-red-900/30 text-red-400 transition-colors flex items-center gap-2" onClick={() => runContextAction('clear')}><span>✕</span> Clear Key</button>
+                            <button className="w-full text-left px-5 py-2.5 hover:bg-red-900/30 text-red-400 transition-colors flex items-center gap-2" onClick={() => runContextAction('clear')}><span>🗑️</span> Clear Key</button>
                         </div>
                     )}
                 </div>
@@ -724,44 +741,35 @@ const App = () => {
             const leftResizeStateRef = useRef(null);
             useEffect(() => { localStorage.setItem('glide_left_layout', leftPanelSize); }, [leftPanelSize]);
 
-            const [leftSplit, setLeftSplit] = useState(() => parseInt(localStorage.getItem('glide_left_split')) || 60);
-            const leftVerticalResizeRef = useRef(null);
-            useEffect(() => { localStorage.setItem('glide_left_split', leftSplit); }, [leftSplit]);
-
             // Combo Engine State
-            const [comboMode, setComboMode] = useState(false);
-            const [selectedComboKeys, setSelectedComboKeys] = useState([]);
             const [editingComboIdx, setEditingComboIdx] = useState(null);
-            const [hoveredComboIdx, setHoveredComboIdx] = useState(null);
             const [showComboSettings, setShowComboSettings] = useState(false);
+            // Zen Mode is active when looking at a specific combo in the studio
+            const isZenMode = activeVerticalTab === 'Combos' && editingComboIdx !== null;
 
             useEffect(() => {
                 setBgHexInput(''); setActiveActionSlot('tap'); setActiveConfigSlot(null); setManuallyAddedSlots(new Set());
-                if (!comboMode) { setShowComboSettings(false); }
-            }, [selectedKey, activeLayer, comboMode]);
+            }, [selectedKey, activeLayer, isZenMode]);
 
             const handleCanvasKeySelect = useCallback((idx) => {
                 if (idx === null) { setSelectedKey(null); return; }
-                if (comboMode) {
+                if (isZenMode) {
                     if (editingComboIdx !== null && config) {
                         const newConfig = structuredClone(config);
                         const c = newConfig.combos[editingComboIdx];
                         const keyArray = c.keyPositions || c.key_positions || [];
                         if (keyArray.includes(idx)) {
                             c.keyPositions = keyArray.filter(k => k !== idx);
-                            c.key_positions = c.keyPositions;
                         } else {
                             c.keyPositions = [...keyArray, idx];
-                            c.key_positions = c.keyPositions;
                         }
+                        c.key_positions = c.keyPositions;
                         pushHistory(newConfig);
-                    } else {
-                        setSelectedComboKeys(prev => prev.includes(idx) ? prev.filter(k => k !== idx) : [...prev, idx]);
                     }
                 } else {
                     setSelectedKey(idx);
                 }
-            }, [comboMode, editingComboIdx, config]);
+            }, [isZenMode, editingComboIdx, config]);
 
             const [canvasScale, setCanvasScale] = useState(1.0);
             const [toast, setToast] = useState(null);
@@ -787,17 +795,6 @@ const App = () => {
                 const onMove = (e2) => {
                     const delta = e2.clientX - leftResizeStateRef.current.start;
                     setLeftPanelSize(Math.max(200, Math.min(leftResizeStateRef.current.startSize + delta, window.innerWidth * 0.4)));
-                };
-                const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
-                document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
-            };
-
-            const handleLeftVerticalResizeStart = (e) => {
-                e.preventDefault(); leftVerticalResizeRef.current = { start: e.clientY, startSize: leftSplit };
-                const onMove = (e2) => {
-                    const deltaY = e2.clientY - leftVerticalResizeRef.current.start;
-                    const deltaPercent = (deltaY / window.innerHeight) * 100;
-                    setLeftSplit(Math.max(20, Math.min(leftVerticalResizeRef.current.startSize + deltaPercent, 80)));
                 };
                 const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
                 document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
@@ -843,7 +840,6 @@ const App = () => {
                 if (Array.isArray(config.tapDances)) { config.tapDances.filter(b => !b.name.startsWith('&td_')).forEach(b => list.push({ label: b.name.replace('&', ''), type: b.name, cat: 'Tap-Dance' })); }
                 if (Array.isArray(config.modMorphs)) { config.modMorphs.filter(b => !b.name.startsWith('&mm_auto_')).forEach(b => list.push({ label: b.name.replace('&', ''), type: b.name, cat: 'Mod-Morph' })); }
                 if (Array.isArray(config.stickyKeys)) { config.stickyKeys.filter(b => !b.name.startsWith('&sk_auto_')).forEach(b => list.push({ label: b.name.replace('&', ''), type: b.name, cat: 'Sticky-Key' })); }
-                if (Array.isArray(config.combos)) { config.combos.forEach(c => list.push({ label: c.name || 'Combo', type: c.binding?.value || '&none', cat: 'Combo' })); }
                 return list;
             }, [config]);
 
@@ -871,7 +867,7 @@ const App = () => {
 
             const loadLayoutData = (parsed, sourceLabel) => {
                 let data = parsed?.keymap !== undefined ? parsed.keymap : parsed; if (!data || !Array.isArray(data.layers)) throw new Error('Missing a "layers" array');
-                setConfig(data); setActiveLayer(0); setSelectedKey(null); setEditingComboIdx(null); setComboMode(false); setUndoStack([]); setRedoStack([]); setCanvasScale(1.0); showToast(`Loaded ${sourceLabel}`);
+                setConfig(data); setActiveLayer(0); setSelectedKey(null); setEditingComboIdx(null); setActiveVerticalTab('Keymap'); setUndoStack([]); setRedoStack([]); setCanvasScale(1.0); showToast(`Loaded ${sourceLabel}`);
             };
 
             const handleFileUpload = (e) => {
@@ -1032,7 +1028,7 @@ const App = () => {
                     </div>
                 );
 
-                if (['&bt', '&out', '&rgb_ug', '&magic', '&mo', '&to', '&tog', '&sl'].includes(baseVal)) {
+                if (['&bt', '&out', '&rgb_ug', '&magic', '&mo', '&to', '&tog', '&sl', '&layer'].includes(baseVal)) {
                     return (
                         <div className="bg-app-card p-4 rounded-b-xl border-x border-b border-app-borderHighlight -mt-2 pt-4 flex flex-col gap-3 shadow-inner relative z-0" onClick={e => e.stopPropagation()}>
                             {baseVal === '&bt' && (
@@ -1059,7 +1055,7 @@ const App = () => {
                                     </select>
                                 </div>
                             )}
-                            {['&mo', '&to', '&tog', '&sl', '&magic'].includes(baseVal) && (
+                            {['&mo', '&to', '&tog', '&sl', '&layer', '&magic'].includes(baseVal) && (
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-[10px] uppercase tracking-widest text-app-textMuted font-bold">Target Layer</label>
                                     <select value={parseInt(slotBinding.params?.[0]?.value) || 0} onChange={(e) => updateSlotParam(slotKey, 0, e.target.value, true)} className="bg-app-surface border border-app-borderHighlight text-app-text text-xs rounded-lg px-3 py-2 outline-none w-full">
@@ -1140,6 +1136,18 @@ const App = () => {
                                     <option value="tap-preferred">Tap Preferred</option><option value="hold-preferred">Hold Preferred</option><option value="balanced">Balanced</option><option value="tap-unless-interrupted">Tap Unless Interrupted</option>
                                 </select>
                             </div>
+                            <div className="flex flex-col gap-1.5 mt-2">
+                                <label className="text-[10px] uppercase tracking-widest text-app-textMuted font-bold">Hold Trigger Keys</label>
+                                <p className="text-[10px] text-app-textMuted leading-tight mb-1">Click the keys below that should trigger the HOLD action when rolled over.</p>
+                                <MiniKeyboardMap geo={keyboardGeo} selectedKeys={ht.holdTriggerKeyPositions || []} scale={0.2} onKeyToggle={(kIdx) => {
+                                    const nCfg = structuredClone(config);
+                                    const targetHt = nCfg.holdTaps.find(h => h.name === bindingName);
+                                    if (!targetHt.holdTriggerKeyPositions) targetHt.holdTriggerKeyPositions = [];
+                                    if (targetHt.holdTriggerKeyPositions.includes(kIdx)) targetHt.holdTriggerKeyPositions = targetHt.holdTriggerKeyPositions.filter(k => k !== kIdx);
+                                    else targetHt.holdTriggerKeyPositions.push(kIdx);
+                                    pushHistory(nCfg);
+                                }} />
+                            </div>
                             <div className="flex justify-between mt-1">
                                 <label className="flex items-center gap-2 cursor-pointer group">
                                     <input type="checkbox" checked={!!ht.retroTap} onChange={e => updateBehaviorSetting('holdTaps', bindingName, 'retroTap', e.target.checked)} className="accent-app-accent" />
@@ -1199,7 +1207,7 @@ const App = () => {
                             <div onClick={(e) => { e.stopPropagation(); setActiveActionSlot('label'); setActiveConfigSlot(null); }} className={`rounded-xl px-4 py-3 text-xs font-semibold flex flex-col gap-2 cursor-pointer transition-all border ${isSelected ? 'border-app-accent bg-app-accentGhost shadow-sm' : 'bg-transparent text-gray-300 border-app-borderHighlight hover:border-app-textMuted hover:-translate-y-px shadow-sm'} relative z-10`}>
                                 <div className="flex justify-between items-center w-full">
                                     <span className="tracking-wide text-app-accent">{label}</span>
-                                    <button onClick={(e) => { e.stopPropagation(); clearSlot('label'); }} className={`w-5 h-5 rounded flex items-center justify-center transition-all text-md leading-none shrink-0 ${isSelected ? 'text-app-accent hover:bg-app-accent/20' : 'text-app-textMuted hover:text-app-text hover:bg-white/10'}`} title="Remove label">✕</button>
+                                    <button onClick={(e) => { e.stopPropagation(); clearSlot('label'); }} className={`w-5 h-5 rounded flex items-center justify-center transition-all text-[13px] leading-none shrink-0 ${isSelected ? 'text-app-accent hover:bg-app-accent/20' : 'text-app-textMuted hover:text-red-400 hover:bg-red-500/10'}`} title="Remove label">🗑️</button>
                                 </div>
                                 {isSelected && (
                                     <div className="flex gap-2 mt-1 relative">
@@ -1225,7 +1233,7 @@ const App = () => {
                                 <span className="flex-1 truncate font-mono text-[11px] text-right pr-2">{describeBinding(slotBinding, effectiveOs, layerNames)}</span>
                                 <div className="flex items-center gap-1 shrink-0">
                                     {showGear && <button onClick={(e) => handleGearClick(e, slotKey)} className={`w-5 h-5 rounded flex items-center justify-center transition-all text-[10px] shrink-0 ${isConfigOpen ? 'bg-app-accent text-white border border-app-accent hover:bg-app-accentHover' : (isSelected ? 'hover:bg-app-accentGhost text-app-accent border border-app-accentGhost hover:-translate-y-px' : 'text-app-textMuted hover:text-app-text border border-app-borderHighlight hover:-translate-y-px')}`} title="Settings">{isConfigOpen ? '✕' : '⚙'}</button>}
-                                    <button onClick={(e) => { e.stopPropagation(); clearSlot(slotKey); }} className={`w-5 h-5 rounded flex items-center justify-center transition-all text-md leading-none shrink-0 ${isSelected ? 'hover:bg-app-accentGhost text-app-accent border border-app-accentGhost hover:-translate-y-px' : 'text-app-textMuted hover:text-app-text border border-app-borderHighlight hover:-translate-y-px'}`} title="Clear slot">✕</button>
+                                    <button onClick={(e) => { e.stopPropagation(); clearSlot(slotKey); }} className={`w-5 h-5 rounded flex items-center justify-center transition-all text-[13px] leading-none shrink-0 ${isSelected ? 'hover:bg-app-accentGhost text-app-accent border border-app-accentGhost hover:-translate-y-px' : 'text-app-textMuted hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 hover:-translate-y-px'}`} title="Clear slot">🗑️</button>
                                 </div>
                             </div>
                             {isConfigOpen && renderBehaviorSettings(slotKey, rawBindingName)}
@@ -1242,13 +1250,6 @@ const App = () => {
                         </div>
                     );
                 }
-            };
-
-            const setKeyDecoration = (color) => { updateDecorationProperty('background', color); };
-            const applyBgHexInput = () => {
-                const v = bgHexInput.trim(); if (!v) return; const normalized = v.startsWith('#') ? v : `#${v}`;
-                if (!/^#[0-9a-fA-F]{6}$/.test(normalized)) { showToast('Enter a valid hex color, like #E55F2E', 'error'); return; }
-                setKeyDecoration(normalized); setBgHexInput('');
             };
 
             const handleKeyContextAction = useCallback((action, keyIndex) => {
@@ -1284,7 +1285,7 @@ const App = () => {
             useEffect(() => {
                 const handler = (e) => {
                     const typing = ['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName);
-                    if (e.key === 'Escape' && !typing) { setSelectedKey(null); setEditingComboIdx(null); setComboMode(false); return; }
+                    if (e.key === 'Escape' && !typing) { setSelectedKey(null); setEditingComboIdx(null); return; }
                     const isMod = e.ctrlKey || e.metaKey; if (!isMod || typing) return;
                     const key = e.key.toLowerCase();
                     if (key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); }
@@ -1300,7 +1301,7 @@ const App = () => {
                 const newConfig = structuredClone(config); const keyCount = newConfig.layers[0]?.length || keyboardGeo.length || 80;
                 newConfig.layers.push(Array.from({ length: keyCount }, () => ({ value: '&trans' })));
                 if (!Array.isArray(newConfig.layer_names)) newConfig.layer_names = newConfig.layers.slice(0, -1).map((_, i) => `Layer ${i}`);
-                newConfig.layer_names.push(`Layer ${newConfig.layers.length - 1}`); pushHistory(newConfig); setActiveLayer(newConfig.layers.length - 1); setSelectedKey(null); setComboMode(false); setEditingComboIdx(null); showToast('Layer added');
+                newConfig.layer_names.push(`Layer ${newConfig.layers.length - 1}`); pushHistory(newConfig); setActiveLayer(newConfig.layers.length - 1); setSelectedKey(null); setEditingComboIdx(null); showToast('Layer added');
             };
 
             const deleteLayer = (idx) => {
@@ -1311,7 +1312,7 @@ const App = () => {
                 const newConfig = structuredClone(config); newConfig.layers.splice(idx, 1);
                 if (Array.isArray(newConfig.layer_names)) newConfig.layer_names.splice(idx, 1);
                 remapLayerPointersAfterDelete(newConfig.layers, idx); pushHistory(newConfig);
-                setActiveLayer(prev => prev >= newConfig.layers.length ? newConfig.layers.length - 1 : (prev > idx ? prev - 1 : prev)); setSelectedKey(null); setComboMode(false); setEditingComboIdx(null); showToast('Layer deleted');
+                setActiveLayer(prev => prev >= newConfig.layers.length ? newConfig.layers.length - 1 : (prev > idx ? prev - 1 : prev)); setSelectedKey(null); setEditingComboIdx(null); showToast('Layer deleted');
             };
 
             const moveLayerReorder = (fromIdx, toIdx) => {
@@ -1350,18 +1351,13 @@ const App = () => {
                 const trimmed = renameValue.trim(); newConfig.layer_names[renamingLayerIdx] = trimmed || `Layer ${renamingLayerIdx}`; pushHistory(newConfig); setRenamingLayerIdx(null);
             };
 
-            const createComboFromSelection = () => {
-                if (selectedComboKeys.length < 2) { showToast('Select at least 2 keys for a combo', 'error'); return; }
+            const createNewCombo = () => {
                 const newConfig = structuredClone(config);
                 if (!newConfig.combos) newConfig.combos = [];
-                const newCombo = { name: `Combo ${newConfig.combos.length + 1}`, description: '', keyPositions: [...selectedComboKeys], timeoutMs: 50, binding: { value: '&none' }, layers: [activeLayer] };
+                const newCombo = { name: `Combo ${newConfig.combos.length + 1}`, description: '', keyPositions: [], timeoutMs: 50, binding: { value: '&none' }, layers: [activeLayer] };
                 newConfig.combos.push(newCombo);
                 pushHistory(newConfig);
                 setEditingComboIdx(newConfig.combos.length - 1);
-                setComboMode(false);
-                setShowComboSettings(true);
-                setSelectedComboKeys([]);
-                showToast('Combo Created! Select its action now.');
             };
 
             const saveCustomJson = () => {
@@ -1393,12 +1389,12 @@ const App = () => {
                         <div onMouseDown={handleLeftResizeStart} title="Drag to resize" className="absolute top-0 bottom-0 -right-2 w-4 cursor-col-resize z-50 flex items-center justify-center group">
                             <div className="w-1 h-14 rounded-full bg-app-borderHighlight group-hover:bg-app-accent transition-colors"></div>
                         </div>
-                        <div className="h-[76px] flex items-center px-6 border-b border-app-borderHighlight shrink-0">
-                            <span className="font-bold text-xl tracking-widest flex items-center gap-3">GLIDE <div className="w-px h-5 bg-app-borderHighlight"></div></span>
+                        <div className="h-[76px] flex items-center px-6 border-b border-app-borderHighlight shrink-0 cursor-pointer hover:bg-app-surface transition-colors group" onClick={() => { if(window.confirm('Return to startup screen? Unsaved changes will be lost.')) setConfig(null); }}>
+                            <span className="font-bold text-xl tracking-widest flex items-center gap-3 group-hover:text-app-accent transition-colors">GLIDE <div className="w-px h-5 bg-app-borderHighlight"></div></span>
                         </div>
                        
-                        <div style={{ height: config ? `${leftSplit}%` : '100%' }} className="flex flex-col min-h-0 relative">
-                            <div className="p-4 flex-1 overflow-y-auto flex flex-col gap-2">
+                        <div className="flex-1 overflow-x-hidden overflow-y-auto flex flex-col min-h-0 relative">
+                            <div className="p-4 flex flex-col gap-2">
                                 <div className="text-[10px] font-bold text-app-textMuted uppercase tracking-widest mb-2 px-2 sticky top-0 bg-app-sidebar z-10 py-1">Layers</div>
                                 {layerNames.map((displayName, i) => {
                                     const isDragged = draggedLayerIdx === i;
@@ -1422,7 +1418,7 @@ const App = () => {
                                             ) : (
                                                 <>
                                                     <div className="px-3 cursor-grab opacity-20 group-hover:opacity-60 hover:!opacity-100 text-app-textMuted text-[12px] flex items-center justify-center shrink-0 transition-opacity" title="Drag to reorder">∷</div>
-                                                    <div onClick={() => { setActiveLayer(i); setSelectedKey(null); setEditingComboIdx(null); setComboMode(false); }} onDoubleClick={() => startRenameLayer(i, displayName)} className="flex-1 flex items-center gap-2 py-2.5 min-w-0 cursor-pointer" title="Double-click to rename">
+                                                    <div onClick={() => { setActiveLayer(i); setSelectedKey(null); setEditingComboIdx(null); setActiveVerticalTab('Keymap'); }} onDoubleClick={() => startRenameLayer(i, displayName)} className="flex-1 flex items-center gap-2 py-2.5 min-w-0 cursor-pointer" title="Double-click to rename">
                                                         <span className="opacity-50 font-mono text-[10px] w-3 text-right shrink-0">{i}</span>
                                                         <span className={`min-w-0 flex-1 truncate font-bold text-xs ${activeLayer === i ? 'text-app-accent' : ''}`}>{displayName}</span>
                                                     </div>
@@ -1441,45 +1437,6 @@ const App = () => {
                                 </button>
                             </div>
                         </div>
-
-                        {config && (
-                            <div onMouseDown={handleLeftVerticalResizeStart} className="h-2 w-full cursor-row-resize flex items-center justify-center bg-app-borderHighlight/30 hover:bg-app-accent group z-50 shrink-0">
-                                <div className="w-10 h-0.5 rounded-full bg-app-textMuted group-hover:bg-white transition-colors"></div>
-                            </div>
-                        )}
-
-                        {config && (
-                            <div style={{ height: `${100 - leftSplit}%` }} className="flex flex-col bg-app-surface min-h-0 relative">
-                                <div className="p-4 pb-2 shrink-0 sticky top-0 bg-app-surface z-10">
-                                    <div className="text-[10px] font-bold text-app-textMuted uppercase tracking-widest mb-3 px-2">Combos</div>
-                                    <button onClick={() => { setComboMode(!comboMode); setActiveVerticalTab('Keymap'); }} className={`w-full py-2.5 rounded-lg font-semibold text-xs transition-all border shadow-sm ${comboMode ? 'bg-app-accent text-white border-app-accent' : 'bg-app-card text-app-text border-app-borderHighlight hover:border-app-textMuted hover:-translate-y-px'}`}>
-                                        {comboMode ? 'Cancel Combo' : '+ Create Combo'}
-                                    </button>
-                                </div>
-                                <div className="flex-1 overflow-y-auto px-4 pb-4 flex flex-col gap-2">
-                                    {comboMode && (
-                                        <div className="p-3 bg-emerald-500/10 rounded-lg border border-emerald-500/30 text-xs text-emerald-500 font-semibold flex flex-col gap-3 shadow-inner">
-                                            <span>Click multiple keys on the canvas to link them together.</span>
-                                            <button disabled={selectedComboKeys.length < 2} onClick={createComboFromSelection} className="w-full py-2 rounded-md font-bold text-xs bg-emerald-500 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors shadow-lg hover:bg-emerald-600">Save Selection</button>
-                                        </div>
-                                    )}
-                                    {(!comboMode && config.combos && config.combos.length > 0) && config.combos.map((combo, idx) => {
-                                        const cName = combo.name || `Combo ${idx + 1}`;
-                                        return (
-                                            <div key={idx} onClick={() => { setEditingComboIdx(idx); setSelectedKey(null); setComboMode(true); }} onMouseEnter={() => setHoveredComboIdx(idx)} onMouseLeave={() => setHoveredComboIdx(null)} className={`flex justify-between items-center px-3 py-2.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${editingComboIdx === idx ? 'bg-app-card border-app-accent shadow-sm' : 'border-transparent hover:border-app-borderHighlight hover:bg-app-card/50'}`}>
-                                                <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] shrink-0 ${editingComboIdx === idx ? 'bg-app-accent text-white' : 'bg-app-panel border border-app-borderHighlight text-app-textMuted'}`}>C{idx + 1}</span>
-                                                    <span className={`min-w-0 flex-1 truncate ${editingComboIdx === idx ? 'text-app-text' : 'text-app-textMuted'}`}>{cName}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1 opacity-0 hover:opacity-100 transition-opacity shrink-0 bg-app-surface/50 backdrop-blur-md rounded px-1 py-0.5 shadow-sm border border-app-borderHighlight absolute right-5">
-                                                    <button onClick={(e) => { e.stopPropagation(); const n = structuredClone(config); n.combos.splice(idx, 1); pushHistory(n); if (editingComboIdx === idx) { setEditingComboIdx(null); setComboMode(false); } showToast('Combo deleted'); }} className="w-6 h-6 flex items-center justify-center text-red-500 hover:bg-red-900/50 rounded transition-colors">✕</button>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
                     </aside>
 
                     <main className={`flex-1 flex ${layoutMode === 'right' ? 'flex-row' : 'flex-col'} min-w-0 relative z-10 overflow-hidden`}>
@@ -1499,7 +1456,36 @@ const App = () => {
                                         <button onClick={() => fetchTemplate('go60')} disabled={isFetchingTemplate} className="flex-1 bg-app-surface hover:bg-app-panel border border-app-borderHighlight text-app-text py-2.5 rounded-xl transition-all font-medium shadow-sm hover:-translate-y-px">Go60</button>
                                     </div>
                                 </div>
-                            ) : <KeyboardContainer keyboardGeo={keyboardGeo} activeLayerBindings={currentLayerBindings} selectedKey={selectedKey} onSelectKey={handleCanvasKeySelect} scale={canvasScale} setScale={setCanvasScale} osMode={effectiveOs} onContextAction={handleKeyContextAction} clipboard={clipboard} styleClipboard={styleClipboard} onSwapKeys={swapKeys} showLeds={showLeds} undo={undo} redo={redo} handleExport={handleExport} undoDisabled={undoStack.length===0} redoDisabled={redoStack.length===0} hasConfig={!!config} isGo60={isGo60} onOpenSettings={() => setShowSettings(true)} config={config} comboMode={comboMode} selectedComboKeys={selectedComboKeys} hoveredComboIdx={hoveredComboIdx} layerNames={layerNames} activeCombos={config?.combos} />}
+                            ) : activeVerticalTab === 'Combos' && editingComboIdx === null ? (
+                                <div className="absolute inset-0 bg-app-base overflow-y-auto p-8">
+                                    <div className="max-w-6xl mx-auto">
+                                        <div className="flex justify-between items-center mb-8 border-b border-app-borderHighlight pb-4">
+                                            <h2 className="text-2xl font-bold flex items-center gap-3"><span className="w-8 h-8 rounded bg-app-accent text-white flex items-center justify-center text-sm shadow-sm">C</span> Combo Studio</h2>
+                                            <button onClick={createNewCombo} className="btn-active px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:-translate-y-px">+ Create New Combo</button>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                                            {(config.combos || []).length === 0 && <div className="col-span-full text-app-textMuted text-sm italic py-10 text-center bg-app-card border border-app-borderHighlight rounded-2xl">No combos created yet. Click "+ Create New Combo" to begin.</div>}
+                                            {config.combos?.map((combo, idx) => {
+                                                const kps = combo.keyPositions || combo.key_positions || [];
+                                                return (
+                                                    <div key={idx} onClick={() => setEditingComboIdx(idx)} className="bg-app-card border border-app-borderHighlight hover:border-app-accent rounded-2xl p-4 cursor-pointer hover:shadow-xl transition-all flex flex-col gap-4 group">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="font-bold truncate text-app-text group-hover:text-app-accent transition-colors">{combo.name || `Combo ${idx+1}`}</span>
+                                                            <button onClick={(e) => { e.stopPropagation(); const n = structuredClone(config); n.combos.splice(idx, 1); pushHistory(n); showToast('Combo deleted'); }} className="text-app-textMuted hover:text-red-500 hover:bg-red-500/10 w-6 h-6 rounded flex items-center justify-center transition-colors">🗑️</button>
+                                                        </div>
+                                                        <MiniKeyboardMap geo={keyboardGeo} selectedKeys={kps} readonly scale={0.15} />
+                                                        <div className="text-[11px] text-app-accent font-mono truncate bg-app-surface px-3 py-2 rounded-lg border border-app-borderHighlight text-center shadow-inner font-bold">
+                                                            {describeBinding(combo.binding, effectiveOs, layerNames)}
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <KeyboardContainer keyboardGeo={keyboardGeo} activeLayerBindings={currentLayerBindings} selectedKey={selectedKey} onSelectKey={handleCanvasKeySelect} scale={canvasScale} setScale={setCanvasScale} osMode={effectiveOs} onContextAction={handleKeyContextAction} clipboard={clipboard} styleClipboard={styleClipboard} onSwapKeys={swapKeys} showLeds={showLeds} undo={undo} redo={redo} handleExport={handleExport} undoDisabled={undoStack.length===0} redoDisabled={redoStack.length===0} hasConfig={!!config} isGo60={isGo60} onOpenSettings={() => setShowSettings(true)} config={config} isZenMode={isZenMode} selectedComboKeys={editingComboIdx !== null ? (config.combos[editingComboIdx]?.keyPositions || config.combos[editingComboIdx]?.key_positions || []) : []} layerNames={layerNames} />
+                            )}
                         </section>
 
                         {config && (
@@ -1508,14 +1494,14 @@ const App = () => {
 
                                 <div className={`${layoutMode === 'right' ? 'p-6 border-b max-h-[50vh]' : 'w-[360px] p-6 border-r'} border-app-borderHighlight shrink-0 bg-app-surface flex flex-col overflow-y-auto`}>
                                     <div className="text-app-text mb-6 text-[15px] flex justify-between items-center px-1">
-                                        <span className="font-bold flex items-center gap-2">
+                                        <span className="font-bold flex items-center gap-2 truncate pr-2">
                                             {editingComboIdx !== null ? (
-                                                <><span className="w-5 h-5 rounded-full bg-app-accent text-white flex items-center justify-center text-[10px] shadow-sm">C</span> Combo {editingComboIdx + 1}</>
+                                                <><span className="w-5 h-5 rounded bg-app-accent text-white flex items-center justify-center text-[10px] shadow-sm shrink-0">C</span><span className="truncate">{config.combos[editingComboIdx]?.name || `Combo ${editingComboIdx + 1}`}</span></>
                                             ) : selectedKey !== null ? (
                                                 `Key ${getLogicalName(selectedKey, config?.keyboard)}`
                                             ) : 'No Selection'}
                                         </span>
-                                        <button className="text-app-textMuted hover:text-app-text transition-colors" title="Clear All Slots" onClick={() => { if(window.confirm('Clear all behaviors?')) { clearSlot('tap'); clearSlot('shiftTap'); clearSlot('hold'); clearSlot('doubleTap'); clearSlot('label'); } }}><svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 12a2 2 0 11-4 0 2 2 0 014 0zM14 12a2 2 0 11-4 0 2 2 0 014 0zM22 12a2 2 0 11-4 0 2 2 0 014 0z"/></svg></button>
+                                        <button className="text-app-textMuted hover:text-red-400 hover:bg-red-500/10 transition-colors w-8 h-8 rounded-lg flex items-center justify-center shrink-0" title="Clear All Actions" onClick={() => { if(window.confirm('Clear all actions?')) { clearSlot('tap'); clearSlot('shiftTap'); clearSlot('hold'); clearSlot('doubleTap'); clearSlot('label'); } }}><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
                                     </div>
                                    
                                     {(selectedKey !== null || editingComboIdx !== null) ? (
@@ -1588,12 +1574,12 @@ const App = () => {
                                 </div>
 
                                 <div className={`flex ${layoutMode === 'right' ? 'flex-row justify-center p-3 gap-4 border-b w-full' : 'flex-col items-center py-6 gap-3 w-[64px] border-r'} border-app-borderHighlight bg-app-panel shrink-0 shadow-inner transition-colors`}>
-                                    <button onClick={() => setActiveVerticalTab('Keymap')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeVerticalTab === 'Keymap' ? 'btn-active border-none' : 'text-app-textMuted hover:text-app-text hover:bg-app-card hover:-translate-y-px'}`} title="Keymap"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm4 4h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M8 18h8"></path></svg></button>
-                                    <button onClick={() => setActiveVerticalTab('Advanced')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeVerticalTab === 'Advanced' ? 'btn-active border-none' : 'text-app-textMuted hover:text-app-text hover:bg-app-card hover:-translate-y-px'}`} title="Advanced Behaviors"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></button>
-                                    <button onClick={() => setActiveVerticalTab('Layer')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeVerticalTab === 'Layer' ? 'btn-active border-none' : 'text-app-textMuted hover:text-app-text hover:bg-app-card hover:-translate-y-px'}`} title="Layers"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
+                                    <button onClick={() => { setActiveVerticalTab('Keymap'); setEditingComboIdx(null); }} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeVerticalTab === 'Keymap' ? 'btn-active border-none' : 'text-app-textMuted hover:text-app-text hover:bg-app-card hover:-translate-y-px'}`} title="Keymap"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6a2 2 0 012-2h12a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm4 4h.01M12 10h.01M16 10h.01M8 14h.01M12 14h.01M16 14h.01M8 18h8"></path></svg></button>
+                                    <button onClick={() => { setActiveVerticalTab('Combos'); setSelectedKey(null); }} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeVerticalTab === 'Combos' ? 'btn-active border-none' : 'text-app-textMuted hover:text-app-text hover:bg-app-card hover:-translate-y-px'}`} title="Combos Studio"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg></button>
+                                    <button onClick={() => { setActiveVerticalTab('Advanced'); setEditingComboIdx(null); }} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeVerticalTab === 'Advanced' ? 'btn-active border-none' : 'text-app-textMuted hover:text-app-text hover:bg-app-card hover:-translate-y-px'}`} title="Advanced Behaviors"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg></button>
                                     <div className={`${layoutMode === 'right' ? 'w-px h-6' : 'w-6 h-px'} bg-app-borderHighlight my-1`}></div>
-                                    <button onClick={() => setActiveVerticalTab('Lighting')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeVerticalTab === 'Lighting' ? 'btn-active border-none' : 'text-app-textMuted hover:text-app-text hover:bg-app-card hover:-translate-y-px'}`} title="Lighting"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg></button>
-                                    <button onClick={() => setActiveVerticalTab('JSON')} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeVerticalTab === 'JSON' ? 'btn-active border-none' : 'text-app-textMuted hover:text-app-text hover:bg-app-card hover:-translate-y-px'}`} title="JSON"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg></button>
+                                    <button onClick={() => { setActiveVerticalTab('Lighting'); setEditingComboIdx(null); }} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeVerticalTab === 'Lighting' ? 'btn-active border-none' : 'text-app-textMuted hover:text-app-text hover:bg-app-card hover:-translate-y-px'}`} title="Lighting"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg></button>
+                                    <button onClick={() => { setActiveVerticalTab('JSON'); setEditingComboIdx(null); }} className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${activeVerticalTab === 'JSON' ? 'btn-active border-none' : 'text-app-textMuted hover:text-app-text hover:bg-app-card hover:-translate-y-px'}`} title="JSON"><svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path></svg></button>
                                 </div>
 
                                 <div className="flex-1 p-8 overflow-y-auto bg-app-surface relative flex flex-col transition-colors">
@@ -1664,7 +1650,6 @@ const App = () => {
                                                     <option value="Tap-Dance">Tap-Dances</option>
                                                     <option value="Mod-Morph">Mod-Morphs</option>
                                                     <option value="Sticky-Key">Sticky-Keys</option>
-                                                    <option value="Combo">Combos</option>
                                                 </select>
                                             </div>
 
@@ -1681,39 +1666,6 @@ const App = () => {
                                                 ) : (
                                                     <div className="text-app-textMuted text-xs italic">No advanced behaviors match your search criteria.</div>
                                                 )}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {activeVerticalTab === 'Lighting' && (
-                                        <div className="flex flex-col gap-8 w-full text-app-text pl-2">
-                                            <div className="flex flex-col gap-3">
-                                                <div className="text-[11px] text-app-textMuted font-bold tracking-wide uppercase">LED View Toggle</div>
-                                                <div className="h-px w-full max-w-[600px] bg-app-borderHighlight"></div>
-                                                <button onClick={() => setShowLeds(!showLeds)} className={`w-8 h-8 mt-1 flex items-center justify-center rounded transition-colors border cursor-pointer ${showLeds ? 'btn-active border-none' : 'text-app-textMuted border-transparent hover:border-app-borderHighlight'}`}>
-                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-                                                </button>
-                                            </div>
-                                            <div className="flex flex-col gap-3">
-                                                <div className="text-[11px] text-app-textMuted font-bold tracking-wide uppercase">LED Color Palette</div>
-                                                <div className="h-px w-full max-w-[600px] bg-app-borderHighlight"></div>
-                                                <div className="flex items-center gap-3 mt-1 flex-wrap">
-                                                    <button onClick={() => setKeyDecoration(null)} title="Turns LED OFF" className="w-6 h-6 rounded-full flex items-center justify-center text-gray-500 relative shrink-0 group">
-                                                        <div className="absolute inset-0 rounded-full border-2 border-gray-500 group-hover:border-white transition-colors"></div>
-                                                        <div className="absolute w-[2px] h-[120%] bg-gray-500 group-hover:bg-white transition-colors rotate-45"></div>
-                                                    </button>
-                                                    <div className="w-px h-6 bg-app-borderHighlight shrink-0 mx-1"></div>
-                                                    {KEY_COLOR_PRESETS.map(c => <button key={c} onClick={() => setKeyDecoration(c)} className="w-5 h-5 rounded-full hover:scale-125 transition-transform" style={{backgroundColor: c}}></button>)}
-                                                    {usedLayoutColors.length > 0 && <div className="w-px h-6 bg-app-borderHighlight shrink-0 mx-1"></div>}
-                                                    {usedLayoutColors.map(c => <button key={c} onClick={() => setKeyDecoration(c)} className="w-5 h-5 rounded-full hover:scale-125 transition-transform" style={{backgroundColor: c}}></button>)}
-
-                                                    <div className="flex items-center gap-2 ml-2 bg-app-card rounded-full border border-app-borderHighlight px-2 py-1 shadow-inner">
-                                                        <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 border border-app-borderHighlight relative hover:scale-110 transition-transform">
-                                                            <input type="color" className="absolute -top-2 -left-2 w-10 h-10 cursor-pointer" value={currentLayerBindings[selectedKey]?.decoration?.background || '#ffffff'} onChange={(e) => setKeyDecoration(e.target.value)} />
-                                                        </div>
-                                                        <input type="text" className="w-16 bg-transparent text-[11px] font-mono text-app-textMuted outline-none uppercase" placeholder="#HEX" value={bgHexInput} onChange={(e) => setBgHexInput(e.target.value)} onBlur={applyBgHexInput} onKeyDown={e => e.key === 'Enter' && applyBgHexInput()} />
-                                                    </div>
-                                                </div>
                                             </div>
                                         </div>
                                     )}
