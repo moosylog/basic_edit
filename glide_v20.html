@@ -107,7 +107,6 @@
         .p-key.drag-source { opacity: 0.35; transform: scale(0.95); }
         .p-key.drag-over { box-shadow: 0 0 0 3px var(--bg-base), 0 0 0 5px var(--accent-primary) !important; border-style: dashed !important; transform: scale(1.08); }
 
-        /* Unified & Strict Keycap Typography */
         .kc-grid { width: 100%; height: 100%; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; overflow: hidden; padding: 2px; box-sizing: border-box; }
        
         .kc-main {
@@ -147,6 +146,7 @@
 <body>
     <div id="root" class="h-screen w-screen flex overflow-hidden text-app-text bg-app-base transition-colors duration-300"></div>
     <script type="text/babel">
+
 
 const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
 
@@ -219,7 +219,7 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
                 maxX = Math.max(maxX, k.x + (k.w || KEY_SIZE));
                 maxY = Math.max(maxY, k.y + (k.h || KEY_SIZE) + (k.r ? 40 : 0));
             });
-            return { w: maxX - minX, h: maxY - minY, minX, minY, maxX, maxY };
+            return { w: maxX - minX + 20, h: maxY - minY + 20, minX: minX - 10, minY: minY - 10 };
         }
 
         const MiniKeyboardMap = memo(({ geo, selectedKeys = [], onKeyToggle, readonly = false }) => {
@@ -232,7 +232,7 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
                     const rect = containerRef.current.getBoundingClientRect();
                     const scaleX = (rect.width - 20) / bounds.w;
                     const scaleY = (rect.height - 20) / bounds.h;
-                    setScale(Math.min(scaleX, scaleY, 0.3));
+                    setScale(Math.min(scaleX, scaleY, 0.35));
                 }
             }, [bounds]);
 
@@ -251,11 +251,11 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
                                          height: (k.h || KEY_SIZE) * scale,
                                          transform: k.r ? `rotate(${k.r}deg)` : 'none',
                                          transformOrigin: k.o ? k.o.split(' ').map(val => parseFloat(val) * scale + 'px').join(' ') : 'center',
-                                         backgroundColor: isSel ? 'var(--accent-primary)' : 'transparent',
-                                         border: `${Math.max(1, 2 * scale)}px ${isSel ? 'solid' : 'dashed'} ${isSel ? 'var(--accent-primary)' : 'var(--border-highlight)'}`,
-                                         borderRadius: k.isRound ? '50%' : `${12 * scale}px`,
+                                         backgroundColor: isSel ? 'var(--accent-primary)' : 'var(--bg-surface)',
+                                         border: `${Math.max(1, 1.5 * scale)}px solid ${isSel ? 'var(--accent-primary)' : 'var(--text-muted)'}`,
+                                         borderRadius: k.isRound ? '50%' : `${6 * scale}px`,
                                          cursor: readonly ? 'default' : 'pointer',
-                                         opacity: isSel ? 1 : 0.6,
+                                         opacity: isSel ? 1 : 0.4,
                                          boxShadow: isSel ? '0 5px 15px rgba(229, 95, 46, 0.4)' : 'none'
                                      }}
                                 />
@@ -307,7 +307,7 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
             }
         };
 
-        const GLOVE80_NAMES = {
+const GLOVE80_NAMES = {
             0: "LH C6R1", 1: "LH C5R1", 2: "LH C4R1", 3: "LH C3R1", 4: "LH C2R1", 10: "LH C6R2", 11: "LH C5R2", 12: "LH C4R2", 13: "LH C3R2", 14: "LH C2R2", 15: "LH C1R2", 22: "LH C6R3", 23: "LH C5R3", 24: "LH C4R3", 25: "LH C3R3", 26: "LH C2R3", 27: "LH C1R3", 34: "LH C6R4", 35: "LH C5R4", 36: "LH C4R4", 37: "LH C3R4", 38: "LH C2R4", 39: "LH C1R4", 46: "LH C6R5", 47: "LH C5R5", 48: "LH C4R5", 49: "LH C3R5", 50: "LH C2R5", 51: "LH C1R5", 64: "LH C6R6", 65: "LH C5R6", 66: "LH C4R6", 67: "LH C3R6", 68: "LH C2R6", 52: "LH T1", 53: "LH T2", 54: "LH T3", 69: "LH T4", 70: "LH T5", 71: "LH T6",
             5: "RH C2R1", 6: "RH C3R1", 7: "RH C4R1", 8: "RH C5R1", 9: "RH C6R1", 16: "RH C1R2", 17: "RH C2R2", 18: "RH C3R2", 19: "RH C4R2", 20: "RH C5R2", 21: "RH C6R2", 28: "RH C1R3", 29: "RH C2R3", 30: "RH C3R3", 31: "RH C4R3", 32: "RH C5R3", 33: "RH C6R3", 40: "RH C1R4", 41: "RH C2R4", 42: "RH C3R4", 43: "RH C4R4", 44: "RH C5R4", 45: "RH C6R4", 58: "RH C1R5", 59: "RH C2R5", 60: "RH C3R5", 61: "RH C4R5", 62: "RH C5R5", 63: "RH C6R5", 75: "RH C2R6", 76: "RH C3R6", 77: "RH C4R6", 78: "RH C5R6", 79: "RH C6R6", 55: "RH T3", 56: "RH T2", 57: "RH T1", 72: "RH T6", 73: "RH T5", 74: "RH T4"
         };
@@ -465,7 +465,7 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
             return { newBinding: { value: tdName }, newConfig };
         }
 
-const getContrastColor = (hexcolor) => {
+        const getContrastColor = (hexcolor) => {
             if (!hexcolor) return '#ffffff';
             let cleanHex = hexcolor.replace("#", "");
             if (cleanHex.length === 3) cleanHex = cleanHex.split('').map(c => c+c).join('');
@@ -764,7 +764,7 @@ const KeyboardContainer = ({ keyboardGeo, activeLayerBindings, selectedKey, onSe
                             <button className="w-full text-left px-5 py-2.5 hover:bg-white/10 transition-colors flex items-center gap-2" onClick={() => runContextAction('copyStyle')}><span>🎨</span> Copy LED Color</button>
                             <button className={`w-full text-left px-5 py-2.5 transition-colors flex items-center gap-2 ${styleClipboard?.background ? 'hover:bg-white/10' : 'text-app-textMuted cursor-not-allowed'}`} onClick={() => styleClipboard?.background && runContextAction('pasteStyle')}><span>🖌️</span> Paste LED Color</button>
                             <div className="my-1 border-t border-app-borderHighlight"></div>
-                            <button className="w-full text-left px-5 py-2.5 hover:bg-red-900/30 text-red-400 transition-colors flex items-center gap-2" onClick={() => runContextAction('clear')}><span>🗑️</span> Clear Key</button>
+                            <button className="w-full text-left px-5 py-2.5 hover:bg-white/10 transition-colors flex items-center gap-2" onClick={() => runContextAction('clear')}><span>🗑️</span> Clear Key</button>
                         </div>
                     )}
                 </div>
@@ -941,7 +941,7 @@ const App = () => {
 
             const loadLayoutData = (parsed, sourceLabel) => {
                 let data = parsed?.keymap !== undefined ? parsed.keymap : parsed; if (!data || !Array.isArray(data.layers)) throw new Error('Missing a "layers" array');
-                setConfig(data); setActiveLayer(0); setSelectedKey(null); setEditingComboIdx(null); setActiveVerticalTab('Keymap'); setLeftNavMode('Layers'); setUndoStack([]); setRedoStack([]); setCanvasScale(1.0); showToast(`Loaded ${sourceLabel}`);
+                setConfig(data); setActiveLayer(0); setSelectedKey(null); setEditingComboIdx(null); setLeftNavMode('Layers'); setUndoStack([]); setRedoStack([]); setCanvasScale(1.0); showToast(`Loaded ${sourceLabel}`);
             };
 
             const handleFileUpload = (e) => {
@@ -1260,10 +1260,20 @@ const App = () => {
                 e.stopPropagation();
                 if (activeConfigSlot === slotKey) { setActiveConfigSlot(null); return; }
                 const slotBinding = parsedSlots[slotKey]; let isStandardHoldTap = false;
+               
+                let targetName = slotBinding?.value || '';
+               
                 if (slotKey === 'hold') {
                     const primaryBinding = currentBinding;
                     if (primaryBinding && !primaryBinding.value.startsWith('&ht_auto_') && !primaryBinding.value.startsWith('&td_') && (primaryBinding.value === '&mt' || primaryBinding.value === '&lt')) isStandardHoldTap = true;
+                    else if (primaryBinding?.value?.startsWith('&ht_auto_')) targetName = primaryBinding.value;
+                    else if (primaryBinding?.value?.startsWith('&td_')) {
+                        const td = config?.tapDances?.find(t => t.name === primaryBinding.value);
+                        if (td && td.bindings?.[0]?.value?.startsWith('&ht_auto_')) targetName = td.bindings[0].value;
+                    }
                 }
+                if (slotKey === 'doubleTap' && currentBinding?.value?.startsWith('&td_')) targetName = currentBinding.value;
+
                 if (isStandardHoldTap) {
                     const newSlots = { ...parsedSlots }; let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config, true);
                     if (currentBinding?.decoration) newBinding.decoration = currentBinding.decoration;
@@ -1299,7 +1309,15 @@ const App = () => {
                 }
 
                 const slotBinding = parsedSlots[slotKey]; const isFilled = !!slotBinding && slotBinding.value !== '&none';
-                let rawBindingName = ''; if (slotKey === 'hold') rawBindingName = currentBinding?.value || ''; if (slotKey === 'doubleTap') rawBindingName = currentBinding?.value || '';
+                let rawBindingName = '';
+                if (slotKey === 'hold') {
+                    let pb = currentBinding;
+                    if (pb?.value?.startsWith('&td_')) pb = config?.tapDances?.find(t => t.name === pb.value)?.bindings?.[0];
+                    if (pb?.value?.startsWith('&ht_auto_')) rawBindingName = pb.value;
+                    else rawBindingName = pb?.value || '';
+                }
+                if (slotKey === 'doubleTap' && currentBinding?.value?.startsWith('&td_')) rawBindingName = currentBinding.value;
+
                 const showGear = isFilled && (slotKey === 'hold' || slotKey === 'doubleTap' || !['&kp', '&mt', '&lt', '&trans', '&none', '&magic'].includes(slotBinding.value));
 
                 if (isFilled) {
@@ -1378,7 +1396,7 @@ const App = () => {
                 const newConfig = structuredClone(config); const keyCount = newConfig.layers[0]?.length || keyboardGeo.length || 80;
                 newConfig.layers.push(Array.from({ length: keyCount }, () => ({ value: '&trans' })));
                 if (!Array.isArray(newConfig.layer_names)) newConfig.layer_names = newConfig.layers.slice(0, -1).map((_, i) => `Layer ${i}`);
-                newConfig.layer_names.push(`Layer ${newConfig.layers.length - 1}`); pushHistory(newConfig); setActiveLayer(newConfig.layers.length - 1); setSelectedKey(null); setEditingComboIdx(null); setLeftNavMode('Layers'); showToast('Layer added');
+                newConfig.layer_names.push(`Layer ${newConfig.layers.length - 1}`); pushHistory(newConfig); setActiveLayer(newConfig.layers.length - 1); setSelectedKey(null); setEditingComboIdx(null); showToast('Layer added');
             };
 
             const deleteLayer = (idx) => {
@@ -1427,7 +1445,6 @@ const App = () => {
                 newConfig.combos.push(newCombo);
                 pushHistory(newConfig);
                 setEditingComboIdx(newConfig.combos.length - 1);
-                setLeftNavMode('Combos');
             };
 
             const saveCustomJson = () => {
