@@ -70,7 +70,7 @@ Because everything is contained within one file, hacking on the editor is straig
 
 ---
 
-## 📄 License
+## 📄 License 
 
 This project is licensed under the **MIT License**. 
 
