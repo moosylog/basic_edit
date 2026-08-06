@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="RMK Edit - Visual TOML layout editor for RMK keyboards">
+    <title>RMK Edit | Keyboard Layout Editor</title>
+   
+    <!-- Core React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+   
+    <!-- ESM Import for smol-toml -->
+    <script type="module">
+        import { parse, stringify } from 'https://cdn.jsdelivr.net/npm/smol-toml@1.3.0/+esm';
+        window.smolToml = { parse, stringify };
+    </script>
+   
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: { rmk: { 900: '#1a1625', 800: '#2d2438', 700: '#463754', active: '#f59e0b' } },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }
+                }
+            }
+        }
+    </script>
+   
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+   
+    <style>
+        body {
+            background-color: #f8fafc; color: #1e293b; overflow: hidden; transition: background-color 0.2s, color 0.2s;
+        }
+        .dark body {
+            background-color: #110e15; color: #f8fafc;
+        }
+       
+        .p-key {
+            position: absolute; width: 62px; height: 62px; border-radius: 8px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            cursor: grab; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); user-select: none;
+            border: 1px solid #cbd5e1; background-color: #ffffff;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05), inset 0 -2px 0 rgba(0,0,0,0.02);
+            padding: 4px; text-align: center; overflow: hidden;
+            will-change: transform, scale, translate, box-shadow;
+            color: #1e293b;
+        }
+        .dark .p-key {
+            border: 1px solid #332940; background-color: #1e1826; color: #f8fafc;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+       
+        .p-key:active { cursor: grabbing; scale: 0.94; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .p-key:hover { filter: brightness(1.1); border-color: #94a3b8; z-index: 5; }
+        .dark .p-key:hover { border-color: #6d5b85; }
+       
+        .p-key.selected {
+            border-color: #f59e0b !important;
+            box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25), inset 0 1px 0 rgba(255,255,255,0.2) !important;
+            z-index: 10; translate: 0 -2px; background-color: #ffffff;
+        }
+        .dark .p-key.selected { background-color: #1a1625; }
+       
+        .p-key.drag-over {
+            border-color: #10b981 !important;
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3) !important;
+            scale: 1.05; z-index: 15;
+        }
+       
+        .p-key.trans { opacity: 0.6; border-style: dashed; }
+        .p-key.dead { background-color: #f1f5f9; border-color: #e2e8f0; opacity: 0.4; }
+        .dark .p-key.dead { background-color: #0b090f; border-color: #1a1625; opacity: 0.2; }
+       
+        .text-clamp { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .text-fit-md { font-size: 11px; font-weight: 600; line-height: 1.2; word-break: break-word; white-space: pre-wrap; }
+       
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .dark ::-webkit-scrollbar-thumb { background: #463754; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #6d5b85; }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="antialiased h-screen w-screen flex">
+    <div id="root" class="h-full w-full flex relative"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useCallback, memo } = React;
+
+        // --- 1. HARDWARE GEOMETRY MAPPING ---
+        const buildGlove80Geo = () => {
+            const geo = new Array(84).fill({hidden: true});
+            geo[0] = {x:0,y:35}; geo[1] = {x:70,y:35}; geo[2] = {x:140,y:0}; geo[3] = {x:210,y:0}; geo[4] = {x:280,y:0};
+            geo[14] = {x:0,y:105}; geo[15] = {x:70,y:105}; geo[16] = {x:140,y:70}; geo[17] = {x:210,y:70}; geo[18] = {x:280,y:70}; geo[19] = {x:350,y:70};
+            geo[28] = {x:0,y:175}; geo[29] = {x:70,y:175}; geo[30] = {x:140,y:140}; geo[31] = {x:210,y:140}; geo[32] = {x:280,y:140}; geo[33] = {x:350,y:140};
+            geo[42] = {x:0,y:245}; geo[43] = {x:70,y:245}; geo[44] = {x:140,y:210}; geo[45] = {x:210,y:210}; geo[46] = {x:280,y:210}; geo[47] = {x:350,y:210};
+            geo[56] = {x:0,y:315}; geo[57] = {x:70,y:315}; geo[58] = {x:140,y:280}; geo[59] = {x:210,y:280}; geo[60] = {x:280,y:280}; geo[61] = {x:350,y:280};
+            geo[70] = {x:0,y:385}; geo[71] = {x:70,y:385}; geo[72] = {x:140,y:350}; geo[73] = {x:210,y:350}; geo[74] = {x:280,y:350};
+           
+            geo[6] = {x:448,y:280,r:20,o:"-168px 0px"}; geo[20] = {x:546,y:231,r:30,o:"-266px 0px"}; geo[34] = {x:490,y:105,r:-45,o:"490px 0px"};
+            geo[48] = {x:371,y:378,r:15,o:"-91px 0px"}; geo[62] = {x:462,y:350,r:25,o:"-182px 0px"}; geo[76] = {x:560,y:224,r:-45,o:"420px 0px"};
+
+            geo[9] = {x:910,y:0}; geo[10] = {x:980,y:0}; geo[11] = {x:1050,y:0}; geo[12] = {x:1120,y:35}; geo[13] = {x:1190,y:35};
+            geo[22] = {x:840,y:70}; geo[23] = {x:910,y:70}; geo[24] = {x:980,y:70}; geo[25] = {x:1050,y:70}; geo[26] = {x:1120,y:105}; geo[27] = {x:1190,y:105};
+            geo[36] = {x:840,y:140}; geo[37] = {x:910,y:140}; geo[38] = {x:980,y:140}; geo[39] = {x:1050,y:140}; geo[40] = {x:1120,y:175}; geo[41] = {x:1190,y:175};
+            geo[50] = {x:840,y:210}; geo[51] = {x:910,y:210}; geo[52] = {x:980,y:210}; geo[53] = {x:1050,y:210}; geo[54] = {x:1120,y:245}; geo[55] = {x:1190,y:245};
+            geo[64] = {x:840,y:280}; geo[65] = {x:910,y:280}; geo[66] = {x:980,y:280}; geo[67] = {x:1050,y:280}; geo[68] = {x:1120,y:315}; geo[69] = {x:1190,y:315};
+            geo[79] = {x:910,y:350}; geo[80] = {x:980,y:350}; geo[81] = {x:1050,y:350}; geo[82] = {x:1120,y:385}; geo[83] = {x:1190,y:385};
+
+            geo[7] = {x:707,y:105,r:45,o:"-427px 0px"}; geo[21] = {x:651,y:231,r:-30,o:"329px 0px"}; geo[35] = {x:749,y:280,r:-20,o:"231px 0px"};
+            geo[49] = {x:630,y:224,r:45,o:"-350px 0px"}; geo[63] = {x:728,y:350,r:-25,o:"252px 0px"}; geo[77] = {x:819,y:378,r:-15,o:"161px 0px"};
+           
+            return geo;
+        };
+
+        const GO60_GEO = [
+            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:350,y:0},{x:805,y:0},{x:875,y:0},{x:945,y:0},{x:1015,y:0},{x:1085,y:35},{x:1155,y:35},
+            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:805,y:70},{x:875,y:70},{x:945,y:70},{x:1015,y:70},{x:1085,y:105},{x:1155,y:105},
+            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:805,y:140},{x:875,y:140},{x:945,y:140},{x:1015,y:140},{x:1085,y:175},{x:1155,y:175},
+            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:805,y:210},{x:875,y:210},{x:945,y:210},{x:1015,y:210},{x:1085,y:245},{x:1155,y:245},
+            {x:140,y:280},{x:210,y:280},{x:280,y:280},{x:875,y:280},{x:945,y:280},{x:1015,y:280},
+            {x:364,y:287,r:12.5,o:"0px 0px"},{x:448,y:308,r:25,o:"0px 0px"},{x:525,y:346.5,r:37,o:"0px 0px"},
+            {x:640.5,y:385,r:-37,o:"0px 0px"},{x:710.5,y:336,r:-25,o:"0px 0px"},{x:791,y:301,r:-12.5,o:"0px 0px"}
+        ].map(geo => ({ ...geo, hidden: false }));
+
+        const GLOVE80_GEO = buildGlove80Geo();
+
+        // --- 2. STRING PARSERS & MANIPULATORS ---
+        const RMK_KEYCODE_MAP = {
+            'BSPC':'Bksp', 'ENT':'Enter', 'SPC':'Space', 'MINS':'-', 'EQL':'=', 'GRV':'`', 'BSLS':'\\',
+            'SCLN':';', 'QUOT':"'", 'COMM':',', 'DOT':'.', 'SLSH':'/', 'LBRC':'[', 'RBRC':']',
+            'UP':'↑', 'DOWN':'↓', 'LEFT':'←', 'RGHT':'→', 'MPLY':'Play', 'MPRV':'Prev', 'MNXT':'Next',
+            'VOLU':'Vol+', 'VOLD':'Vol-', 'LCTL':'Ctrl', 'LALT':'Alt', 'LGUI':'GUI', 'LSFT':'Shift'
+        };
+
+        const formatKeycode = (val) => {
+            if (!val || val === '--' || val === 'KC_NO' || val === '_______' || val === 'KC_TRNS') return '';
+            let core = val;
+            if (core.startsWith('KC_')) core = core.substring(3);
+            if (core.startsWith('QK_')) core = core.substring(3);
+            return RMK_KEYCODE_MAP[core] || core;
+        };
+
+        const generateAutoLabel = (binding) => {
+            if (!binding || binding === '--' || binding === 'KC_NO') return '';
+            const dualMatch = binding.match(/^(?:LT|MT)\(([^,]+),\s*([^)]+)\)$/);
+            if (dualMatch) return `L${formatKeycode(dualMatch[1])}\n${formatKeycode(dualMatch[2])}`;
+            const moMatch = binding.match(/^(?:MO|TO|TG|DF|TD)\(([^)]+)\)$/);
+            if (moMatch) return `${binding.substring(0,2)}${moMatch[1]}`;
+            const modMatch = binding.match(/^(?:LSFT|LCTL|LALT|LGUI)\(([^)]+)\)$/);
+            if (modMatch) return `M+${formatKeycode(modMatch[1])}`;
+            return formatKeycode(binding);
+        };
+
+        const updateKeyInString = (keysString, index, newValue) => {
+            let i = 0;
+            return keysString.replace(/\S+/g, (match) => {
+                if (i === index) { i++; return newValue; }
+                i++; return match;
+            });
+        };
+
+        // --- 3. COMPONENTS ---
+        const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect, onSwap }) => {
+            const [isDragOver, setIsDragOver] = useState(false);
+            if (geo.hidden) return null;
+           
+            const isTrans = binding === '_______' || binding === 'KC_TRNS';
+            const isDead = binding === '--' || binding === 'KC_NO';
+            const labelText = isTrans && baseBinding ? generateAutoLabel(baseBinding) : generateAutoLabel(binding);
+           
+            const keyStyle = geo.relative ? { position: 'relative' } : {
+                left: `${geo.x}px`, top: `${geo.y}px`, rotate: geo.r ? `${geo.r}deg` : '0deg', transformOrigin: geo.o || 'center'
+            };
+
+            const handleDragStart = (e) => {
+                e.dataTransfer.setData('text/plain', index);
+                e.dataTransfer.effectAllowed = 'move';
+            };
+
+            const handleDragOver = (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                setIsDragOver(true);
+            };
+
+            const handleDragLeave = () => setIsDragOver(false);
+
+            const handleDrop = (e) => {
+                e.preventDefault();
+                setIsDragOver(false);
+                const sourceIdx = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                if (!isNaN(sourceIdx) && sourceIdx !== index) {
+                    onSwap(sourceIdx, index);
+                }
+            };
+
+            return (
+                <div
+                    draggable={true}
+                    onDragStart={handleDragStart}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`p-key ${isSelected ? 'selected' : ''} ${isTrans ? 'trans' : ''} ${isDead ? 'dead' : ''} ${isDragOver ? 'drag-over' : ''}`}
+                    style={keyStyle}
+                    onClick={() => onSelect(index)}
+                    role="button"
+                    tabIndex={0}
+                    title="Drag to swap keys"
+                >
+                    <span className="text-fit-md text-clamp">{labelText}</span>
+                </div>
+            );
+        }, (prev, next) => (
+            prev.isSelected === next.isSelected && prev.binding === next.binding &&
+            prev.baseBinding === next.baseBinding && prev.geo === next.geo
+        ));
+
+        const KeyboardContainer = ({ activeLayerTokens, baseLayerTokens, selectedKey, onSelectKey, scale, onSwap }) => {
+            const { keyboardGeo, isFallback } = useMemo(() => {
+                const count = activeLayerTokens.length;
+                if (count === 84) return { keyboardGeo: GLOVE80_GEO, isFallback: false };
+                if (count === 60) return { keyboardGeo: GO60_GEO, isFallback: false };
+                return { keyboardGeo: activeLayerTokens.map(() => ({ x: 0, y: 0, relative: true, hidden: false })), isFallback: true };
+            }, [activeLayerTokens.length]);
+           
+            return (
+                <div className="relative w-full h-full overflow-hidden flex items-center justify-center pointer-events-none">
+                    <div
+                        className={isFallback ? "grid grid-cols-12 gap-2 p-10 max-w-[1260px] pointer-events-auto transition-transform" : "relative w-[1260px] h-[450px] origin-center transition-transform pointer-events-auto"}
+                        style={{ transform: `scale(${scale})` }}
+                    >
+                        {activeLayerTokens.map((token, index) => (
+                            <KeyComponent
+                                key={`matrix-key-${index}`}
+                                index={index}
+                                geo={keyboardGeo[index] || {hidden: true}}
+                                binding={token}
+                                baseBinding={baseLayerTokens?.[index]}
+                                isSelected={selectedKey === index}
+                                onSelect={onSelectKey}
+                                onSwap={onSwap}
+                            />
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const DockedInspector = ({ config, activeLayer, selectedKey, setSelectedKey, updateConfig }) => {
+            const [view, setView] = useState('key');
+            const [localState, setLocalState] = useState("");
+            const [error, setError] = useState("");
+           
+            const tokens = useMemo(() => config.layer?.[activeLayer]?.keys?.trim().split(/\s+/) || [], [config, activeLayer]);
+
+            useEffect(() => { if (selectedKey !== null) setView('key'); }, [selectedKey]);
+
+            useEffect(() => {
+                setError("");
+                if (view === 'key') {
+                    setLocalState(selectedKey !== null ? tokens[selectedKey] : "");
+                } else if (view === 'layer_meta') {
+                    const l = config.layer?.[activeLayer];
+                    setLocalState(window.smolToml.stringify({ id: l?.id || '', name: l?.name || '' }));
+                } else {
+                    const block = config[view];
+                    setLocalState(block ? window.smolToml.stringify({ [view]: block }) : "");
+                }
+            }, [view, selectedKey, activeLayer, config, tokens]);
+
+            const handleSave = () => {
+                try {
+                    const newConfig = typeof structuredClone === "function" ? structuredClone(config) : JSON.parse(JSON.stringify(config));
+                   
+                    if (view === 'key') {
+                        if (selectedKey === null) return;
+                        const safeValue = localState.trim().replace(/\s+/g, '');
+                        if (!safeValue) throw new Error("Keycode cannot be empty. Use '--' or 'KC_NO'.");
+                        const currentKeysString = newConfig.layer[activeLayer].keys;
+                        newConfig.layer[activeLayer].keys = updateKeyInString(currentKeysString, selectedKey, safeValue);
+                    } else if (view === 'layer_meta') {
+                        const parsed = window.smolToml.parse(localState);
+                        if (parsed.id !== undefined) newConfig.layer[activeLayer].id = parsed.id;
+                        if (parsed.name !== undefined) newConfig.layer[activeLayer].name = parsed.name;
+                    } else {
+                        const parsed = window.smolToml.parse(localState);
+                        if (parsed[view]) newConfig[view] = parsed[view];
+                        else delete newConfig[view];
+                    }
+                   
+                    updateConfig(newConfig);
+                    setError("");
+                } catch (err) { setError("Save error: " + err.message); }
+            };
+
+            return (
+                <div className="w-[340px] bg-white dark:bg-rmk-900 border-l border-slate-200 dark:border-rmk-800 flex flex-col shrink-0 overflow-hidden shadow-2xl z-30 transition-colors">
+                    <div className="flex text-xs font-semibold bg-slate-50 dark:bg-black/40 border-b border-slate-200 dark:border-rmk-800 overflow-x-auto hide-scrollbar">
+                        {['key', 'layer_meta', 'morse', 'lighting'].map(t => (
+                            <button key={t} onClick={() => { setView(t); setSelectedKey(null); }}
+                                className={`flex-1 min-w-[75px] py-3 text-center capitalize transition-colors focus:outline-none ${view === t ? 'text-amber-500 border-b-2 border-amber-500 bg-white dark:bg-rmk-800/50' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'}`}>
+                                {t.replace('_', ' ')}
+                            </button>
+                        ))}
+                    </div>
+
+                    <div className="p-4 flex-1 flex flex-col overflow-y-auto">
+                        <div className="mb-2 flex justify-between items-center h-6">
+                            <h3 className="font-bold text-sm text-slate-900 dark:text-white capitalize">
+                                {view === 'key' ? (selectedKey !== null ? `Layer ${activeLayer} : Index ${selectedKey}` : 'No Key Selected') : `${view.replace('_', ' ')} Settings`}
+                            </h3>
+                            {view === 'key' && selectedKey !== null && (
+                                <button onClick={() => setSelectedKey(null)} className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white text-xs bg-slate-100 dark:bg-rmk-800 px-2 py-1 rounded transition-colors">Deselect</button>
+                            )}
+                        </div>
+
+                        {(view !== 'key' || selectedKey !== null) ? (
+                            <div className="flex flex-col flex-1">
+                                <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
+                                    {view === 'key' ? "Modify raw keycode binding (e.g. KC_A, TD(0), --)." : `Modify TOML table for ${view}.`}
+                                </p>
+                               
+                                {view === 'key' ? (
+                                    <input
+                                        className={`w-full bg-slate-50 dark:bg-[#0a0a0a] text-slate-800 dark:text-emerald-400 font-mono text-sm p-3 rounded border outline-none mb-3 transition-colors ${error ? 'border-red-500' : 'border-slate-300 dark:border-rmk-700 focus:border-amber-500'}`}
+                                        value={localState} onChange={e => setLocalState(e.target.value)} spellCheck="false"
+                                    />
+                                ) : (
+                                    <textarea
+                                        className={`flex-1 w-full bg-slate-50 dark:bg-[#0a0a0a] text-slate-800 dark:text-emerald-400 font-mono text-xs p-3 rounded border outline-none resize-none mb-3 min-h-[250px] transition-colors ${error ? 'border-red-500' : 'border-slate-300 dark:border-rmk-700 focus:border-amber-500'}`}
+                                        value={localState} onChange={(e) => setLocalState(e.target.value)} spellCheck="false"
+                                    />
+                                )}
+                               
+                                {error && <div className="text-red-600 dark:text-red-400 text-xs mb-3 p-3 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-900/50 rounded">{error}</div>}
+                               
+                                <button onClick={handleSave} className="w-full bg-amber-500 hover:bg-amber-400 dark:bg-amber-600 dark:hover:bg-amber-500 text-white dark:text-black font-bold py-3 rounded transition-colors text-sm shadow">
+                                    Save {view === 'key' ? 'Binding' : 'Block'}
+                                </button>
+                            </div>
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center text-slate-400 dark:text-slate-500 text-sm italic text-center p-4 border border-dashed border-slate-300 dark:border-rmk-800 rounded">
+                                Select a physical key on the board to edit its binding properties.
+                            </div>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        // --- 4. ENGINE MASTER CONTROLLER ---
+        const App = () => {
+            const [engineReady, setEngineReady] = useState(false);
+            const [theme, setTheme] = useState('dark');
+            const [config, setConfig] = useState(null);
+            const [activeLayer, setActiveLayer] = useState(0);
+            const [selectedKey, setSelectedKey] = useState(null);
+            const [fileError, setFileError] = useState("");
+            const [scale, setScale] = useState(0.85);
+
+            useEffect(() => {
+                const root = document.documentElement;
+                if (theme === 'dark') root.classList.add('dark');
+                else root.classList.remove('dark');
+            }, [theme]);
+
+            useEffect(() => {
+                if (!engineReady) {
+                    const timer = setInterval(() => {
+                        if (window.smolToml) { setEngineReady(true); clearInterval(timer); }
+                    }, 100);
+                    return () => clearInterval(timer);
+                }
+            }, [engineReady]);
+
+            const handleFileUpload = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                setFileError("");
+               
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const parsed = window.smolToml.parse(event.target.result);
+                        if (!parsed.layer || !Array.isArray(parsed.layer)) {
+                            throw new Error("Invalid RMK layout: Missing '[[layer]]' definitions array.");
+                        }
+                        setConfig(parsed); setActiveLayer(0); setSelectedKey(null); setScale(0.85);
+                    } catch (err) {
+                        setFileError(err.message || "Failed to parse TOML configuration.");
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            };
+
+            const handleExport = () => {
+                if (!config) return;
+                try {
+                    const tomlString = window.smolToml.stringify(config);
+                    const dataStr = "data:text/plain;charset=utf-8," + encodeURIComponent(tomlString);
+                    const anchor = document.createElement('a');
+                    anchor.href = dataStr;
+                    anchor.download = `keyboard_${Math.floor(Date.now() / 1000)}.toml`;
+                    document.body.appendChild(anchor);
+                    anchor.click();
+                    document.body.removeChild(anchor);
+                } catch(err) { alert("Export failed: " + err.message); }
+            };
+
+            const handleSwapKeys = useCallback((idx1, idx2) => {
+                setConfig(prevConfig => {
+                    const newConfig = JSON.parse(JSON.stringify(prevConfig));
+                    const currentKeysString = newConfig.layer[activeLayer].keys;
+                   
+                    // Regex captures leading whitespace and the non-whitespace token safely
+                    let tokens = [];
+                    let regex = /(\s*)(\S+)/g;
+                    let match;
+                    let lastIndex = 0;
+                   
+                    while ((match = regex.exec(currentKeysString)) !== null) {
+                        tokens.push({ space: match[1], text: match[2] });
+                        lastIndex = regex.lastIndex;
+                    }
+                    const tail = currentKeysString.slice(lastIndex);
+
+                    if (idx1 < tokens.length && idx2 < tokens.length) {
+                        const tempText = tokens[idx1].text;
+                        tokens[idx1].text = tokens[idx2].text;
+                        tokens[idx2].text = tempText;
+                        newConfig.layer[activeLayer].keys = tokens.map(t => t.space + t.text).join('') + tail;
+                    }
+                   
+                    return newConfig;
+                });
+            }, [activeLayer]);
+
+            const activeLayerTokens = useMemo(() => {
+                if (!config || !config.layer?.[activeLayer]?.keys) return [];
+                return config.layer[activeLayer].keys.trim().split(/\s+/);
+            }, [config, activeLayer]);
+           
+            const baseLayerTokens = useMemo(() => {
+                if (!config || !config.layer?.[0]?.keys) return [];
+                return config.layer[0].keys.trim().split(/\s+/);
+            }, [config]);
+
+            const layoutDetectedString = useMemo(() => {
+                if (activeLayerTokens.length === 84) return 'Glove80 (84 Grid)';
+                if (activeLayerTokens.length === 60) return 'Go60 (60 Grid)';
+                return 'Custom Fallback';
+            }, [activeLayerTokens.length]);
+
+            if (!engineReady) {
+                return (
+                    <div className="flex items-center justify-center h-full w-full bg-slate-50 dark:bg-[#110e15]">
+                        <p className="text-slate-500 dark:text-slate-400 font-mono text-sm animate-pulse">Initializing TOML Engine...</p>
+                    </div>
+                );
+            }
+
+            return (
+                <div className="flex h-full w-full font-sans">
+                    <div className="w-64 bg-white dark:bg-rmk-900 border-r border-slate-200 dark:border-rmk-800 flex flex-col shrink-0 p-5 gap-6 z-30 shadow-lg transition-colors">
+                        <div>
+                            <div className="flex justify-between items-center mb-1">
+                                <h1 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">RMK Edit</h1>
+                                <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} className="text-slate-400 hover:text-amber-500 transition-colors" title="Toggle Theme">
+                                    {theme === 'dark' ? (
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                    ) : (
+                                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                                    )}
+                                </button>
+                            </div>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 mb-5">Visual TOML Configurator</p>
+                            <label className="block w-full bg-slate-100 dark:bg-rmk-800 border border-slate-200 dark:border-rmk-700 hover:border-amber-500 dark:hover:border-amber-500 text-slate-700 dark:text-slate-200 text-center py-2.5 rounded cursor-pointer transition-colors text-sm font-semibold shadow-sm">
+                                Load keyboard.toml
+                                <input type="file" accept=".toml,.txt" className="hidden" onChange={handleFileUpload} />
+                            </label>
+                            {fileError && <p className="mt-2 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/50 p-2 border border-red-200 dark:border-red-900/30 rounded overflow-hidden text-ellipsis whitespace-nowrap" title={fileError}>{fileError}</p>}
+                        </div>
+
+                        {config && (
+                            <div className="flex-1 flex flex-col gap-6">
+                                <div className="space-y-1.5 text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-black/30 border border-slate-200 dark:border-rmk-800 p-4 rounded shadow-inner">
+                                    <div className="flex justify-between items-center">
+                                        <span>Target Matrix:</span>
+                                        <span className="text-amber-600 dark:text-amber-400 uppercase font-mono bg-amber-100 dark:bg-amber-900/20 px-1.5 py-0.5 rounded text-[10px]">
+                                            {layoutDetectedString}
+                                        </span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span>Total Tokens:</span>
+                                        <span className="text-slate-900 dark:text-white font-mono">{activeLayerTokens.length}</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Active Layer</label>
+                                    <select className="w-full bg-white dark:bg-[#0a0a0a] border border-slate-200 dark:border-rmk-700 text-slate-900 dark:text-white text-sm rounded focus:ring-2 focus:ring-amber-500 p-2.5 outline-none cursor-pointer appearance-none shadow-sm"
+                                        value={activeLayer} onChange={(e) => { setActiveLayer(parseInt(e.target.value, 10)); setSelectedKey(null); }}>
+                                        {config.layer.map((l, i) => <option key={i} value={i}>{i} : {l.name || l.id || `Layer ${i}`}</option>)}
+                                    </select>
+                                </div>
+
+                                <button onClick={handleExport} className="w-full mt-auto bg-emerald-500 hover:bg-emerald-400 dark:bg-emerald-600 dark:hover:bg-emerald-500 text-white font-bold py-3 rounded text-sm transition-all shadow-md focus:ring-2 focus:ring-emerald-400">
+                                    Export TOML
+                                </button>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="flex-1 relative overflow-hidden z-10 transition-colors flex items-center justify-center">
+                        {!config ? (
+                            <div className="text-slate-400 dark:text-slate-500 flex flex-col items-center gap-4">
+                                <svg className="w-16 h-16 opacity-30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                <span className="text-sm font-medium">Upload an RMK `keyboard.toml` configuration file to begin.</span>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="absolute top-6 right-6 flex items-center bg-white dark:bg-rmk-800 border border-slate-200 dark:border-rmk-700 rounded-lg shadow-sm z-40 transition-colors">
+                                    <button onClick={() => setScale(s => Math.max(0.3, s - 0.1))} className="p-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors" title="Zoom Out">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg>
+                                    </button>
+                                    <span className="text-[11px] font-mono font-bold w-12 text-center text-slate-700 dark:text-slate-300 select-none">{Math.round(scale * 100)}%</span>
+                                    <button onClick={() => setScale(s => Math.min(2.0, s + 0.1))} className="p-2.5 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white transition-colors" title="Zoom In">
+                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
+                                    </button>
+                                </div>
+                                <KeyboardContainer
+                                    activeLayerTokens={activeLayerTokens} baseLayerTokens={baseLayerTokens}
+                                    selectedKey={selectedKey} onSelectKey={setSelectedKey}
+                                    scale={scale} onSwap={handleSwapKeys}
+                                />
+                            </>
+                        )}
+                    </div>
+
+                    {config && (
+                        <DockedInspector
+                            config={config} activeLayer={activeLayer} selectedKey={selectedKey}
+                            setSelectedKey={setSelectedKey} updateConfig={setConfig}
+                        />
+                    )}
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
