@@ -7,7 +7,10 @@
 
 [![LATEST GLIDE](https://img.shields.io/badge/Live_Demo-GLIDE_LATEST-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/glide_v20.html) **v20** Blend of Moosy, Oryx, Keychron, Naya, Vial = **26 jul**
 
-[![RMK Simple Edit](https://img.shields.io/badge/Live_Demo-RMK_EDIT-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/rmk_simple.html) **toml**
+[![RMK Simple Edit](https://img.shields.io/badge/Live_Demo-RMK_EDIT-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/rmk_simple1.html) **toml**
+
+[![RMK Simple Edit](https://img.shields.io/badge/Live_Demo-RMK_EDIT-0ea5e9?style=for-the-badge&logo=vercel)](https://moosylog.github.io/basic_edit/rmk_simple2.html) **toml**
+
 
 
 **A lightweight**, visual editor that serves as a foundation for **tinkering with the MoErgo Layout Editor JSON file**. By providing the exact hardware geometry coordinates needed to render the physical keyboard matrix on screen, it gives you a great starting point for your project.
