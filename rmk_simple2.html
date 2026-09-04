@@ -1,9 +1,9 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="RMK Studio - Premium Visual Engine for TOML Layouts">
+    <meta name="description" content="RMK Studio - Premium Visual Engine">
     <title>RMK Studio | Visual Engine</title>
    
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
@@ -27,102 +27,51 @@
    
     <style>
         :root {
-            --bg-base: #f1f5f9;
-            --bg-panel: #ffffff;
-            --border-panel: #e2e8f0;
-            --accent: #ea700d;
-            --accent-glow: rgba(234, 112, 13, 0.15);
-            --accent-soft: rgba(234, 112, 13, 0.05);
-           
-            --key-bg: #ffffff;
-            --key-border: #cbd5e1;
-            --key-shadow: 0 1px 3px rgba(0,0,0,0.08), inset 0 -2px 0 rgba(0,0,0,0.02);
-            --key-text: #1e293b;
-           
-            --input-bg: #f8fafc;
-            --input-border: #cbd5e1;
-            --text-main: #0f172a;
-            --text-muted: #64748b;
+            --bg-base: #0a0e14; --bg-panel: #161b22; --border-panel: #30363d;
+            --accent: #ea700d; --accent-glow: rgba(234, 112, 13, 0.4);
+            --key-bg: linear-gradient(180deg, #334155 0%, #1e293b 100%); --key-border: #64748b;
+            --key-shadow: 0 4px 8px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.2);
+            --key-text: #ffffff; --input-bg: #0d1117; --input-border: #30363d;
+            --text-main: #f8fafc; --text-muted: #94a3b8;
         }
 
-        .dark {
-            --bg-base: #0f1218;
-            --bg-panel: #161b22;
-            --border-panel: #272e38;
-            --accent: #f59e0b;
-            --accent-glow: rgba(245, 158, 11, 0.3);
-            --accent-soft: rgba(245, 158, 11, 0.1);
-           
-            --key-bg: linear-gradient(180deg, #2d3748 0%, #1e2532 100%);
-            --key-border: #3f4a5c;
-            --key-shadow: 0 4px 6px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
-            --key-text: #f8fafc;
-
-            --input-bg: #090c10;
-            --input-border: #333d4d;
-            --text-main: #f8fafc;
-            --text-muted: #8b9bb4;
-        }
-
-        body {
-            background-color: var(--bg-base); color: var(--text-main); font-family: 'Inter', sans-serif;
-            overflow: hidden; margin: 0; display: flex; height: 100vh; width: 100vw;
-            transition: background-color 0.2s, color 0.2s;
-        }
-       
-        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        body { background-color: var(--bg-base); color: var(--text-main); font-family: 'Inter', sans-serif; overflow: hidden; margin: 0; display: flex; height: 100vh; width: 100vw; transition: background-color 0.2s, color 0.2s; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
-        .dark ::-webkit-scrollbar-thumb { background: #3f4a5c; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
 
-        .matrix-key {
-            position: absolute; width: 62px; height: 62px; border-radius: 8px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: grab; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); user-select: none;
-            border: 1px solid var(--key-border); background: var(--key-bg);
-            box-shadow: var(--key-shadow); padding: 4px; text-align: center; z-index: 1; color: var(--key-text);
-            will-change: transform, box-shadow, border-color;
-        }
-        .matrix-key:active { cursor: grabbing; transform: scale(0.92) !important; box-shadow: 0 1px 2px rgba(0,0,0,0.1); z-index: 20; }
-        .matrix-key:hover { border-color: var(--accent); z-index: 5; }
-        .matrix-key.selected { border-color: var(--accent) !important; box-shadow: 0 0 0 4px var(--accent-glow) !important; z-index: 10; transform: translateY(-2px); background: var(--key-bg); }
-        .matrix-key.drag-over { border-color: #10b981 !important; box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.3) !important; transform: scale(1.06); z-index: 15; }
+        /* Highly Visible Keycaps */
+        .matrix-key { position: absolute; width: 62px; height: 62px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); user-select: none; border: 2px solid var(--key-border); background: var(--key-bg); box-shadow: var(--key-shadow); padding: 4px; text-align: center; z-index: 1; color: var(--key-text); will-change: transform, box-shadow, border-color, filter; }
+        .matrix-key:active { transform: scale(0.92) !important; box-shadow: 0 1px 2px rgba(0,0,0,0.5) !important; z-index: 20; }
+        .matrix-key:hover { border-color: var(--accent); z-index: 5; filter: brightness(1.2); }
+        .matrix-key.selected { border-color: var(--accent) !important; box-shadow: 0 0 0 4px var(--accent-glow) !important; z-index: 10; transform: translateY(-2px); filter: brightness(1.1); }
        
-        .matrix-key.trans { background: var(--bg-panel); border: 2px dotted var(--accent); opacity: 0.9; color: var(--accent); font-style: italic; box-shadow: none; }
-        .matrix-key.dead {
-            background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(148, 163, 184, 0.15) 4px, rgba(148, 163, 184, 0.15) 8px);
-            border: 2px dashed rgba(148, 163, 184, 0.4); opacity: 0.5; color: var(--text-muted); box-shadow: none;
-        }
-        .dark .matrix-key.dead { background: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(71, 85, 105, 0.3) 4px, rgba(71, 85, 105, 0.3) 8px); border-color: rgba(71, 85, 105, 0.5); }
+        .matrix-key.trans { background: #0f172a; border: 2px dotted #f59e0b; opacity: 0.95; color: #f59e0b; font-style: italic; box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
+        .matrix-key.dead { background: repeating-linear-gradient(45deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.8) 4px, rgba(30, 41, 59, 0.8) 4px, rgba(30, 41, 59, 0.8) 8px); border: 2px dashed #475569; opacity: 0.9; color: #94a3b8; box-shadow: none; }
 
-        .text-clamp { font-size: 11px; font-weight: 700; line-height: 1.2; word-break: break-word; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-        .dark .text-clamp { text-shadow: 0 1px 2px rgba(0,0,0,0.5); }
+        /* Lighting Mode Visuals */
+        .lighting-mode { box-shadow: 0 4px 6px rgba(0,0,0,0.8) !important; border: 2px solid rgba(255,255,255,0.3) !important; transition: background-color 0.2s, transform 0.1s; }
+        .lighting-mode:hover { transform: scale(1.05); z-index: 20; box-shadow: 0 0 15px rgba(0,0,0,0.8) !important; border-color: #fff !important; }
+        .lighting-off { background: repeating-conic-gradient(rgba(255,255,255,0.03) 0% 25%, transparent 0% 50%) 50% / 8px 8px; background-color: #05070a !important; border-color: #1e293b !important; opacity: 0.85; }
+        .lighting-glow { box-shadow: 0 0 15px currentColor, inset 0 0 12px rgba(255,255,255,0.4) !important; z-index: 2; border-color: rgba(255,255,255,0.6) !important; }
 
-        .input-field { width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-main); font-size: 13px; font-weight: 500; padding: 10px 12px; border-radius: 6px; outline: none; transition: all 0.2s; }
+        .text-clamp { font-size: 11px; font-weight: 700; line-height: 1.2; word-break: break-word; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 0 2px 4px rgba(0,0,0,1); }
+        .lighting-mode .text-clamp { text-shadow: 0 2px 5px rgba(0,0,0,1); font-size: 10px; opacity: 1; pointer-events: none; }
+
+        .input-field { width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-main); font-size: 13px; font-weight: 500; padding: 8px 10px; border-radius: 6px; outline: none; transition: all 0.2s; }
         .input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
         .panel { background-color: var(--bg-panel); border-color: var(--border-panel); }
        
-        #matrix-drag-surface { cursor: grab; }
-        #matrix-drag-surface:active { cursor: grabbing; }
+        #matrix-drag-surface { cursor: grab; } #matrix-drag-surface:active { cursor: grabbing; }
 
-        .resizer-v {
-            width: 10px; cursor: col-resize; background-color: transparent;
-            transition: background-color 0.2s; z-index: 50; flex-shrink: 0;
-            display: flex; align-items: center; justify-content: center; position: relative;
-        }
+        .resizer-v { width: 12px; cursor: col-resize; background-color: transparent; transition: background-color 0.2s; z-index: 50; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative; }
         .resizer-v:hover, .resizer-v:active { background-color: var(--accent); }
         .resizer-v::after { content: ''; width: 2px; height: 32px; background-color: var(--border-panel); border-radius: 2px; }
-        .resizer-v:hover::after, .resizer-v:active::after { background-color: rgba(255,255,255,0.4); }
-
-        .resizer-h {
-            height: 10px; cursor: row-resize; background-color: transparent;
-            transition: background-color 0.2s; z-index: 50; flex-shrink: 0;
-            display: flex; align-items: center; justify-content: center; position: relative;
-        }
+        .resizer-h { height: 12px; cursor: row-resize; background-color: transparent; transition: background-color 0.2s; z-index: 50; flex-shrink: 0; display: flex; align-items: center; justify-content: center; position: relative; }
         .resizer-h:hover, .resizer-h:active { background-color: var(--accent); }
         .resizer-h::after { content: ''; height: 2px; width: 32px; background-color: var(--border-panel); border-radius: 2px; }
-        .resizer-h:hover::after, .resizer-h:active::after { background-color: rgba(255,255,255,0.4); }
+        .highlight-rule { border-color: var(--accent) !important; box-shadow: 0 0 0 2px var(--accent-glow), 0 4px 15px rgba(0,0,0,0.3) !important; }
     </style>
 </head>
 <body class="antialiased">
@@ -131,8 +80,8 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
 
-        // --- 1. HARDWARE GEOMETRY ---
-        const buildGlove80Geo = () => {
+        // --- 1. HARDWARE GEOMETRY & PERFECTED LED ROUTING ---
+        const GLOVE80_GEO = (() => {
             const geo = new Array(84).fill({hidden: true});
             geo[0] = {x:0,y:35}; geo[1] = {x:70,y:35}; geo[2] = {x:140,y:0}; geo[3] = {x:210,y:0}; geo[4] = {x:280,y:0};
             geo[14] = {x:0,y:105}; geo[15] = {x:70,y:105}; geo[16] = {x:140,y:70}; geo[17] = {x:210,y:70}; geo[18] = {x:280,y:70}; geo[19] = {x:350,y:70};
@@ -140,40 +89,71 @@
             geo[42] = {x:0,y:245}; geo[43] = {x:70,y:245}; geo[44] = {x:140,y:210}; geo[45] = {x:210,y:210}; geo[46] = {x:280,y:210}; geo[47] = {x:350,y:210};
             geo[56] = {x:0,y:315}; geo[57] = {x:70,y:315}; geo[58] = {x:140,y:280}; geo[59] = {x:210,y:280}; geo[60] = {x:280,y:280}; geo[61] = {x:350,y:280};
             geo[70] = {x:0,y:385}; geo[71] = {x:70,y:385}; geo[72] = {x:140,y:350}; geo[73] = {x:210,y:350}; geo[74] = {x:280,y:350};
-           
             geo[6] = {x:448,y:280,r:20,o:"-168px 0px"}; geo[20] = {x:546,y:231,r:30,o:"-266px 0px"}; geo[34] = {x:490,y:105,r:-45,o:"490px 0px"};
             geo[48] = {x:371,y:378,r:15,o:"-91px 0px"}; geo[62] = {x:462,y:350,r:25,o:"-182px 0px"}; geo[76] = {x:560,y:224,r:-45,o:"420px 0px"};
-
             geo[9] = {x:910,y:0}; geo[10] = {x:980,y:0}; geo[11] = {x:1050,y:0}; geo[12] = {x:1120,y:35}; geo[13] = {x:1190,y:35};
             geo[22] = {x:840,y:70}; geo[23] = {x:910,y:70}; geo[24] = {x:980,y:70}; geo[25] = {x:1050,y:70}; geo[26] = {x:1120,y:105}; geo[27] = {x:1190,y:105};
             geo[36] = {x:840,y:140}; geo[37] = {x:910,y:140}; geo[38] = {x:980,y:140}; geo[39] = {x:1050,y:140}; geo[40] = {x:1120,y:175}; geo[41] = {x:1190,y:175};
             geo[50] = {x:840,y:210}; geo[51] = {x:910,y:210}; geo[52] = {x:980,y:210}; geo[53] = {x:1050,y:210}; geo[54] = {x:1120,y:245}; geo[55] = {x:1190,y:245};
             geo[64] = {x:840,y:280}; geo[65] = {x:910,y:280}; geo[66] = {x:980,y:280}; geo[67] = {x:1050,y:280}; geo[68] = {x:1120,y:315}; geo[69] = {x:1190,y:315};
             geo[79] = {x:910,y:350}; geo[80] = {x:980,y:350}; geo[81] = {x:1050,y:350}; geo[82] = {x:1120,y:385}; geo[83] = {x:1190,y:385};
-
             geo[7] = {x:707,y:105,r:45,o:"-427px 0px"}; geo[21] = {x:651,y:231,r:-30,o:"329px 0px"}; geo[35] = {x:749,y:280,r:-20,o:"231px 0px"};
             geo[49] = {x:630,y:224,r:45,o:"-350px 0px"}; geo[63] = {x:728,y:350,r:-25,o:"252px 0px"}; geo[77] = {x:819,y:378,r:-15,o:"161px 0px"};
-           
             return geo;
+        })();
+
+        // Perfectly resolved serpentine routing:
+        const L_THUMBS = [76, 62, 48, 34, 20, 6];
+        const L_C5 = [19, 33, 47, 61];
+        const L_C4 = [4, 18, 32, 46, 60, 74];
+        const L_C3 = [3, 17, 31, 45, 59, 73];
+        const L_C2 = [2, 16, 30, 44, 58, 72];
+        const L_C1 = [1, 15, 29, 43, 57, 71];
+        const L_C0 = [0, 14, 28, 42, 56, 70];
+
+        const R_THUMBS = [77, 63, 49, 35, 21, 7];
+        const R_C5 = [22, 36, 50, 64];
+        const R_C4 = [9, 23, 37, 51, 65, 79];
+        const R_C3 = [10, 24, 38, 52, 66, 80];
+        const R_C2 = [11, 25, 39, 53, 67, 81];
+        const R_C1 = [12, 26, 40, 54, 68, 82];
+        const R_C0 = [13, 27, 41, 55, 69, 83];
+
+        const LED_TO_MATRIX = [
+            ...L_THUMBS, ...L_C5, ...L_C4, ...L_C3, ...L_C2, ...L_C1, ...L_C0,
+            ...R_THUMBS, ...R_C5, ...R_C4, ...R_C3, ...R_C2, ...R_C1, ...R_C0
+        ];
+        const MATRIX_TO_LED = new Array(84).fill(-1);
+        LED_TO_MATRIX.forEach((matrixIdx, ledIdx) => { MATRIX_TO_LED[matrixIdx] = ledIdx; });
+
+        // --- 2. GLOBAL UTILITIES & PARSERS ---
+        const getContrastColor = (hexcolor) => {
+            if (!hexcolor) return '#f8fafc';
+            let cleanHex = String(hexcolor).replace("#", "");
+            if (cleanHex.length === 3) cleanHex = cleanHex.split('').map(c => c+c).join('');
+            if (cleanHex.length !== 6) return '#fff';
+            const r = parseInt(cleanHex.substr(0,2),16), g = parseInt(cleanHex.substr(2,2),16), b = parseInt(cleanHex.substr(4,2),16);
+            return (((r*299)+(g*587)+(b*114))/1000 >= 128) ? '#000' : '#fff';
         };
 
-        const GO60_GEO = [
-            {x:0,y:35},{x:70,y:35},{x:140,y:0},{x:210,y:0},{x:280,y:0},{x:350,y:0},{x:805,y:0},{x:875,y:0},{x:945,y:0},{x:1015,y:0},{x:1085,y:35},{x:1155,y:35},
-            {x:0,y:105},{x:70,y:105},{x:140,y:70},{x:210,y:70},{x:280,y:70},{x:350,y:70},{x:805,y:70},{x:875,y:70},{x:945,y:70},{x:1015,y:70},{x:1085,y:105},{x:1155,y:105},
-            {x:0,y:175},{x:70,y:175},{x:140,y:140},{x:210,y:140},{x:280,y:140},{x:350,y:140},{x:805,y:140},{x:875,y:140},{x:945,y:140},{x:1015,y:140},{x:1085,y:175},{x:1155,y:175},
-            {x:0,y:245},{x:70,y:245},{x:140,y:210},{x:210,y:210},{x:280,y:210},{x:350,y:210},{x:805,y:210},{x:875,y:210},{x:945,y:210},{x:1015,y:210},{x:1085,y:245},{x:1155,y:245},
-            {x:140,y:280},{x:210,y:280},{x:280,y:280},{x:875,y:280},{x:945,y:280},{x:1015,y:280},
-            {x:364,y:287,r:12.5,o:"0px 0px"},{x:448,y:308,r:25,o:"0px 0px"},{x:525,y:346.5,r:37,o:"0px 0px"},
-            {x:640.5,y:385,r:-37,o:"0px 0px"},{x:710.5,y:336,r:-25,o:"0px 0px"},{x:791,y:301,r:-12.5,o:"0px 0px"}
-        ].map(geo => ({ ...geo, hidden: false }));
-
-        const GLOVE80_GEO = buildGlove80Geo();
-
-        // --- 2. JSON ENGINE (PARSERS) ---
         const tokenizeKeysString = (keysString) => {
-            let tokens = []; let regex = /(\s*)(\S+)/g; let match, lastIndex = 0;
-            while ((match = regex.exec(keysString)) !== null) { tokens.push({ space: match[1], text: match[2] }); lastIndex = regex.lastIndex; }
-            return { tokens, tail: keysString.slice(lastIndex) };
+            if (!keysString || typeof keysString !== 'string') return { tokens: [], tail: "" };
+            let tokens = []; let i = 0; const len = keysString.length;
+            while (i < len) {
+                let space = ""; while (i < len && /\s/.test(keysString[i])) { space += keysString[i]; i++; }
+                if (i >= len) return { tokens, tail: space };
+
+                let text = ""; let parenDepth = 0;
+                while (i < len) {
+                    let char = keysString[i];
+                    if (char === '(') { parenDepth++; text += char; i++; }
+                    else if (char === ')') { if (parenDepth > 0) parenDepth--; text += char; i++; }
+                    else if (/\s/.test(char) && parenDepth === 0) { break; }
+                    else { text += char; i++; }
+                }
+                if (text.length > 0) tokens.push({ space, text });
+            }
+            return { tokens, tail: "" };
         };
 
         const untokenizeKeys = (layerObj) => {
@@ -185,142 +165,22 @@
             if (!val || val === '--' || val === 'KC_NO') return '';
             if (val === '_______' || val === 'KC_TRNS') return '▽';
             let core = val.startsWith('KC_') || val.startsWith('QK_') ? val.substring(3) : val;
-            const map = { 'BSPC':'Bksp', 'ENT':'Enter', 'SPC':'Space', 'MINS':'-', 'EQL':'=', 'GRV':'`', 'BSLS':'\\', 'SCLN':';', 'QUOT':"'", 'COMM':',', 'DOT':'.', 'SLSH':'/', 'LBRC':'[', 'RBRC':']', 'UP':'↑', 'DOWN':'↓', 'LEFT':'←', 'RGHT':'→', 'MPLY':'Play', 'MPRV':'Prev', 'MNXT':'Next', 'VOLU':'Vol+', 'VOLD':'Vol-', 'LCTL':'Ctrl', 'LALT':'Alt', 'LGUI':'GUI', 'LSFT':'Shift' };
+            const map = { 'BSPC':'Bksp', 'ENT':'Enter', 'SPC':'Space', 'MINS':'-', 'EQL':'=', 'GRV':'`', 'BSLS':'\\', 'SCLN':';', 'QUOT':"'", 'COMM':',', 'DOT':'.', 'SLSH':'/', 'LBRC':'[', 'RBRC':']', 'UP':'↑', 'DOWN':'↓', 'LEFT':'←', 'RGHT':'→' };
             return map[core] || core;
         };
 
         const generateAutoLabel = (binding) => {
             if (!binding || binding === '--' || binding === 'KC_NO') return 'Empty';
-            const dualMatch = binding.match(/^(?:LT|MT)\(([^,]+),\s*([^)]+)\)$/);
+            const dualMatch = binding.match(/^(?:LT|MT|TH)\(([^,]+),\s*([^,)]+)/);
             if (dualMatch) return `L${formatKeycode(dualMatch[1])}\n${formatKeycode(dualMatch[2])}`;
-            const moMatch = binding.match(/^(?:MO|TO|TG|DF|TD)\(([^)]+)\)$/);
+            const moMatch = binding.match(/^(?:MO|TO|TG|DF|TD|MACRO|OSM)\(([^)]+)\)$/);
             if (moMatch) return `${binding.substring(0,2)}${moMatch[1]}`;
             const modMatch = binding.match(/^(?:LSFT|LCTL|LALT|LGUI)\(([^)]+)\)$/);
             if (modMatch) return `M+${formatKeycode(modMatch[1])}`;
             return formatKeycode(binding);
         };
 
-        // --- 3. DEPENDENCY GRAPH ENGINE ---
-        const getImplicitIds = (blockName, idx) => {
-            if (blockName === 'morse' || blockName === 'tap_dance') return [`TD(${idx})`, `TD${idx}`, `TD(${idx+1})`, `TD${idx+1}`];
-            if (blockName === 'macro') return [`MC(${idx})`, `MC${idx}`, `MC(${idx+1})`, `MC${idx+1}`];
-            return [];
-        };
-
-        const getIdentifiers = (item, idx, blockName) => {
-            const ids = new Set();
-            if (item && item.name && typeof item.name === 'string') {
-                ids.add(item.name);
-                ids.add(`&${item.name}`);
-            }
-            if (item && item.id && typeof item.id === 'string') {
-                ids.add(item.id);
-            }
-            const implicit = getImplicitIds(blockName, idx);
-            implicit.forEach(id => ids.add(id));
-            return Array.from(ids);
-        };
-
-        const getUsageCount = (config, identifiers) => {
-            if (!config || !identifiers || !Array.isArray(identifiers) || identifiers.length === 0) return 0;
-           
-            const regexes = identifiers.filter(Boolean).map(id => {
-                const escaped = String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                return new RegExp(`(?:^|[^a-zA-Z0-9_])${escaped}(?:$|[^a-zA-Z0-9_])`);
-            });
-           
-            if (regexes.length === 0) return 0;
-
-            let count = 0;
-            const checkString = (str) => {
-                if (typeof str !== 'string' || !str) return;
-                for (let rx of regexes) {
-                    if (rx.test(str)) { count++; break; }
-                }
-            };
-
-            if (Array.isArray(config.layer)) {
-                config.layer.forEach(l => {
-                    if (Array.isArray(l.tokens)) {
-                        l.tokens.forEach(t => { if (t && t.text) checkString(t.text); });
-                    } else if (typeof l.keys === 'string') {
-                        l.keys.trim().split(/\s+/).forEach(checkString);
-                    }
-                });
-            }
-
-            const walk = (obj, keyName) => {
-                if (!obj) return;
-                if (typeof obj === 'string') {
-                    if (keyName === 'name' || keyName === 'id') return;
-                    checkString(obj);
-                } else if (Array.isArray(obj)) {
-                    obj.forEach(v => walk(v, keyName));
-                } else if (typeof obj === 'object') {
-                    Object.entries(obj).forEach(([k, v]) => walk(v, k));
-                }
-            };
-
-            Object.entries(config).forEach(([k, v]) => {
-                if (k !== 'layer') walk(v, k);
-            });
-
-            return count;
-        };
-
-        const getCategory = (text, config) => {
-            if (!text) return 'Unknown';
-            if(text.startsWith('LT') || text.startsWith('MT')) return 'Dual-Role';
-            if(text.startsWith('MO') || text.startsWith('TO') || text.startsWith('TG')) return 'Layer Switch';
-            if(text.startsWith('LSFT') || text.startsWith('LCTL') || text.startsWith('LALT') || text.startsWith('LGUI')) return 'Modifiers';
-            if(text.startsWith('KC_')) return 'Keycode';
-            if(text === '--' || text === 'KC_NO' || text === '_______' || text === 'KC_TRNS') return 'System / Trans';
-            return 'Custom Behaviors';
-        };
-
-        const replaceInObj = (obj, oldIds, newId) => {
-            if (!obj) return obj;
-            if (typeof obj === 'string') {
-                let res = obj;
-                oldIds.forEach(id => {
-                    const regex = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
-                    res = res.replace(regex, `$1${newId}`);
-                });
-                return res;
-            } else if (Array.isArray(obj)) return obj.map(v => replaceInObj(v, oldIds, newId));
-            else if (typeof obj === 'object') {
-                const next = {};
-                Object.entries(obj).forEach(([k, v]) => {
-                    if (k === 'name' || k === 'id') next[k] = v;
-                    else next[k] = replaceInObj(v, oldIds, newId);
-                });
-                return next;
-            }
-            return obj;
-        };
-
-        const deleteInObj = (obj, oldIds) => {
-            if (!obj) return obj;
-            if (typeof obj === 'string') {
-                let res = obj;
-                oldIds.forEach(id => {
-                    const regex = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
-                    res = res.replace(regex, `$1KC_NO`);
-                });
-                return res;
-            } else if (Array.isArray(obj)) return obj.map(v => deleteInObj(v, oldIds));
-            else if (typeof obj === 'object') {
-                const next = {};
-                Object.entries(obj).forEach(([k, v]) => {
-                    if (k === 'name' || k === 'id') next[k] = v;
-                    else next[k] = deleteInObj(v, oldIds);
-                });
-                return next;
-            }
-            return obj;
-        };
-
-        // --- 4. RECURSIVE VISUAL PROPERTY EDITOR ---
+        // --- 3. RECURSIVE VISUAL PROPERTY EDITOR ---
         const EditableKeyName = ({ initialName, onRename }) => {
             const [val, setVal] = useState(initialName);
             const [isEditing, setIsEditing] = useState(false);
@@ -328,6 +188,15 @@
             if (!isEditing) return <span onDoubleClick={() => setIsEditing(true)} title="Double-click to rename" className="text-[11px] font-bold text-[color:var(--text-main)] font-mono truncate mr-2 cursor-text hover:text-[color:var(--accent)] transition-colors">{val}</span>;
             return <input autoFocus value={val} onChange={e=>setVal(e.target.value)} onBlur={handleCommit} onKeyDown={e => e.key === 'Enter' && handleCommit()} className="bg-transparent font-mono text-[11px] font-bold outline-none text-[color:var(--accent)] border-b border-[color:var(--accent)] w-full max-w-[120px] mr-2" />;
         };
+
+        const StructuredNode = memo(({ value, onChange, depth }) => {
+            const type = Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value;
+            if (type === 'string') return <input type="text" className="input-field font-mono text-xs py-1.5 !text-[color:var(--accent)] shadow-inner" value={value} onChange={e => onChange(e.target.value)} />;
+            if (type === 'number') return <input type="number" className="input-field font-mono text-xs py-1.5 !text-[color:var(--accent)] shadow-inner" value={value} onChange={e => onChange(Number(e.target.value))} />;
+            if (type === 'boolean') return <label className="relative inline-flex items-center cursor-pointer mt-1"><input type="checkbox" className="sr-only peer" checked={value} onChange={e => onChange(e.target.checked)} /><div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-[color:var(--accent)] shadow-inner"></div></label>;
+            if (type === 'array' || type === 'object') return <ObjectEditor obj={value} onChange={onChange} depth={depth} />;
+            return null;
+        });
 
         const ObjectEditor = memo(({ obj, onChange, onRenameKey, onRemoveKey, depth = 0 }) => {
             const isArr = Array.isArray(obj);
@@ -364,19 +233,553 @@
             );
         });
 
-        const StructuredNode = memo(({ value, onChange, depth }) => {
-            const type = Array.isArray(value) ? 'array' : value === null ? 'null' : typeof value;
-            if (type === 'string') return <input type="text" className="input-field font-mono text-xs py-1.5 !text-[color:var(--accent)] shadow-inner" value={value} onChange={e => onChange(e.target.value)} />;
-            if (type === 'number') return <input type="number" className="input-field font-mono text-xs py-1.5 !text-[color:var(--accent)] shadow-inner" value={value} onChange={e => onChange(Number(e.target.value))} />;
-            if (type === 'boolean') return <label className="relative inline-flex items-center cursor-pointer mt-1"><input type="checkbox" className="sr-only peer" checked={value} onChange={e => onChange(e.target.checked)} /><div className="w-9 h-5 bg-slate-300 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-[color:var(--accent)] shadow-inner"></div></label>;
-            if (type === 'array' || type === 'object') return <ObjectEditor obj={value} onChange={onChange} depth={depth} />;
-            return null;
-        });
+// --- 4. DEPENDENCY GRAPH ENGINE ---
+        const getImplicitIds = (blockName, idx) => {
+            if (blockName === 'morse' || blockName === 'tap_dance') return [`TD(${idx})`, `TD${idx}`];
+            if (blockName === 'macro') return [`MACRO(${idx})`, `MC(${idx})`, `MC${idx}`];
+            return [];
+        };
 
-        // --- 5. SMART BEHAVIOR TRACKER & EDITOR ---
+        const getIdentifiersForBlock = (config, block, key, item, idx) => {
+            const ids = new Set();
+            if (item && item.name && typeof item.name === 'string') { ids.add(item.name); ids.add(`&${item.name}`); }
+            if (item && item.id && typeof item.id === 'string') { ids.add(item.id); }
+            if (key) ids.add(key);
+            const implicit = getImplicitIds(block, idx);
+            implicit.forEach(id => ids.add(id));
+            return Array.from(ids);
+        };
+
+        const getDefinedBehaviors = (cfg) => {
+            const found = [];
+            const processArray = (arr, block) => {
+                if (!Array.isArray(arr)) return;
+                arr.forEach((item, idx) => {
+                    const ids = getIdentifiersForBlock(cfg, block, null, item, idx);
+                    if (ids.length) found.push({ block, label: item.name || ids[0], ids });
+                });
+            };
+            const processObj = (obj, block) => {
+                if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return;
+                Object.entries(obj).forEach(([k, v]) => { found.push({ block, label: k, ids: [k, `&${k}`] }); });
+            };
+
+            processArray(cfg.macro, 'macro'); processArray(cfg.combo, 'combo');
+            processArray(cfg.morse, 'morse'); processArray(cfg.tap_dance, 'tap_dance');
+            processArray(cfg.mod_morph, 'mod_morph');
+
+            if (cfg.behavior) {
+                ['morse', 'tap_dance', 'mod_morph', 'macro'].forEach(type => {
+                    if (cfg.behavior[type]?.profiles) processObj(cfg.behavior[type].profiles, `behavior.${type}.profiles`);
+                });
+            }
+            return found;
+        };
+
+        const getUsageCount = (config, identifiers) => {
+            if (!config || !identifiers || !Array.isArray(identifiers) || identifiers.length === 0) return 0;
+            const regexes = identifiers.filter(Boolean).map(id => {
+                const escaped = String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                return new RegExp(`(?:^|[^a-zA-Z0-9_])${escaped}(?:$|[^a-zA-Z0-9_])`);
+            });
+            if (regexes.length === 0) return 0;
+
+            let count = 0;
+            const check = (str) => {
+                if (typeof str !== 'string' || !str) return;
+                for (let rx of regexes) { if (rx.test(str)) { count++; break; } }
+            };
+
+            if (Array.isArray(config.layer)) {
+                config.layer.forEach(l => {
+                    if (Array.isArray(l.tokens)) { l.tokens.forEach(t => { if (t && t.text) check(t.text); }); }
+                    else if (typeof l.keys === 'string') { l.keys.trim().split(/\s+/).forEach(check); }
+                });
+            }
+
+            const walk = (obj, keyName) => {
+                if (!obj) return;
+                if (typeof obj === 'string') { if (keyName !== 'name' && keyName !== 'id') check(obj); }
+                else if (Array.isArray(obj)) { obj.forEach(v => walk(v, keyName)); }
+                else if (typeof obj === 'object') { Object.entries(obj).forEach(([k, v]) => walk(v, k)); }
+            };
+
+            ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => { if (config[b]) walk(config[b], b); });
+            return count;
+        };
+
+        const getCategory = (text, config) => {
+            if (!text) return 'Unknown';
+            if(text.startsWith('LT') || text.startsWith('MT') || text.startsWith('TH')) return 'Dual-Role';
+            if(text.startsWith('MO') || text.startsWith('TO') || text.startsWith('TG')) return 'Layer Switch';
+            if(text.startsWith('LSFT') || text.startsWith('LCTL') || text.startsWith('LALT') || text.startsWith('LGUI') || text.startsWith('OSM')) return 'Modifiers';
+            if(text.startsWith('KC_')) return 'Keycode';
+            if(text === '--' || text === 'KC_NO' || text === '_______' || text === 'KC_TRNS') return 'System / Trans';
+            if(text.startsWith('MACRO')) return 'Macros';
+            if(text.startsWith('TD')) return 'Tap Dances';
+            return 'Custom Behaviors';
+        };
+
+        const replaceInObj = (obj, oldIds, newId) => {
+            if (!obj) return obj;
+            if (typeof obj === 'string') {
+                let res = obj;
+                oldIds.forEach(id => {
+                    const regex = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                    res = res.replace(regex, `$1${newId}`);
+                });
+                return res;
+            } else if (Array.isArray(obj)) return obj.map(v => replaceInObj(v, oldIds, newId));
+            else if (typeof obj === 'object') {
+                const next = {};
+                Object.entries(obj).forEach(([k, v]) => { if (k === 'name' || k === 'id') next[k] = v; else next[k] = replaceInObj(v, oldIds, newId); });
+                return next;
+            }
+            return obj;
+        };
+
+        const deleteInObj = (obj, oldIds) => {
+            if (!obj) return obj;
+            if (typeof obj === 'string') {
+                let res = obj;
+                oldIds.forEach(id => {
+                    const regex = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                    res = res.replace(regex, `$1KC_NO`);
+                });
+                return res;
+            } else if (Array.isArray(obj)) return obj.map(v => deleteInObj(v, oldIds));
+            else if (typeof obj === 'object') {
+                const next = {};
+                Object.entries(obj).forEach(([k, v]) => { if (k === 'name' || k === 'id') next[k] = v; else next[k] = deleteInObj(v, oldIds); });
+                return next;
+            }
+            return obj;
+        };
+
+        // --- 5. SMART LIGHTING DASHBOARDS ---
+        const LightingDashboard = ({ config, activeLayer, showIndices, setShowIndices, updateConfig }) => {
+            const handleClearAll = () => {
+                if(!confirm(`Clear ALL lighting rules mapped to Layer ${activeLayer}?`)) return;
+                const next = JSON.parse(JSON.stringify(config));
+                if (next.lighting) {
+                    if (Array.isArray(next.lighting.scene)) {
+                        next.lighting.scene = next.lighting.scene.filter(s => s.layer !== activeLayer);
+                        if (next.lighting.scene.length === 0) delete next.lighting.scene;
+                    }
+                    if (Array.isArray(next.lighting.conditional_scene)) {
+                        next.lighting.conditional_scene = next.lighting.conditional_scene.filter(s => {
+                            const l = typeof s.layer === 'object' ? s.layer?.layer : s.layer;
+                            return l !== activeLayer && l !== undefined;
+                        });
+                        if (next.lighting.conditional_scene.length === 0) delete next.lighting.conditional_scene;
+                    }
+                }
+                updateConfig(next);
+            };
+
+            const updateGlobalLighting = (field, val) => {
+                const next = JSON.parse(JSON.stringify(config));
+                if (!next.lighting) next.lighting = {};
+                next.lighting[field] = val;
+                updateConfig(next);
+            };
+
+            return (
+                <div className="flex flex-col gap-4 w-full h-full">
+                    <div className="flex justify-between items-center px-2 border-b border-[color:var(--border-panel)] pb-3">
+                        <h4 className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest">Global Lighting & Explorer</h4>
+                        <label className="flex items-center gap-2 cursor-pointer bg-[color:var(--bg-base)] px-2 py-1 rounded-md border border-[color:var(--border-panel)]">
+                            <span className="text-[10px] font-bold text-[color:var(--text-main)]">Show Matrix/LED Indices</span>
+                            <input type="checkbox" checked={showIndices} onChange={e => setShowIndices(e.target.checked)} className="accent-[color:var(--accent)] cursor-pointer w-3 h-3" />
+                        </label>
+                    </div>
+                   
+                    <div className="flex flex-col gap-3">
+                        <div className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-3 shadow-sm">
+                            <h4 className="text-[10px] font-bold text-[color:var(--text-main)] mb-2">Global Settings</h4>
+                            <div className="flex gap-2 items-center mb-3">
+                                <span className="text-xs text-[color:var(--text-muted)] w-24">Brightness</span>
+                                <input type="number" min="0" max="255" value={config?.lighting?.brightness ?? 255} onChange={e => updateGlobalLighting('brightness', parseInt(e.target.value))} className="input-field py-1 px-2 text-xs flex-1 font-mono text-[color:var(--accent)]" />
+                            </div>
+                            <div className="flex gap-2 items-center">
+                                <span className="text-xs text-[color:var(--text-muted)] w-24">Output Mode</span>
+                                <select value={config?.lighting?.output_mode ?? 'always-on'} onChange={e => updateGlobalLighting('output_mode', e.target.value)} className="input-field py-1 px-2 text-xs flex-1">
+                                    <option value="always-on">Always On</option>
+                                    <option value="auto-off">Auto Off</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-3 shadow-sm">
+                            <h4 className="text-[10px] font-bold text-[color:var(--text-main)] mb-2">Lighting Effects Base</h4>
+                            <ObjectEditor obj={config?.lighting?.effects || {}} onChange={(val) => updateGlobalLighting('effects', val)} depth={1} />
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col items-center justify-center p-6 bg-[color:var(--bg-base)] border border-dashed border-[color:var(--border-panel)] rounded-xl shadow-inner text-center mt-2">
+                        <span className="text-3xl mb-2">🖱️</span>
+                        <span className="text-sm font-bold text-[color:var(--text-main)] mb-1">Select a Key to Edit Rules</span>
+                        <span className="text-[11px] text-[color:var(--text-muted)] leading-relaxed max-w-xs">Click any key on the canvas to configure its specific RGB rules, batteries, layers, and connection statuses.</span>
+                    </div>
+
+                    {config?.lighting && (
+                        <div className="p-1 mt-auto shrink-0">
+                            <button onClick={handleClearAll} className="w-full bg-red-50 dark:bg-red-950/20 text-red-500 border border-red-200 dark:border-red-900/30 font-bold py-3 rounded-xl transition-colors text-xs hover:bg-red-100 dark:hover:bg-red-900/40 shadow-sm">✕ Clear All Lights on Layer {activeLayer}</button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const KeyLightingEditor = ({ config, updateConfig, activeLayer, selectedKey, setSelectedKey }) => {
+            const ledIndex = selectedKey !== null ? MATRIX_TO_LED[selectedKey] : -1;
+
+            if (ledIndex === -1) {
+                return (
+                    <div className="flex flex-col items-center justify-center p-8 bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl shadow-sm text-center m-2 h-full">
+                        <span className="text-4xl mb-3">⚠️</span>
+                        <span className="text-sm font-bold text-[color:var(--text-main)] mb-2">No Physical LED</span>
+                        <span className="text-[11px] text-[color:var(--text-muted)] leading-relaxed">Matrix Index {selectedKey} does not map to a physical LED on the Glove80 wiring path.</span>
+                        <button onClick={() => setSelectedKey(null)} className="mt-4 px-4 py-2 bg-[color:var(--bg-base)] text-[color:var(--text-main)] rounded-lg text-[10px] font-bold border border-[color:var(--border-panel)] shadow-sm hover:text-[color:var(--accent)] transition-colors">Go Back</button>
+                    </div>
+                );
+            }
+
+            const staticScenes = (config.lighting?.scene || []).map((s, i) => ({ ...s, _globalIdx: i })).filter(s => s.led === ledIndex && (s.layer === activeLayer || s.layer === undefined));
+            const condScenes = (config.lighting?.conditional_scene || []).map((s, i) => ({ ...s, _globalIdx: i })).filter(s => s.led === ledIndex && ((typeof s.layer === 'object' ? s.layer?.layer : s.layer) === activeLayer || s.layer === undefined));
+
+            const updateStatic = (globalIdx, field, val) => {
+                const next = JSON.parse(JSON.stringify(config));
+                next.lighting.scene[globalIdx][field] = val;
+                updateConfig(next);
+            };
+
+            const updateCond = (globalIdx, field, val, subfield = null) => {
+                const next = JSON.parse(JSON.stringify(config));
+                if (subfield) {
+                    if (!next.lighting.conditional_scene[globalIdx][field]) next.lighting.conditional_scene[globalIdx][field] = {};
+                    next.lighting.conditional_scene[globalIdx][field][subfield] = val;
+                } else {
+                    next.lighting.conditional_scene[globalIdx][field] = val;
+                }
+                updateConfig(next);
+            };
+
+            const addRule = (type) => {
+                const next = JSON.parse(JSON.stringify(config));
+                if (!next.lighting) next.lighting = {};
+               
+                if (type === 'base') {
+                    if (!next.lighting.scene) next.lighting.scene = [];
+                    next.lighting.scene.push({ layer: activeLayer, led: ledIndex, color: "#0050ff", effect: "solid" });
+                } else {
+                    if (!next.lighting.conditional_scene) next.lighting.conditional_scene = [];
+                    const newRule = { led: ledIndex, color: "#ea700d", effect: "solid", layer: { layer: activeLayer, active: true } };
+                   
+                    if (type === 'battery') newRule.battery = { node: 0, min_level: 20, max_level: 100 };
+                    if (type === 'usb') newRule.connection = { usb_connected: true };
+                    if (type === 'ble') newRule.connection = { profile: 0, ble_state: "connected" };
+                    if (type === 'caps') newRule.caps_lock = true;
+                    if (type === 'num') newRule.num_lock = true;
+                    if (type === 'scroll') newRule.scroll_lock = true;
+                    if (type === 'layer_active') { /* layer object is already set above */ }
+                   
+                    next.lighting.conditional_scene.push(newRule);
+                }
+                updateConfig(next);
+            };
+
+            const deleteStatic = (globalIdx) => {
+                if(!confirm("Delete this rule?")) return;
+                const next = JSON.parse(JSON.stringify(config));
+                next.lighting.scene.splice(globalIdx, 1);
+                if(next.lighting.scene.length === 0) delete next.lighting.scene;
+                updateConfig(next);
+            };
+
+            const deleteCond = (globalIdx) => {
+                if(!confirm("Delete this rule?")) return;
+                const next = JSON.parse(JSON.stringify(config));
+                next.lighting.conditional_scene.splice(globalIdx, 1);
+                if(next.lighting.conditional_scene.length === 0) delete next.lighting.conditional_scene;
+                updateConfig(next);
+            };
+
+            return (
+                <div className="flex flex-col gap-4 w-full p-2 h-full">
+                    <div className="flex justify-between items-center border-b border-[color:var(--border-panel)] pb-3 px-1 shrink-0">
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => setSelectedKey(null)} className="text-[color:var(--text-muted)] hover:text-[color:var(--accent)] p-1.5 rounded-full bg-[color:var(--bg-base)] border border-[color:var(--border-panel)] transition-colors">
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+                            </button>
+                            <div className="flex flex-col">
+                                <span className="text-[12px] font-bold text-[color:var(--text-main)] flex items-center gap-2">💡 LED Index: {ledIndex}</span>
+                                <span className="text-[9px] font-mono text-[color:var(--text-muted)]">Matrix Key {selectedKey} | Layer {activeLayer}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 overflow-y-auto pr-2 pb-10 hide-scrollbar">
+                        {staticScenes.map((s) => (
+                            <div key={`s-${s._globalIdx}`} className="bg-[color:var(--bg-panel)] border-l-4 border-l-gray-400 border border-[color:var(--border-panel)] rounded-xl p-3 shadow-sm flex flex-col gap-3 highlight-rule">
+                                <div className="flex justify-between items-center">
+                                    <div className="flex items-center gap-2 font-bold text-xs">
+                                        <span>🎨</span> <span>Static Base Color</span>
+                                    </div>
+                                    <button onClick={() => deleteStatic(s._globalIdx)} className="text-[10px] p-1.5 text-red-500 hover:bg-red-500/10 rounded font-bold">✕</button>
+                                </div>
+                                <div className="flex gap-3 items-center">
+                                    <input type="color" value={s.color || "#000000"} onChange={e => updateStatic(s._globalIdx, 'color', e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-[color:var(--border-panel)] p-0 bg-transparent shrink-0" />
+                                    <input type="text" maxLength="7" value={s.color || "#000000"} onChange={e => updateStatic(s._globalIdx, 'color', e.target.value)} className="input-field py-1.5 px-2 text-xs font-mono w-20 text-center uppercase" />
+                                    <select value={s.effect || 'solid'} onChange={e => updateStatic(s._globalIdx, 'effect', e.target.value)} className="input-field py-1.5 px-2 text-xs flex-1">
+                                        <option value="solid">Solid Glow</option>
+                                        <option value="blink">Blink</option>
+                                        <option value="breath">Breath</option>
+                                    </select>
+                                </div>
+                            </div>
+                        ))}
+
+                        {condScenes.map((s) => {
+                            let type = 'layer'; let icon = '🎯'; let title = 'Layer Active';
+                            if (s.battery) { type = 'battery'; icon = '🔋'; title = `Battery (Node ${s.battery.node})`; }
+                            else if (s.connection) { type = 'connection'; icon = s.connection.usb_connected !== undefined ? '🔌' : '📶'; title = s.connection.profile !== undefined ? `BLE Profile ${s.connection.profile + 1}` : `USB Connection`; }
+                            else if (s.caps_lock) { type = 'lock'; icon = '🔠'; title = 'Caps Lock Active'; }
+                            else if (s.num_lock) { type = 'lock'; icon = '🔢'; title = 'Num Lock Active'; }
+                            else if (s.scroll_lock) { type = 'lock'; icon = '📜'; title = 'Scroll Lock Active'; }
+
+                            return (
+                                <div key={`c-${s._globalIdx}`} className={`bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] border-l-4 rounded-xl p-3 shadow-sm flex flex-col gap-3 highlight-rule ${type === 'battery' ? 'border-l-emerald-500' : type === 'connection' ? 'border-l-blue-500' : type === 'lock' ? 'border-l-purple-500' : 'border-l-[color:var(--accent)]'}`}>
+                                    <div className="flex justify-between items-center border-b border-[color:var(--border-panel)] pb-2">
+                                        <div className="flex items-center gap-2 font-bold text-xs">
+                                            <span>{icon}</span> <span>{title}</span>
+                                        </div>
+                                        <button onClick={() => deleteCond(s._globalIdx)} className="text-[10px] p-1 text-red-500 hover:bg-red-500/10 rounded font-bold">✕</button>
+                                    </div>
+                                   
+                                    {type === 'battery' && (
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex gap-2">
+                                                <select value={s.battery.node ?? 0} onChange={e=>updateCond(s._globalIdx, 'battery', parseInt(e.target.value), 'node')} className="input-field py-1.5 px-2 text-[10px] flex-1 font-bold text-[color:var(--text-main)]">
+                                                    <option value="0">Left Keyboard (Node 0)</option>
+                                                    <option value="1">Right Keyboard (Node 1)</option>
+                                                </select>
+                                                <select value={s.battery.charge ? 'charging' : 'level'} onChange={e=>{
+                                                    const next = JSON.parse(JSON.stringify(config));
+                                                    if(e.target.value === 'charging') { next.lighting.conditional_scene[s._globalIdx].battery = { node: s.battery.node ?? 0, min_level: 1, charge: "charging" }; }
+                                                    else { next.lighting.conditional_scene[s._globalIdx].battery = { node: s.battery.node ?? 0, min_level: 20, max_level: 100 }; }
+                                                    updateConfig(next);
+                                                }} className="input-field py-1.5 px-2 text-[10px] flex-1">
+                                                    <option value="level">Level Range</option>
+                                                    <option value="charging">Is Charging</option>
+                                                </select>
+                                            </div>
+                                            {!s.battery.charge && (
+                                                <div className="flex items-center gap-2 bg-[color:var(--bg-base)] p-1.5 rounded border border-[color:var(--border-panel)]">
+                                                    <span className="text-[9px] font-bold text-[color:var(--text-muted)] w-8 text-center">MIN %</span>
+                                                    <input type="number" min="0" max="100" value={s.battery.min_level ?? 0} onChange={e=>updateCond(s._globalIdx, 'battery', parseInt(e.target.value), 'min_level')} className="input-field py-1 px-2 text-[10px] w-14 font-mono text-center" />
+                                                    <span className="text-[9px] font-bold text-[color:var(--text-muted)] w-8 text-center">MAX %</span>
+                                                    <input type="number" min="0" max="100" value={s.battery.max_level ?? 100} onChange={e=>updateCond(s._globalIdx, 'battery', parseInt(e.target.value), 'max_level')} className="input-field py-1 px-2 text-[10px] w-14 font-mono text-center" />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {type === 'connection' && (
+                                        <div className="flex gap-2">
+                                            <select value={s.connection.usb_connected !== undefined ? 'usb' : (s.connection.profile ?? 0)} onChange={e=>{
+                                                const next = JSON.parse(JSON.stringify(config));
+                                                next.lighting.conditional_scene[s._globalIdx].connection = {};
+                                                if(e.target.value === 'usb') next.lighting.conditional_scene[s._globalIdx].connection.usb_connected = true;
+                                                else { next.lighting.conditional_scene[s._globalIdx].connection.profile = parseInt(e.target.value); next.lighting.conditional_scene[s._globalIdx].connection.ble_state = 'connected'; }
+                                                updateConfig(next);
+                                            }} className="input-field py-1.5 px-2 text-[10px] flex-1 font-bold text-[color:var(--text-main)]">
+                                                <option value="usb">USB Wired</option>
+                                                <option value="0">BLE Profile 1</option>
+                                                <option value="1">BLE Profile 2</option>
+                                                <option value="2">BLE Profile 3</option>
+                                            </select>
+                                            {s.connection.usb_connected === undefined && (
+                                                <select value={s.connection.ble_state || (s.connection.bonded !== undefined ? (s.connection.bonded ? 'bonded' : 'unbonded') : 'connected')} onChange={e=>{
+                                                    const next = JSON.parse(JSON.stringify(config));
+                                                    const prof = s.connection.profile ?? 0;
+                                                    next.lighting.conditional_scene[s._globalIdx].connection = {};
+                                                    if(e.target.value === 'bonded') next.lighting.conditional_scene[s._globalIdx].connection.bonded = { slot: prof, bonded: true };
+                                                    else if(e.target.value === 'unbonded') next.lighting.conditional_scene[s._globalIdx].connection.bonded = { slot: prof, bonded: false };
+                                                    else { next.lighting.conditional_scene[s._globalIdx].connection.profile = prof; next.lighting.conditional_scene[s._globalIdx].connection.ble_state = e.target.value; }
+                                                    updateConfig(next);
+                                                }} className="input-field py-1.5 px-2 text-[10px] flex-1">
+                                                    <option value="connected">Connected</option>
+                                                    <option value="inactive">Inactive</option>
+                                                    <option value="advertising">Pairing</option>
+                                                    <option value="bonded">Bonded</option>
+                                                    <option value="unbonded">Unbonded</option>
+                                                </select>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    <div className="flex gap-3 items-center mt-1">
+                                        <input type="color" value={s.color || "#ffffff"} onChange={e => updateCond(s._globalIdx, 'color', e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-[color:var(--border-panel)] p-0 bg-transparent shrink-0" />
+                                        <input type="text" maxLength="7" value={s.color || "#ffffff"} onChange={e => updateCond(s._globalIdx, 'color', e.target.value)} className="input-field py-1.5 px-2 text-xs font-mono w-20 text-center uppercase" />
+                                        <select value={s.effect || 'solid'} onChange={e => updateCond(s._globalIdx, 'effect', e.target.value)} className="input-field py-1.5 px-2 text-xs flex-1">
+                                            <option value="solid">Solid Glow</option>
+                                            <option value="blink">Blink</option>
+                                            <option value="breath">Breath</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            )
+                        })}
+
+                        {staticScenes.length === 0 && condScenes.length === 0 && (
+                            <div className="text-[10px] text-center text-[color:var(--text-muted)] italic py-6 bg-[color:var(--bg-base)] border border-dashed border-[color:var(--border-panel)] rounded-xl m-1">
+                                No lighting rules currently applied to this key on Layer {activeLayer}.
+                            </div>
+                        )}
+                       
+                        <div className="flex gap-2 mt-2 pt-4 border-t border-[color:var(--border-panel)] shrink-0">
+                            <select id="new-rule-type" className="input-field py-2 px-3 text-xs font-bold text-[color:var(--accent)] flex-1 shadow-sm border border-[color:var(--accent-soft)]">
+                                <option value="base">Static Base Color</option>
+                                <option value="battery">🔋 Battery Indicator</option>
+                                <option value="usb">🔌 USB Connection</option>
+                                <option value="ble">📶 BLE Connection</option>
+                                <option value="caps">🔠 Caps Lock Active</option>
+                                <option value="num">🔢 Num Lock Active</option>
+                                <option value="scroll">📜 Scroll Lock Active</option>
+                                <option value="layer_active">🎯 Layer {activeLayer} Active Indicator</option>
+                            </select>
+                            <button onClick={() => addRule(document.getElementById('new-rule-type').value)} className="bg-[color:var(--bg-panel)] text-[color:var(--text-main)] border border-[color:var(--border-panel)] hover:bg-[color:var(--accent)] hover:border-[color:var(--accent)] hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm shrink-0">+ Add</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const TrackerPanel = ({ config, updateConfig }) => {
+            const { inUseBehaviors, matrixUsage, unused, error } = useMemo(() => {
+                try {
+                    const inUseBehaviorsArr = []; const unusedArr = [];
+                    const defined = getDefinedBehaviors(config);
+
+                    defined.forEach(def => {
+                        const count = getUsageCount(config, def.ids);
+                        if (count === 0) unusedArr.push({ block: def.block, keycode: def.label });
+                        else inUseBehaviorsArr.push({ keycode: def.label, count, block: def.block });
+                    });
+
+                    const matrixCounts = {};
+                    if (Array.isArray(config?.layer)) {
+                        config.layer.forEach(l => {
+                            if (Array.isArray(l.tokens)) {
+                                l.tokens.forEach(t => {
+                                    const txt = t?.text;
+                                    if (txt) {
+                                        if (!matrixCounts[txt]) matrixCounts[txt] = { count: 0, category: getCategory(txt, config) };
+                                        matrixCounts[txt].count++;
+                                    }
+                                });
+                            }
+                        });
+                    }
+
+                    const groupedMatrix = {};
+                    Object.entries(matrixCounts).sort((a,b) => b[1].count - a[1].count).forEach(([k, v]) => {
+                        if (v.count > 0) {
+                            if (!groupedMatrix[v.category]) groupedMatrix[v.category] = [];
+                            groupedMatrix[v.category].push({ keycode: k, count: v.count });
+                        }
+                    });
+
+                    return { inUseBehaviors: inUseBehaviorsArr, matrixUsage: groupedMatrix, unused: unusedArr, error: null };
+                } catch (e) { return { inUseBehaviors: [], matrixUsage: {}, unused: [], error: e.message }; }
+            }, [config]);
+
+            const cleanUpUnused = () => {
+                try {
+                    const next = JSON.parse(JSON.stringify(config));
+                    let removedCount = 0;
+                    ['morse', 'tap_dance', 'macro', 'combo', 'mod_morph'].forEach(b => {
+                        if (next[b] && Array.isArray(next[b])) {
+                            next[b] = next[b].filter((item, idx) => {
+                                const ids = getIdentifiersForBlock(next, b, null, item, idx);
+                                if (getUsageCount(next, ids) === 0) { removedCount++; return false; }
+                                return true;
+                            });
+                            if (next[b].length === 0) delete next[b];
+                        }
+                    });
+                    if (next.behavior) {
+                        ['morse', 'tap_dance', 'mod_morph', 'macro'].forEach(type => {
+                            if (next.behavior[type]?.profiles) {
+                                Object.keys(next.behavior[type].profiles).forEach(k => {
+                                    if (getUsageCount(next, [k, `&${k}`]) === 0) { delete next.behavior[type].profiles[k]; removedCount++; }
+                                });
+                                if (Object.keys(next.behavior[type].profiles).length === 0) delete next.behavior[type].profiles;
+                            }
+                        });
+                    }
+                    updateConfig(next);
+                    alert(`Cleaned up ${removedCount} orphaned behaviors.`);
+                } catch (e) { alert("Cleanup error: " + e.message); }
+            };
+
+            if (error) return <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-xs font-bold shadow-sm mb-4">Tracker Engine Error: {error}</div>;
+
+            return (
+                <div className="flex flex-col gap-6">
+                    {unused.length > 0 && (
+                        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl p-4 shadow-sm relative overflow-hidden">
+                            <h4 className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">⚠️ Orphaned Behaviors ({unused.length})</h4>
+                            <div className="flex flex-col gap-1.5 mb-4 max-h-48 overflow-y-auto pr-2">
+                                {unused.map((u, i) => (
+                                    <div key={i} className="flex justify-between items-center text-[10px]">
+                                        <span className="font-mono text-[color:var(--text-main)] truncate" title={u.keycode}>{u.keycode}</span>
+                                        <span className="text-[color:var(--text-muted)] italic">in {u.block}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <button onClick={cleanUpUnused} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg text-xs transition-colors shadow-sm">✨ Clean Up Unused</button>
+                        </div>
+                    )}
+                    {unused.length === 0 && <div className="text-emerald-500 text-xs text-center border border-emerald-500/20 bg-emerald-500/10 p-4 rounded-xl shadow-sm font-bold">🟢 All defined behaviors are actively utilized.</div>}
+                   
+                    {inUseBehaviors.length > 0 && (
+                        <div className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-4 shadow-sm">
+                            <h4 className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest mb-3 border-b border-[color:var(--border-panel)] pb-2">Custom Behaviors In Use</h4>
+                            <div className="flex flex-col gap-1.5">
+                                {inUseBehaviors.map((i, idx) => (
+                                    <div key={idx} className="flex justify-between items-center text-xs">
+                                        <span className="font-mono text-[color:var(--accent)] font-bold truncate max-w-[200px]" title={i.keycode}>{i.keycode}</span>
+                                        <span className="text-[color:var(--text-muted)] font-mono text-[10px] bg-[color:var(--bg-base)] px-2 py-0.5 rounded border border-[color:var(--border-panel)] shadow-inner">{i.count} usages</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex flex-col gap-4">
+                        {Object.entries(matrixUsage).map(([cat, items]) => (
+                            <div key={cat} className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-4 shadow-sm">
+                                <h4 className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest mb-3 border-b border-[color:var(--border-panel)] pb-2">{cat}</h4>
+                                <div className="flex flex-col gap-1.5">
+                                    {items.map(i => (
+                                        <div key={i.keycode} className="flex justify-between items-center text-xs">
+                                            <span className="font-mono text-[color:var(--accent)] font-bold truncate max-w-[200px]" title={i.keycode}>{i.keycode}</span>
+                                            <span className="text-[color:var(--text-muted)] font-mono text-[10px] bg-[color:var(--bg-base)] px-2 py-0.5 rounded border border-[color:var(--border-panel)] shadow-inner">{i.count}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
         const SmartBlockItemCard = ({ item, idx, blockName, config, updateConfig, isFirst, isLast }) => {
             const [expanded, setExpanded] = useState(false);
-            const identifiers = getIdentifiers(item, idx, blockName);
+            const identifiers = getIdentifiersForBlock(config, blockName, null, item, idx);
             const primaryId = identifiers[0] || `${blockName}[${idx}]`;
             const usage = getUsageCount(config, identifiers);
 
@@ -390,20 +793,15 @@
                     const idsA = getImplicitIds(blockName, idx);
                     const idsB = getImplicitIds(blockName, idx+dir);
                     const TEMP = "__TEMP_SWAP__";
-                   
                     idsA.forEach(id => {
-                        const regexA = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                        const regexA = new RegExp(`(?:^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
                         next.layer.forEach(l => l.tokens?.forEach(t => t.text = t.text.replace(regexA, `$1${TEMP}`)));
                     });
-                   
                     idsB.forEach((id, arrIdx) => {
-                        const regexB = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                        const regexB = new RegExp(`(?:^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
                         next.layer.forEach(l => l.tokens?.forEach(t => t.text = t.text.replace(regexB, `$1${idsA[arrIdx]}`)));
                     });
-                   
-                    next.layer.forEach(l => l.tokens?.forEach(t => {
-                        if (t.text.includes(TEMP)) t.text = t.text.replace(TEMP, idsB[0]);
-                    }));
+                    next.layer.forEach(l => l.tokens?.forEach(t => { if (t.text.includes(TEMP)) t.text = t.text.replace(TEMP, idsB[0]); }));
                 }
                 updateConfig(next);
             };
@@ -416,20 +814,19 @@
 
                 if (usage > 0) {
                     identifiers.forEach(id => {
-                        const regex = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                        const regex = new RegExp(`(?:^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
                         next.layer.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1KC_NO`); }));
                         ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
                             if (next[b]) next[b] = deleteInObj(next[b], identifiers);
                         });
                     });
                 }
-
                 for(let i = idx + 1; i <= (next[blockName]?.length || 0); i++) {
                     const oldIds = getImplicitIds(blockName, i);
                     const newIds = getImplicitIds(blockName, i - 1);
                     if (oldIds.length) {
                         oldIds.forEach((oldId, j) => {
-                            const regex = new RegExp(`(^|\\W)(${String(oldId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                            const regex = new RegExp(`(?:^|\\W)(${String(oldId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
                             next.layer.forEach(l => l.tokens?.forEach(t => t.text = t.text.replace(regex, `$1${newIds[j]}`)));
                             ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
                                 if (next[b]) next[b] = replaceInObj(next[b], [oldId], newIds[j]);
@@ -449,7 +846,7 @@
                    
                     if (usage > 0) {
                         identifiers.forEach(id => {
-                            const regex = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                            const regex = new RegExp(`(?:^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
                             next.layer.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1${cleanName}`); }));
                         });
                         ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
@@ -489,153 +886,46 @@
             return (
                 <div className="flex flex-col w-full p-1">
                     {data.map((item, idx) => <SmartBlockItemCard key={idx} item={item} idx={idx} blockName={blockName} config={config} updateConfig={updateConfig} isFirst={idx===0} isLast={idx===data.length-1} />)}
-                    <button onClick={() => { const n={...config}; n[blockName].push({}); updateConfig(n); }} className="w-full py-3 border-2 border-dashed border-[color:var(--border-panel)] rounded-xl text-xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)] transition-colors">+ Add Item</button>
+                    <button onClick={() => { const n={...config}; n[blockName].push({}); updateConfig(n); }} className="w-full py-3 border-2 border-dashed border-[color:var(--border-panel)] rounded-xl text-xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)] transition-colors shadow-sm">+ Add New</button>
                 </div>
             );
         };
 
-        const TrackerPanel = ({ config, updateConfig }) => {
-            const { inUseBehaviors, matrixUsage, unused } = useMemo(() => {
-                try {
-                    const inUseBehaviorsArr = [];
-                    const unusedArr = [];
-                    const potentialBlocks = ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'];
-
-                    potentialBlocks.forEach(b => {
-                        if (config && config[b]) {
-                            if (Array.isArray(config[b])) {
-                                config[b].forEach((item, idx) => {
-                                    const ids = getIdentifiers(item, idx, b);
-                                    const count = getUsageCount(config, ids);
-                                    const label = item.name || item.id || ids[0] || `${b}[${idx}]`;
-                                    if (count === 0) unusedArr.push({ block: b, keycode: label });
-                                    else inUseBehaviorsArr.push({ keycode: label, count, block: b });
-                                });
-                            } else if (typeof config[b] === 'object') {
-                                Object.keys(config[b]).forEach(k => {
-                                    const count = getUsageCount(config, [k, `&${k}`]);
-                                    if (count === 0) unusedArr.push({ block: b, keycode: k });
-                                    else inUseBehaviorsArr.push({ keycode: k, count, block: b });
-                                });
-                            }
-                        }
-                    });
-
-                    const matrixCounts = {};
-                    if (Array.isArray(config?.layer)) {
-                        config.layer.forEach(l => {
-                            if (Array.isArray(l.tokens)) {
-                                l.tokens.forEach(t => {
-                                    const txt = t?.text;
-                                    if (txt) {
-                                        if (!matrixCounts[txt]) matrixCounts[txt] = { count: 0, category: getCategory(txt, config) };
-                                        matrixCounts[txt].count++;
-                                    }
-                                });
-                            }
-                        });
-                    }
-
-                    const groupedMatrix = {};
-                    Object.entries(matrixCounts).sort((a,b) => b[1].count - a[1].count).forEach(([k, v]) => {
-                        if (v.count > 0) {
-                            if (!groupedMatrix[v.category]) groupedMatrix[v.category] = [];
-                            groupedMatrix[v.category].push({ keycode: k, count: v.count });
-                        }
-                    });
-
-                    return { inUseBehaviors: inUseBehaviorsArr, matrixUsage: groupedMatrix, unused: unusedArr };
-                } catch (e) {
-                    console.error("Tracker compute error:", e);
-                    return { inUseBehaviors: [], matrixUsage: {}, unused: [] };
-                }
-            }, [config]);
-
-            const cleanUpUnused = () => {
-                try {
-                    const next = JSON.parse(JSON.stringify(config));
-                    let removedCount = 0;
-                    ['morse', 'tap_dance', 'macro', 'combo', 'mod_morph'].forEach(b => {
-                        if (next[b]) {
-                            if (Array.isArray(next[b])) {
-                                next[b] = next[b].filter((item, idx) => {
-                                    const ids = getIdentifiers(item, idx, b);
-                                    if (getUsageCount(next, ids) === 0) { removedCount++; return false; }
-                                    return true;
-                                });
-                                if (next[b].length === 0) delete next[b];
-                            } else if (typeof next[b] === 'object') {
-                                Object.keys(next[b]).forEach(k => {
-                                    if (getUsageCount(next, [k, `&${k}`]) === 0) { delete next[b][k]; removedCount++; }
-                                });
-                                if (Object.keys(next[b]).length === 0) delete next[b];
-                            }
-                        }
-                    });
-                    updateConfig(next);
-                    alert(`Cleaned up ${removedCount} orphaned behaviors.`);
-                } catch (e) { alert("Cleanup error: " + e.message); }
-            };
-
-            return (
-                <div className="flex flex-col gap-6">
-                    {unused.length > 0 && (
-                        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900/30 rounded-xl p-4 shadow-sm relative overflow-hidden">
-                            <h4 className="text-[10px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">⚠️ Orphaned Behaviors ({unused.length})</h4>
-                            <div className="flex flex-col gap-1.5 mb-4 max-h-48 overflow-y-auto pr-2">
-                                {unused.map((u, i) => (
-                                    <div key={i} className="flex justify-between items-center text-[10px]">
-                                        <span className="font-mono text-[color:var(--text-main)] truncate" title={u.keycode}>{u.keycode}</span>
-                                        <span className="text-[color:var(--text-muted)] italic">in {u.block}</span>
-                                    </div>
-                                ))}
-                            </div>
-                            <button onClick={cleanUpUnused} className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-2 rounded-lg text-xs shadow-sm">✨ Clean Up Unused</button>
-                        </div>
-                    )}
-                    {unused.length === 0 && <div className="text-emerald-500 text-xs text-center border border-emerald-500/20 bg-emerald-500/10 p-4 rounded-xl shadow-sm">🟢 All defined behaviors are actively utilized.</div>}
-                   
-                    {inUseBehaviors.length > 0 && (
-                        <div className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-4 shadow-sm">
-                            <h4 className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest mb-3 border-b border-[color:var(--border-panel)] pb-2">Custom Behaviors In Use</h4>
-                            <div className="flex flex-col gap-1.5">
-                                {inUseBehaviors.map((i, idx) => (
-                                    <div key={idx} className="flex justify-between items-center text-xs">
-                                        <span className="font-mono text-[color:var(--accent)] font-bold truncate max-w-[200px]" title={i.keycode}>{i.keycode}</span>
-                                        <span className="text-[color:var(--text-muted)] font-mono text-[10px] bg-[color:var(--bg-base)] px-2 py-0.5 rounded border border-[color:var(--border-panel)] shadow-inner">{i.count} usages</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    <div className="flex flex-col gap-4">
-                        {Object.entries(matrixUsage).map(([cat, items]) => (
-                            <div key={cat} className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-4 shadow-sm">
-                                <h4 className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest mb-3 border-b border-[color:var(--border-panel)] pb-2">{cat}</h4>
-                                <div className="flex flex-col gap-1.5">
-                                    {items.map(i => (
-                                        <div key={i.keycode} className="flex justify-between items-center text-xs">
-                                            <span className="font-mono text-[color:var(--accent)] font-bold truncate max-w-[200px]" title={i.keycode}>{i.keycode}</span>
-                                            <span className="text-[color:var(--text-muted)] font-mono text-[10px] bg-[color:var(--bg-base)] px-2 py-0.5 rounded border border-[color:var(--border-panel)] shadow-inner">{i.count}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            );
-        };
-
-        // --- 6. RENDER COMPONENTS ---
-        const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect, onSwap }) => {
+        // --- 7. RENDER COMPONENTS ---
+        const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect, onSwap, lightingColor, isLightingMode, lightingIcons, showIndices }) => {
             const [isDragOver, setIsDragOver] = useState(false);
             if (geo.hidden) return null;
             const isTrans = binding === '_______' || binding === 'KC_TRNS';
             const isDead = binding === '--' || binding === 'KC_NO';
-            const labelText = isTrans && baseBinding ? `▽ ${generateAutoLabel(baseBinding)}` : generateAutoLabel(binding);
+            const labelText = isTrans && baseBinding && !isLightingMode ? `▽ ${generateAutoLabel(baseBinding)}` : generateAutoLabel(binding);
+           
             const keyStyle = geo.relative ? { position: 'relative' } : { left: `${geo.x}px`, top: `${geo.y}px`, rotate: geo.r ? `${geo.r}deg` : '0deg', transformOrigin: geo.o || 'center' };
+
+            if (isLightingMode) {
+                if (lightingColor) {
+                    keyStyle.backgroundColor = lightingColor;
+                    keyStyle.borderColor = lightingColor;
+                    keyStyle.color = getContrastColor(lightingColor);
+                }
+                return (
+                    <div draggable={true} onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData('text/plain', index); }} onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const src = parseInt(e.dataTransfer.getData('text/plain'), 10); if(!isNaN(src) && src!==index) onSwap(src, index); }}
+                        className={`matrix-key lighting-mode ${!lightingColor ? 'lighting-off' : 'lighting-glow'} ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'selected' : ''}`}
+                        style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }} title={`Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}`}>
+                       
+                        {showIndices ? (
+                            <div className="flex flex-col items-center justify-center pointer-events-none drop-shadow-md">
+                                <span className="text-[14px] font-mono font-bold leading-none text-white opacity-95">L:{MATRIX_TO_LED[index]}</span>
+                                <span className="text-[10px] font-mono text-white opacity-60 mt-1">M:{index}</span>
+                            </div>
+                        ) : (
+                            <>
+                                {lightingIcons?.length > 0 && <div className="absolute top-1 right-1 flex gap-0.5 pointer-events-none z-10">{lightingIcons.map((ic, i)=><span key={i} className="text-[14px] drop-shadow-md">{ic}</span>)}</div>}
+                                <span className="text-fit-md text-clamp pointer-events-none px-1 rounded">{labelText}</span>
+                            </>
+                        )}
+                    </div>
+                );
+            }
 
             return (
                 <div draggable={true} onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData('text/plain', index); }} onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const src = parseInt(e.dataTransfer.getData('text/plain'), 10); if(!isNaN(src) && src!==index) onSwap(src, index); }}
@@ -644,41 +934,61 @@
                     <span className="text-fit-md text-clamp">{labelText}</span>
                 </div>
             );
-        }, (p, n) => p.isSelected === n.isSelected && p.binding === n.binding && p.baseBinding === n.baseBinding && p.geo === n.geo);
+        }, (p, n) => p.isSelected === n.isSelected && p.binding === n.binding && p.baseBinding === n.baseBinding && p.geo === n.geo && p.lightingColor === n.lightingColor && p.isLightingMode === n.isLightingMode && JSON.stringify(p.lightingIcons) === JSON.stringify(n.lightingIcons) && p.showIndices === n.showIndices);
 
-        const KeyboardContainer = ({ layerTokens, baseTokens, selectedKey, onSelectKey, scale, pan, isPanning, onPanStart, onPanMove, onPanEnd, onSwap }) => {
+        const KeyboardContainer = ({ layerTokens, baseTokens, selectedKey, onSelectKey, scale, pan, isPanning, onPanStart, onPanMove, onPanEnd, onSwap, lightingScenes, isLightingMode, showIndices }) => {
             const { keyboardGeo, isFallback } = useMemo(() => {
                 const count = layerTokens.length;
                 if (count === 84) return { keyboardGeo: GLOVE80_GEO, isFallback: false };
-                if (count === 60) return { keyboardGeo: GO60_GEO, isFallback: false };
                 return { keyboardGeo: layerTokens.map(() => ({ x: 0, y: 0, relative: true, hidden: false })), isFallback: true };
             }, [layerTokens.length]);
            
             return (
                 <div id="matrix-drag-surface" className="w-full h-full flex items-center justify-center overflow-hidden touch-none" onPointerDown={onPanStart} onPointerMove={onPanMove} onPointerUp={onPanEnd} onPointerCancel={onPanEnd} onPointerLeave={onPanEnd} onClick={() => onSelectKey(null)}>
                     <div className={isFallback ? "grid grid-cols-12 gap-2 p-10 transition-transform origin-center" : "relative w-[1260px] h-[450px] origin-center transition-transform pointer-events-auto"} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transitionDuration: isPanning ? '0ms' : '150ms' }}>
-                        {layerTokens.map((token, index) => <KeyComponent key={`matrix-key-${index}`} index={index} geo={keyboardGeo[index] || {hidden: true}} binding={token} baseBinding={baseTokens?.[index]} isSelected={selectedKey === index} onSelect={onSelectKey} onSwap={onSwap} />)}
+                        {layerTokens.map((token, index) => {
+                            let color = null; let icons = [];
+                            if (isLightingMode && lightingScenes) {
+                                const ledIndex = MATRIX_TO_LED[index];
+                                const stack = lightingScenes.filter(s => s.led === ledIndex);
+                                if (stack.length > 0) {
+                                    color = stack[stack.length - 1].color;
+                                    if (stack.some(s => s.battery)) icons.push('🔋');
+                                    if (stack.some(s => s.connection)) {
+                                        // Safe optional chaining protects against undefined crashes here
+                                        if (stack.some(s => s.connection?.usb_connected !== undefined)) icons.push('🔌');
+                                        else icons.push('📶');
+                                    }
+                                    if (stack.some(s => s.caps_lock)) icons.push('🔠');
+                                    if (stack.some(s => s.num_lock)) icons.push('🔢');
+                                    if (stack.some(s => s.scroll_lock)) icons.push('📜');
+                                    if (stack.some(s => s.layer?.active && !s.battery && !s.connection && !s.caps_lock && !s.num_lock && !s.scroll_lock)) icons.push('🎯');
+                                }
+                            }
+                            return <KeyComponent key={`matrix-key-${index}`} index={index} geo={keyboardGeo[index] || {hidden: true}} binding={token} baseBinding={baseTokens?.[index]} isSelected={selectedKey === index} onSelect={onSelectKey} onSwap={onSwap} lightingColor={color} isLightingMode={isLightingMode} lightingIcons={icons} showIndices={showIndices} />;
+                        })}
                     </div>
                 </div>
             );
         };
 
-        const Inspector = ({ config, activeLayer, selectedKey, setSelectedKey, updateConfig, tabs, handleRenameBlockKey, handleDeleteBlockKey, isDockedBottom, toggleDock }) => {
-            const [view, setView] = useState('key');
+        const Inspector = ({ view, setView, config, activeLayer, selectedKey, setSelectedKey, updateConfig, tabs, isDockedBottom, toggleDock, handleRenameBlockKey, handleDeleteBlockKey, showIndices, setShowIndices, clipboard, setClipboard }) => {
             const [editMode, setEditMode] = useState('visual');
             const [localObj, setLocalObj] = useState(null);
             const [localStr, setLocalStr] = useState("");
             const [error, setError] = useState("");
            
-            const currentTokenText = selectedKey !== null ? config.layer[activeLayer].tokens[selectedKey].text : "";
-
-            useEffect(() => { if (selectedKey !== null) setView('key'); else if (view === 'key') setView('layer_meta'); }, [selectedKey]);
+            const currentTokenText = selectedKey !== null && config.layer[activeLayer].tokens ? config.layer[activeLayer].tokens[selectedKey]?.text || "" : "";
 
             useEffect(() => {
-                setError("");
-                setEditMode('visual');
+                if (view !== 'lighting' && selectedKey !== null) setView('key');
+                else if (view === 'key' && selectedKey === null) setView('layer_meta');
+            }, [selectedKey]);
+
+            useEffect(() => {
+                setError(""); setEditMode('visual');
                 if (view === 'key') { setLocalStr(currentTokenText); }
-                else if (view === 'tracker') { setLocalStr(""); }
+                else if (view === 'tracker' || view === 'lighting') { setLocalStr(""); }
                 else if (view === 'raw_toml') {
                     const toSerialize = JSON.parse(JSON.stringify(config));
                     toSerialize.layer.forEach(l => { if(l.tokens) { l.keys = untokenizeKeys(l); delete l.tokens; delete l.tail; }});
@@ -688,7 +998,7 @@
                     setLocalObj({ id: l.id || '', name: l.name || '' });
                 } else {
                     const block = config[view];
-                    const objData = block ? JSON.parse(JSON.stringify(block)) : (['morse', 'hold_tap'].includes(view) ? [] : {});
+                    const objData = block ? JSON.parse(JSON.stringify(block)) : (['morse', 'hold_tap', 'combo', 'macro'].includes(view) ? [] : {});
                     setLocalObj(objData); setLocalStr(window.smolToml.stringify({ [view]: objData }));
                 }
             }, [view, selectedKey, activeLayer, config, currentTokenText]);
@@ -698,7 +1008,7 @@
                 if (editMode === 'visual') {
                     try { setLocalStr(window.smolToml.stringify(view === 'layer_meta' ? localObj : { [view]: localObj })); setEditMode('raw'); } catch(e) { setError("Serialization failed."); }
                 } else {
-                    try { const parsed = window.smolToml.parse(localStr); setLocalObj(view === 'layer_meta' ? parsed : parsed[view]); setEditMode('visual'); } catch(e) { setError("Invalid TOML syntax. Fix errors before switching to Visual Mode."); }
+                    try { const parsed = window.smolToml.parse(localStr); setLocalObj(view === 'layer_meta' ? parsed : parsed[view]); setEditMode('visual'); } catch(e) { setError("Invalid TOML syntax."); }
                 }
             };
 
@@ -714,7 +1024,7 @@
                         const data = editMode === 'visual' ? localObj : window.smolToml.parse(localStr);
                         if (data.id !== undefined) newConfig.layer[activeLayer].id = data.id;
                         if (data.name !== undefined) newConfig.layer[activeLayer].name = data.name;
-                    } else if (view !== 'raw_toml' && view !== 'tracker') {
+                    } else if (view !== 'raw_toml' && view !== 'tracker' && view !== 'lighting') {
                         const data = editMode === 'visual' ? localObj : window.smolToml.parse(localStr)[view];
                         if (data !== undefined && Object.keys(data).length > 0) newConfig[view] = data; else delete newConfig[view];
                     }
@@ -722,14 +1032,48 @@
                 } catch (err) { setError(err.message); }
             };
 
-            const isDynamicBlock = !['key', 'layer_meta', 'tracker', 'raw_toml'].includes(view);
+            const handleCopy = () => {
+                if (selectedKey === null) return;
+                if (view === 'key') {
+                    setClipboard({ type: 'key', data: config.layer[activeLayer].tokens[selectedKey].text });
+                } else if (view === 'lighting') {
+                    const led = MATRIX_TO_LED[selectedKey];
+                    const staticRules = config.lighting?.scene?.filter(s => s.led === led && (s.layer === activeLayer || s.layer === undefined)) || [];
+                    const condRules = config.lighting?.conditional_scene?.filter(s => s.led === led && ((typeof s.layer === 'object' ? s.layer?.layer : s.layer) === activeLayer || s.layer === undefined)) || [];
+                    setClipboard({ type: 'lighting', data: { staticRules, condRules } });
+                }
+            };
+
+            const handlePaste = () => {
+                if (selectedKey === null || !clipboard) return;
+                const next = JSON.parse(JSON.stringify(config));
+               
+                if (view === 'key' && clipboard.type === 'key') {
+                    next.layer[activeLayer].tokens[selectedKey].text = clipboard.data;
+                } else if (view === 'lighting' && clipboard.type === 'lighting') {
+                    const led = MATRIX_TO_LED[selectedKey];
+                    if (led === -1) return alert("Selected key has no physical LED to paste onto.");
+                    if (!next.lighting) next.lighting = {};
+                    if (!next.lighting.scene) next.lighting.scene = [];
+                    if (!next.lighting.conditional_scene) next.lighting.conditional_scene = [];
+
+                    next.lighting.scene = next.lighting.scene.filter(s => !(s.led === led && (s.layer === activeLayer || s.layer === undefined)));
+                    next.lighting.conditional_scene = next.lighting.conditional_scene.filter(s => !(s.led === led && ((typeof s.layer === 'object' ? s.layer?.layer : s.layer) === activeLayer || s.layer === undefined)));
+
+                    clipboard.data.staticRules.forEach(r => next.lighting.scene.push({ ...r, led }));
+                    clipboard.data.condRules.forEach(r => next.lighting.conditional_scene.push({ ...r, led }));
+                }
+                updateConfig(next);
+            };
+
+            const isDynamicBlock = !['key', 'layer_meta', 'tracker', 'raw_toml', 'lighting'].includes(view);
 
             return (
                 <div className={`flex flex-col h-full overflow-hidden w-full bg-[color:var(--bg-panel)] ${isDockedBottom ? 'border-t' : 'border-l'} border-[color:var(--border-panel)]`}>
-                    <div className="flex items-center text-xs font-semibold border-b border-panel bg-[color:var(--bg-base)]">
+                    <div className="flex items-center text-xs font-semibold border-b border-[color:var(--border-panel)] bg-[color:var(--bg-base)]">
                         <div className="flex overflow-x-auto hide-scrollbar flex-1">
                             {tabs.map(t => (
-                                <button key={t} onClick={() => { setView(t); if(t !== 'key') setSelectedKey(null); }}
+                                <button key={t} onClick={() => { setView(t); if(t !== 'key' && t !== 'lighting') setSelectedKey(null); }}
                                     className={`shrink-0 min-w-[75px] py-3.5 px-4 text-center capitalize transition-colors focus:outline-none whitespace-nowrap ${view === t ? 'text-[color:var(--accent)] border-b-2 border-[color:var(--accent)] panel' : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-main)]'}`}>
                                     {t.replace('_', ' ')}
                                 </button>
@@ -743,50 +1087,70 @@
                     </div>
 
                     <div className={`p-4 flex-1 flex flex-col overflow-y-auto ${isDockedBottom ? 'flex-row gap-6' : ''}`}>
-                        <div className={`flex flex-col ${isDockedBottom ? 'w-1/3 shrink-0' : 'mb-4'}`}>
-                            <div className="mb-4 flex justify-between items-center shrink-0">
-                                <h3 className="font-bold text-sm capitalize flex items-center gap-2">
-                                    {view === 'key' ? (selectedKey !== null ? `Layer ${activeLayer} : Key ${selectedKey}` : 'No Key Selected') : `${view.replace('_', ' ')}`}
-                                </h3>
-                                <div className="flex gap-2 items-center">
-                                    {(isDynamicBlock || view === 'layer_meta') && (
-                                        <div className="flex bg-[color:var(--bg-base)] border border-[color:var(--border-panel)] rounded-lg p-0.5 shadow-sm">
-                                            <button onClick={handleModeToggle} disabled={editMode === 'visual'} className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${editMode === 'visual' ? 'bg-[color:var(--bg-panel)] text-[color:var(--text-main)] shadow-sm' : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-main)]'}`}>Visual</button>
-                                            <button onClick={handleModeToggle} disabled={editMode === 'raw'} className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${editMode === 'raw' ? 'bg-[color:var(--bg-panel)] text-[color:var(--text-main)] shadow-sm' : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-main)]'}`}>Raw TOML</button>
-                                        </div>
-                                    )}
-                                    {view === 'key' && selectedKey !== null && <button onClick={() => setSelectedKey(null)} className="text-[10px] font-bold text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] bg-[color:var(--bg-base)] px-2.5 py-1.5 rounded-md border border-[color:var(--border-panel)]">Deselect</button>}
+                        {view !== 'lighting' && (
+                            <div className={`flex flex-col ${isDockedBottom ? 'w-1/3 shrink-0' : 'mb-4'}`}>
+                                <div className="mb-4 flex justify-between items-center shrink-0">
+                                    <h3 className="font-bold text-sm capitalize flex items-center gap-2">
+                                        {view === 'key' ? (selectedKey !== null ? `Layer ${activeLayer} : Key ${selectedKey}` : 'No Key Selected') : `${view.replace('_', ' ')}`}
+                                    </h3>
+                                    <div className="flex gap-2 items-center">
+                                        {view === 'key' && selectedKey !== null && (
+                                            <div className="flex gap-1 bg-[color:var(--bg-base)] p-1 rounded-lg border border-[color:var(--border-panel)]">
+                                                <button onClick={handleCopy} className="text-[10px] px-2 py-1 font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] transition-colors">Copy</button>
+                                                <button onClick={handlePaste} disabled={!clipboard || clipboard.type !== 'key'} className="text-[10px] px-2 py-1 font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] disabled:opacity-30 transition-colors">Paste</button>
+                                            </div>
+                                        )}
+                                        {(isDynamicBlock || view === 'layer_meta') && (
+                                            <div className="flex bg-[color:var(--bg-base)] border border-[color:var(--border-panel)] rounded-lg p-0.5 shadow-sm">
+                                                <button onClick={handleModeToggle} disabled={editMode === 'visual'} className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${editMode === 'visual' ? 'bg-[color:var(--bg-panel)] text-[color:var(--text-main)] shadow-sm' : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-main)]'}`}>Visual</button>
+                                                <button onClick={handleModeToggle} disabled={editMode === 'raw'} className={`px-2.5 py-1 text-[10px] font-bold rounded-md transition-all ${editMode === 'raw' ? 'bg-[color:var(--bg-panel)] text-[color:var(--text-main)] shadow-sm' : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-main)]'}`}>Raw TOML</button>
+                                            </div>
+                                        )}
+                                        {view === 'key' && selectedKey !== null && <button onClick={() => setSelectedKey(null)} className="text-[10px] font-bold text-[color:var(--text-muted)] hover:text-red-500 transition-colors ml-2">✕</button>}
+                                    </div>
                                 </div>
+                                <p className="text-[11px] text-[color:var(--text-muted)] mb-4 leading-relaxed shrink-0">
+                                    {view === 'key' ? "Modify raw RMK keycode binding (e.g. KC_A, TD(0), --)." :
+                                     view === 'raw_toml' ? "Live Egress Stream. This is the exact compiled TOML file ready for RMK firmware." :
+                                     editMode === 'visual' ? `Fully graphical editor for the [${view}] block.` : `Raw TOML text editor for the [${view}] block.`}
+                                </p>
+                                {error && <div className="text-red-500 text-[11px] mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg font-bold shrink-0">{error}</div>}
                             </div>
+                        )}
 
-                            <p className="text-[11px] text-[color:var(--text-muted)] mb-4 leading-relaxed shrink-0">
-                                {view === 'key' ? "Modify raw RMK keycode binding (e.g. KC_A, TD(0), --)." :
-                                 view === 'raw_toml' ? "Live Egress Stream. This is the exact compiled TOML file ready for RMK firmware." :
-                                 editMode === 'visual' ? `Fully graphical editor for the [${view}] block.` : `Raw TOML text editor for the [${view}] block.`}
-                            </p>
-                           
-                            {error && <div className="text-red-500 text-[11px] mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg font-bold shrink-0">{error}</div>}
-                        </div>
-
-                        <div className={`flex flex-col flex-1 relative min-h-0 ${isDockedBottom ? 'overflow-y-auto pr-2' : ''}`}>
+                        <div className={`flex flex-col flex-1 relative min-h-0 ${isDockedBottom ? 'overflow-y-auto pr-2 hide-scrollbar' : ''}`}>
                             {view === 'tracker' ? (
                                 <TrackerPanel config={config} updateConfig={updateConfig} />
+                            ) : view === 'lighting' ? (
+                                <>
+                                    {selectedKey !== null && (
+                                        <div className="absolute top-2 right-4 flex gap-2 bg-[color:var(--bg-panel)] p-1 rounded-lg border border-[color:var(--border-panel)] shadow-sm z-50">
+                                            <button onClick={handleCopy} className="text-[10px] px-3 py-1.5 font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] transition-colors">Copy Rules</button>
+                                            <button onClick={handlePaste} disabled={!clipboard || clipboard.type !== 'lighting'} className="text-[10px] px-3 py-1.5 font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] disabled:opacity-30 transition-colors">Paste Rules</button>
+                                        </div>
+                                    )}
+                                    {selectedKey === null ? (
+                                        <LightingDashboard config={config} activeLayer={activeLayer} showIndices={showIndices} setShowIndices={setShowIndices} updateConfig={updateConfig} />
+                                    ) : (
+                                        <KeyLightingEditor config={config} updateConfig={updateConfig} activeLayer={activeLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} />
+                                    )}
+                                </>
                             ) : (view !== 'key' || selectedKey !== null) ? (
                                 <>
                                     {view === 'key' ? (
-                                        <input className={`input-field font-mono text-sm mb-4 shrink-0`} style={{color: 'var(--accent)'}} value={localStr} onChange={e => setLocalStr(e.target.value)} spellCheck="false" />
+                                        <input className={`input-field font-mono text-sm mb-4 shrink-0 ${error ? 'border-red-500' : ''}`} style={{color: 'var(--accent)'}} value={localStr} onChange={e => setLocalStr(e.target.value)} spellCheck="false" />
                                     ) : editMode === 'raw' || view === 'raw_toml' ? (
-                                        <textarea readOnly={view === 'raw_toml'} className={`input-field font-mono text-[10px] resize-none mb-4 flex-1 ${view==='raw_toml' ? 'opacity-80' : ''}`} style={{color: 'var(--accent)'}} value={localStr} onChange={e => setLocalStr(e.target.value)} spellCheck="false" />
+                                        <textarea readOnly={view === 'raw_toml'} className={`input-field font-mono text-[10px] resize-none mb-4 flex-1 ${view==='raw_toml' ? 'opacity-80' : ''} ${error ? 'border-red-500' : ''}`} style={{color: 'var(--accent)'}} value={localStr} onChange={e => setLocalStr(e.target.value)} spellCheck="false" />
                                     ) : (
-                                        <div className="flex-1 overflow-y-auto mb-4 bg-[color:var(--bg-panel)]">
+                                        <div className="flex-1 overflow-y-auto mb-4 bg-white dark:bg-[color:var(--bg-base)] border border-[color:var(--border-panel)] rounded-xl shadow-sm">
                                             {localObj && isDynamicBlock ? (
                                                 <SmartBlockEditor blockName={view} data={localObj} config={config} updateConfig={updateConfig} handleRenameBlockKey={handleRenameBlockKey} handleDeleteBlockKey={handleDeleteBlockKey} />
                                             ) : localObj ? (
-                                                <div className="border border-[color:var(--border-panel)] rounded-xl shadow-sm p-1"><ObjectEditor obj={localObj} onChange={setLocalObj} depth={0} /></div>
+                                                <div className="p-1"><ObjectEditor obj={localObj} onChange={setLocalObj} depth={0} /></div>
                                             ) : null}
                                         </div>
                                     )}
-                                    {view !== 'raw_toml' && <button onClick={handleSave} className={`bg-[color:var(--accent)] hover:brightness-110 text-white font-bold py-3.5 rounded-lg transition-all text-sm shadow-md shrink-0 sticky bottom-0 ${isDockedBottom ? 'w-1/3 self-end' : 'w-full mt-auto'}`}>Save Changes</button>}
+                                    {view !== 'raw_toml' && <button onClick={handleSave} className={`bg-[color:var(--accent)] hover:brightness-110 text-white font-bold py-3.5 rounded-lg transition-all text-sm shadow-md mt-auto shrink-0 sticky bottom-0 ${isDockedBottom ? 'w-1/3 self-end' : 'w-full mt-auto'}`}>Save Changes</button>}
                                 </>
                             ) : (
                                 <div className="flex-1 flex items-center justify-center text-[color:var(--text-muted)] text-[11px] font-medium text-center p-6 border border-dashed border-[color:var(--border-panel)] rounded-xl bg-[color:var(--bg-base)]">
@@ -805,6 +1169,7 @@
             const [config, setConfig] = useState(null);
             const [activeLayer, setActiveLayer] = useState(0);
             const [selectedKey, setSelectedKey] = useState(null);
+            const [clipboard, setClipboard] = useState(null);
            
             const [scale, setScale] = useState(0.85);
             const [pan, setPan] = useState({ x: 0, y: -60 });
@@ -813,17 +1178,20 @@
            
             const [leftWidth, setLeftWidth] = useState(288);
             const [rightWidth, setRightWidth] = useState(420);
-            const [bottomHeight, setBottomHeight] = useState(300);
-            const [dockMode, setDockMode] = useState('right'); // 'right' | 'bottom' | 'hidden'
+            const [bottomHeight, setBottomHeight] = useState(320);
+            const [dockMode, setDockMode] = useState('bottom');
+            const [view, setView] = useState('key');
+           
+            const [showIndices, setShowIndices] = useState(false);
 
             useEffect(() => { const r = document.documentElement; if (theme === 'dark') r.classList.add('dark'); else r.classList.remove('dark'); }, [theme]);
             useEffect(() => { const timer = setInterval(() => { if (window.smolToml) { setEngineReady(true); clearInterval(timer); } }, 100); return () => clearInterval(timer); }, []);
 
             const dynamicTabs = useMemo(() => {
                 if (!config) return [];
-                const systemTabs = ['key', 'layer_meta', 'tracker', 'raw_toml'];
+                const systemTabs = ['key', 'layer_meta', 'lighting', 'tracker', 'raw_toml'];
                 const existingBlocks = Object.keys(config).filter(k => k !== 'layer');
-                const standardBlocks = ['keyboard', 'matrix', 'layout', 'light', 'behavior', 'split', 'ble', 'vial', 'storage', 'morse'];
+                const standardBlocks = ['keyboard', 'matrix', 'layout', 'behavior', 'split', 'ble', 'vial', 'storage'];
                 return Array.from(new Set([...systemTabs, ...existingBlocks, ...standardBlocks]));
             }, [config]);
 
@@ -836,8 +1204,8 @@
                         if (!parsed.layer) throw new Error("Missing '[[layer]]' array.");
                         parsed.layer.forEach(l => { const { tokens, tail } = tokenizeKeysString(l.keys || ""); l.tokens = tokens; l.tail = tail; });
                         setConfig(parsed); setActiveLayer(0); setSelectedKey(null); setScale(0.85); setPan({ x: 0, y: -60 });
-                        setDockMode('right');
-                    } catch (err) { alert(err.message); }
+                        setDockMode('bottom'); setView('key');
+                    } catch (err) { alert("Parse Error: " + err.message); }
                 };
                 reader.readAsText(file); e.target.value = '';
             };
@@ -878,14 +1246,68 @@
                 e.target.addEventListener('pointermove', onMove); e.target.addEventListener('pointerup', onUp);
             };
 
-            const handleRenameBlockKey = (blockName, oldKey, newKey) => {
+            const swapLayers = useCallback((idx1, idx2) => {
+                setConfig(prev => {
+                    const n = JSON.parse(JSON.stringify(prev));
+                    const temp = n.layer[idx1];
+                    n.layer[idx1] = n.layer[idx2];
+                    n.layer[idx2] = temp;
+
+                    const updateLightingLayer = (rules) => {
+                        if (!Array.isArray(rules)) return rules;
+                        return rules.map(r => {
+                            const l = typeof r.layer === 'object' ? r.layer.layer : r.layer;
+                            if (l === idx1) {
+                                if (typeof r.layer === 'object') r.layer.layer = idx2; else r.layer = idx2;
+                            } else if (l === idx2) {
+                                if (typeof r.layer === 'object') r.layer.layer = idx1; else r.layer = idx1;
+                            }
+                            return r;
+                        });
+                    };
+                    if (n.lighting) {
+                        if (n.lighting.scene) n.lighting.scene = updateLightingLayer(n.lighting.scene);
+                        if (n.lighting.conditional_scene) n.lighting.conditional_scene = updateLightingLayer(n.lighting.conditional_scene);
+                    }
+                    return n;
+                });
+            }, []);
+
+            const deleteLayer = useCallback((idx) => {
+                setConfig(prev => {
+                    const n = JSON.parse(JSON.stringify(prev));
+                    n.layer.splice(idx, 1);
+                   
+                    const updateLightingLayer = (rules) => {
+                        if (!Array.isArray(rules)) return rules;
+                        return rules.filter(r => {
+                            const l = typeof r.layer === 'object' ? r.layer.layer : r.layer;
+                            return l !== idx;
+                        }).map(r => {
+                            const l = typeof r.layer === 'object' ? r.layer.layer : r.layer;
+                            if (l > idx) {
+                                if (typeof r.layer === 'object') r.layer.layer = l - 1; else r.layer = l - 1;
+                            }
+                            return r;
+                        });
+                    };
+                    if (n.lighting) {
+                        if (n.lighting.scene) n.lighting.scene = updateLightingLayer(n.lighting.scene);
+                        if (n.lighting.conditional_scene) n.lighting.conditional_scene = updateLightingLayer(n.lighting.conditional_scene);
+                    }
+                    return n;
+                });
+            }, []);
+
+            const handleRenameBlockKey = useCallback((blockName, oldKey, newKey) => {
                 const count = getUsageCount(config, [oldKey]);
                 setConfig(prev => {
                     const next = JSON.parse(JSON.stringify(prev));
+                    if (!next[blockName]) return next;
                     next[blockName][newKey] = next[blockName][oldKey]; delete next[blockName][oldKey];
                     if (count > 0) {
-                        const regex = new RegExp(`(^|\\W)(${String(oldKey).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
-                        next.layer.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1${newKey}`); }));
+                        const regex = new RegExp(`(?:^|\\W)(${String(oldKey).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
+                        next.layer?.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1${newKey}`); }));
                         ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
                             if (next[b]) next[b] = replaceInObj(next[b], [oldKey], newKey);
                         });
@@ -893,37 +1315,63 @@
                     return next;
                 });
                 if (count > 0) alert(`Cascaded rename to ${count} references.`);
-            };
+            }, [config]);
 
-            const handleDeleteBlockKey = (blockName, key) => {
+            const handleDeleteBlockKey = useCallback((blockName, key) => {
                 const count = getUsageCount(config, [key]);
                 if (count > 0 && !confirm(`⚠️ Used by ${count} references. Deleting will replace them with KC_NO. Proceed?`)) return;
                 setConfig(prev => {
                     const next = JSON.parse(JSON.stringify(prev));
+                    if (!next[blockName]) return next;
                     delete next[blockName][key]; if (Object.keys(next[blockName]).length === 0) delete next[blockName];
                     if (count > 0) {
-                        const regex = new RegExp(`(^|\\W)(${String(key).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
-                        next.layer.forEach(l => l.tokens?.forEach(t => { if (regex.test(t.text)) t.text = 'KC_NO'; }));
+                        const regex = new RegExp(`(?:^|\\W)(${String(key).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
+                        next.layer?.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1KC_NO`); }));
                         ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
                             if (next[b]) next[b] = deleteInObj(next[b], [key]);
                         });
                     }
                     return next;
                 });
-            };
+            }, [config]);
 
             const activeLayerTokens = useMemo(() => config?.layer?.[activeLayer]?.tokens?.map(t => t.text) || [], [config, activeLayer]);
             const baseLayerTokens = useMemo(() => config?.layer?.[0]?.tokens?.map(t => t.text) || [], [config]);
+           
+            const activeLightingScenes = useMemo(() => {
+                if (!config?.lighting) return [];
+                const arr = [];
+                const parseL = (l) => typeof l === 'object' ? l?.layer : l;
+                if (Array.isArray(config.lighting.scene)) config.lighting.scene.forEach(s => { if (parseL(s.layer) === activeLayer || parseL(s.layer) === undefined) arr.push({...s, isCond: false}); });
+                if (Array.isArray(config.lighting.conditional_scene)) config.lighting.conditional_scene.forEach(s => { if (parseL(s.layer) === activeLayer || parseL(s.layer) === undefined) arr.push({...s, isCond: true}); });
+                return arr;
+            }, [config, activeLayer]);
 
             const handleSwapKeys = useCallback((idx1, idx2) => {
                 setConfig(prev => {
                     const next = JSON.parse(JSON.stringify(prev));
-                    const temp = next.layer[activeLayer].tokens[idx1].text;
-                    next.layer[activeLayer].tokens[idx1].text = next.layer[activeLayer].tokens[idx2].text;
-                    next.layer[activeLayer].tokens[idx2].text = temp;
+                    if (view === 'lighting' && next.lighting) {
+                        const led1 = MATRIX_TO_LED[idx1];
+                        const led2 = MATRIX_TO_LED[idx2];
+                        if (led1 !== -1 && led2 !== -1) {
+                            const isMatch = (l) => (typeof l === 'object' ? l?.layer : l) === activeLayer || l === undefined;
+                            const swapLeds = (arr) => {
+                                if (!Array.isArray(arr)) return;
+                                arr.forEach(s => { if (isMatch(s.layer) && s.led === led1) s.led = -999; });
+                                arr.forEach(s => { if (isMatch(s.layer) && s.led === led2) s.led = led1; });
+                                arr.forEach(s => { if (isMatch(s.layer) && s.led === -999) s.led = led2; });
+                            };
+                            swapLeds(next.lighting.scene);
+                            swapLeds(next.lighting.conditional_scene);
+                        }
+                    } else {
+                        const temp = next.layer[activeLayer].tokens[idx1].text;
+                        next.layer[activeLayer].tokens[idx1].text = next.layer[activeLayer].tokens[idx2].text;
+                        next.layer[activeLayer].tokens[idx2].text = temp;
+                    }
                     return next;
                 });
-            }, [activeLayer]);
+            }, [activeLayer, view]);
 
             if (!engineReady) return <div className="flex items-center justify-center h-full w-full bg-[color:var(--bg-base)]"><p className="animate-pulse font-mono text-sm text-[color:var(--text-muted)]">Booting Ephemeral JSON Engine...</p></div>;
 
@@ -934,7 +1382,7 @@
                             <div className="flex justify-between items-center mb-1">
                                 <h1 className="text-xl font-bold flex items-center gap-2">RMK Studio</h1>
                                 <button onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')} className="text-[color:var(--text-muted)] hover:text-[color:var(--accent)] transition-colors bg-[color:var(--bg-base)] p-1.5 rounded-md border border-[color:var(--border-panel)]" title="Toggle Theme">
-                                    {theme === 'dark' ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                                    {theme === 'dark' ? <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
                                     : <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>}
                                 </button>
                             </div>
@@ -953,11 +1401,37 @@
                                                 <button onClick={() => { setActiveLayer(i); setSelectedKey(null); }} className={`flex-1 text-left px-2 py-2 truncate text-xs font-bold ${activeLayer === i ? 'text-[color:var(--accent)]' : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-main)]'}`}>
                                                     <span className="text-[9px] font-mono opacity-50 mr-2">{i}</span>{l.name || l.id || `Layer ${i}`}
                                                 </button>
+                                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pr-1">
+                                                    <button title="Move Up" onClick={() => { if (i - 1 < 0) return; swapLayers(i, i - 1); setActiveLayer(i - 1); }} className="text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] hover:bg-[color:var(--bg-base)] p-1 rounded text-xs font-mono" disabled={i === 0}>↑</button>
+                                                    <button title="Move Down" onClick={() => { if (i + 1 >= config.layer.length) return; swapLayers(i, i + 1); setActiveLayer(i + 1); }} className="text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] hover:bg-[color:var(--bg-base)] p-1 rounded text-xs font-mono" disabled={i === config.layer.length - 1}>↓</button>
+                                                    <button title="Rename" onClick={() => { const n = prompt('Rename layer:', l.name || `Layer ${i}`); if(n) { const cfg = JSON.parse(JSON.stringify(config)); cfg.layer[i].name = n; setConfig(cfg); } }} className="text-[color:var(--text-muted)] hover:text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] p-1 rounded text-xs">✎</button>
+                                                    <button title="Delete" onClick={() => { if(config.layer.length <= 1) return alert("Cannot delete last layer."); if(confirm("Delete layer?")) { deleteLayer(i); if(activeLayer >= config.layer.length - 1) setActiveLayer(Math.max(0, config.layer.length - 2)); setSelectedKey(null); } }} className="text-[color:var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 p-1 rounded text-xs">✕</button>
+                                                </div>
                                             </div>
                                         ))}
                                     </div>
+                                    <div className="flex gap-2 mt-2">
+                                        <button onClick={() => {
+                                            setConfig(prev => {
+                                                const n = JSON.parse(JSON.stringify(prev));
+                                                const b = n.layer[0];
+                                                n.layer.push({ name: `Layer ${n.layer.length}`, keys: "", tokens: b.tokens.map(t => ({space: t.space, text: '_______'})), tail: b.tail });
+                                                return n;
+                                            });
+                                            setActiveLayer(config.layer.length);
+                                        }} className="flex-1 py-2 text-xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] border border-dashed border-[color:var(--border-panel)] hover:border-[color:var(--accent)] rounded-lg transition-all">
+                                            + Layer
+                                        </button>
+                                        <button onClick={() => {
+                                            if (!confirm("Replace standard QWERTY keys on active layer with Aptmak-Blue?")) return;
+                                            const map = {'KC_W':'KC_J','KC_E':'KC_U','KC_R':'KC_L','KC_T':'KC_SCLN','KC_Y':'KC_B','KC_U':'KC_P','KC_I':'KC_F','KC_O':'KC_W','KC_P':'KC_X','KC_S':'KC_O','KC_D':'KC_I','KC_F':'KC_N','KC_G':'KC_Y','KC_H':'KC_K','KC_J':'KC_H','KC_K':'KC_T','KC_L':'KC_S','KC_SCLN':'KC_R','KC_X':'KC_DOT','KC_C':'KC_COMM','KC_V':'KC_M','KC_B':'KC_E','KC_N':'KC_V','KC_M':'KC_D','KC_COMM':'KC_G','KC_DOT':'KC_C'};
+                                            setConfig(prev => { const n = JSON.parse(JSON.stringify(prev)); n.layer[activeLayer].tokens.forEach(t => t.text = t.text.replace(/\bKC_[A-Z]+\b/g, m => map[m] || m)); return n; });
+                                        }} title="Convert current layer to Aptmak-Blue" className="flex-1 py-2 text-xs font-bold text-[color:var(--text-muted)] hover:text-blue-500 border border-dashed border-[color:var(--border-panel)] hover:border-blue-500 rounded-lg transition-all">
+                                            ✨ Aptmak
+                                        </button>
+                                    </div>
                                 </div>
-                                <button onClick={handleExport} className="w-full bg-emerald-600 hover:brightness-110 text-white font-bold py-3.5 rounded-lg text-sm transition-all shadow-md shrink-0">Export Layout</button>
+                                <button onClick={handleExport} className="w-full mt-auto bg-emerald-600 hover:brightness-110 text-white font-bold py-3.5 rounded-lg text-sm transition-all shadow-md shrink-0">Export Layout</button>
                             </div>
                         )}
                     </div>
@@ -986,7 +1460,7 @@
                                         <svg className="w-4 h-4 text-[color:var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path></svg>
                                         Middle-Click & Drag to pan
                                     </div>
-                                    <KeyboardContainer layerTokens={activeLayerTokens} baseTokens={baseLayerTokens} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={scale} pan={pan} isPanning={isPanning} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onSwap={handleSwapKeys} />
+                                    <KeyboardContainer layerTokens={activeLayerTokens} baseTokens={baseLayerTokens} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={scale} pan={pan} isPanning={isPanning} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onSwap={handleSwapKeys} lightingScenes={activeLightingScenes} isLightingMode={view === 'lighting'} showIndices={showIndices} />
                                 </>
                             )}
                         </div>
@@ -995,7 +1469,7 @@
                             <>
                                 <div className={dockMode === 'bottom' ? 'resizer-h' : 'resizer-v'} onPointerDown={dockMode === 'bottom' ? startBottomResize : startRightResize}></div>
                                 <div style={dockMode === 'bottom' ? { height: bottomHeight } : { width: rightWidth }} className="panel flex flex-col shrink-0 z-30 shadow-2xl transition-colors">
-                                    <Inspector config={config} activeLayer={activeLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} updateConfig={setConfig} tabs={dynamicTabs} handleRenameBlockKey={handleRenameBlockKey} handleDeleteBlockKey={handleDeleteBlockKey} isDockedBottom={dockMode === 'bottom'} toggleDock={() => setDockMode(d => d === 'right' ? 'bottom' : 'right')} />
+                                    <Inspector view={view} setView={setView} config={config} activeLayer={activeLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} updateConfig={setConfig} tabs={dynamicTabs} handleRenameBlockKey={handleRenameBlockKey} handleDeleteBlockKey={handleDeleteBlockKey} showIndices={showIndices} setShowIndices={setShowIndices} clipboard={clipboard} setClipboard={setClipboard} isDockedBottom={dockMode === 'bottom'} toggleDock={() => setDockMode(d => d === 'right' ? 'bottom' : 'right')} />
                                 </div>
                             </>
                         )}
