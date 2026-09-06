@@ -1784,7 +1784,11 @@
 
             const activeLayerTokens = useMemo(() => config?.layer?.[activeLayer]?.tokens?.map(t => t.text) || [], [config, activeLayer]);
             const baseLayerTokens = useMemo(() => config?.layer?.[0]?.tokens?.map(t => t.text) || [], [config]);
-            const currentLayoutVariant = useMemo(() => detectLayoutVariant(config?.layer?.[activeLayer]), [config, activeLayer]);
+            const findLayerIdxByName = (cfg, pattern) => cfg?.layer?.findIndex(l => pattern.test(l.name || '')) ?? -1;
+            const currentLayoutVariant = useMemo(() => {
+                const baseIdx = findLayerIdxByName(config, /base/i);
+                return detectLayoutVariant(config?.layer?.[baseIdx >= 0 ? baseIdx : 0]);
+            }, [config]);
            
             const activeLightingScenes = useMemo(() => {
                 if (!config?.lighting) return [];
@@ -1882,16 +1886,25 @@
                                             + Layer
                                         </button>
                                         <button onClick={() => {
+                                            const targetNames = [/base/i, /typing/i, /autoshift/i];
+                                            const targetIdxs = [...new Set(targetNames.map(p => findLayerIdxByName(config, p)).filter(i => i >= 0))];
+                                            if (targetIdxs.length === 0) return alert("Couldn't find a Base, Typing, or Autoshift layer by name to convert.");
+
                                             if (currentLayoutVariant === null) {
-                                                if (!confirm("Couldn't detect whether this layer is currently QWERTY or Aptmak-Blue (positions 30-32 don't match either signature exactly). Convert QWERTY -> Aptmak-Blue anyway?")) return;
+                                                if (!confirm("Couldn't detect whether the Base layer is currently QWERTY or Aptmak-Blue (positions 30-32 don't match either signature exactly). Convert QWERTY -> Aptmak-Blue anyway?")) return;
                                             }
                                             const current = currentLayoutVariant || 'qwerty';
                                             const goingTo = current === 'qwerty' ? 'aptmak' : 'qwerty';
                                             const map = current === 'qwerty' ? QWERTY_TO_APTMAK : APTMAK_TO_QWERTY;
                                             const label = goingTo === 'aptmak' ? 'Aptmak-Blue' : 'QWERTY';
-                                            if (currentLayoutVariant !== null && !confirm(`Convert active layer's letter keys to ${label}?`)) return;
-                                            setConfig(prev => { const n = JSON.parse(JSON.stringify(prev)); n.layer[activeLayer].tokens.forEach(t => t.text = t.text.replace(/\bKC_[A-Z]+\b/g, m => map[m] || m)); return n; });
-                                        }} title={currentLayoutVariant === null ? "Couldn't detect current layout from this layer's bindings" : `Layer is currently ${currentLayoutVariant === 'aptmak' ? 'Aptmak-Blue' : 'QWERTY'} — click to convert to ${currentLayoutVariant === 'aptmak' ? 'QWERTY' : 'Aptmak-Blue'}`} className={`flex-1 py-2 text-xs font-bold border border-dashed rounded-lg transition-all ${currentLayoutVariant === 'aptmak' ? 'text-blue-500 border-blue-500' : currentLayoutVariant === null ? 'text-amber-500 border-amber-500/50' : 'text-[color:var(--text-muted)] border-[color:var(--border-panel)] hover:text-blue-500 hover:border-blue-500'}`}>
+                                            const layerNames = targetIdxs.map(i => config.layer[i].name || `Layer ${i}`).join(', ');
+                                            if (currentLayoutVariant !== null && !confirm(`Convert letter keys to ${label} on: ${layerNames}?`)) return;
+                                            setConfig(prev => {
+                                                const n = JSON.parse(JSON.stringify(prev));
+                                                targetIdxs.forEach(idx => { n.layer[idx].tokens.forEach(t => t.text = t.text.replace(/\bKC_[A-Z]+\b/g, m => map[m] || m)); });
+                                                return n;
+                                            });
+                                        }} title={currentLayoutVariant === null ? "Couldn't detect current layout from the Base layer's bindings" : `Base layer is currently ${currentLayoutVariant === 'aptmak' ? 'Aptmak-Blue' : 'QWERTY'} — click to convert Base + Typing + Autoshift to ${currentLayoutVariant === 'aptmak' ? 'QWERTY' : 'Aptmak-Blue'}`} className={`flex-1 py-2 text-xs font-bold border border-dashed rounded-lg transition-all ${currentLayoutVariant === 'aptmak' ? 'text-blue-500 border-blue-500' : currentLayoutVariant === null ? 'text-amber-500 border-amber-500/50' : 'text-[color:var(--text-muted)] border-[color:var(--border-panel)] hover:text-blue-500 hover:border-blue-500'}`}>
                                             {currentLayoutVariant === 'aptmak' ? '⌨️ QWERTY' : currentLayoutVariant === null ? '❓ Aptmak' : '✨ Aptmak'}
                                         </button>
                                     </div>
@@ -1925,7 +1938,7 @@
                                         <svg className="w-4 h-4 text-[color:var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path></svg>
                                         Middle-Click & Drag to pan
                                     </div>
-                                    <KeyboardContainer layerTokens={activeLayerTokens} baseTokens={baseLayerTokens} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={scale} pan={pan} isPanning={isPanning} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onSwap={handleSwapKeys} lightingScenes={activeLightingScenes} isLightingMode={view === 'lighting'} showIndices={showIndices} isPaintMode={isPaintMode && view === 'lighting'} onPaintDown={handlePaintDown} onPaintEnter={handlePaintEnter} />
+                                    <KeyboardContainer layerTokens={activeLayerTokens} baseTokens={baseLayerTokens} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={scale} pan={pan} isPanning={isPanning} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onSwap={handleSwapKeys} lightingScenes={activeLightingScenes} isLightingMode={view === 'lighting' || view === 'effects'} showIndices={showIndices} isPaintMode={isPaintMode && view === 'lighting'} onPaintDown={handlePaintDown} onPaintEnter={handlePaintEnter} />
                                 </>
                             )}
                         </div>
