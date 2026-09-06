@@ -1,6 +1,13 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
 <head>
+    <script>
+        (function() {
+            var saved = localStorage.getItem('rmk-theme');
+            var wantsLight = saved === 'light' || (!saved && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+            if (wantsLight) document.documentElement.classList.remove('dark');
+        })();
+    </script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="RMK Studio - Premium Visual Engine">
@@ -28,36 +35,55 @@
     <style>
         :root {
             --bg-base: #0a0e14; --bg-panel: #161b22; --border-panel: #30363d;
-            --accent: #ea700d; --accent-glow: rgba(234, 112, 13, 0.4);
-            --key-bg: linear-gradient(180deg, #334155 0%, #1e293b 100%); --key-border: #64748b;
-            --key-shadow: 0 4px 8px rgba(0,0,0,0.8), inset 0 1px 1px rgba(255,255,255,0.2);
-            --key-text: #ffffff; --input-bg: #0d1117; --input-border: #30363d;
+            --accent: #ea700d; --accent-glow: rgba(234, 112, 13, 0.4); --accent-soft: rgba(234, 112, 13, 0.14);
+            --key-bg: linear-gradient(180deg, #3f4d63 0%, #2b3444 45%, #1c2534 100%); --key-border: #5b6b85;
+            --key-shadow: 0 4px 10px rgba(0,0,0,0.7), inset 0 1px 1px rgba(255,255,255,0.22), inset 0 -8px 10px -8px rgba(0,0,0,0.4);
+            --key-text: #ffffff; --key-text-shadow: 0 1px 2px rgba(0,0,0,0.55); --input-bg: #0d1117; --input-border: #30363d;
             --text-main: #f8fafc; --text-muted: #94a3b8;
+            --scrollbar-thumb: #475569; --scrollbar-thumb-hover: #64748b;
+            --key-trans-bg: #0f172a; --key-trans-border: #f59e0b; --key-trans-text: #f59e0b;
+            --key-dead-bg-a: rgba(15, 23, 42, 0.8); --key-dead-bg-b: rgba(30, 41, 59, 0.8); --key-dead-border: #475569; --key-dead-text: #94a3b8;
+        }
+
+        /* Light mode — the toggle only ever adds/removes .dark on <html>, so light is the "un-dark" state */
+        html:not(.dark) {
+            --bg-base: #eef1f5; --bg-panel: #ffffff; --border-panel: #e1e5eb;
+            --accent: #c2570a; --accent-glow: rgba(194, 87, 10, 0.16); --accent-soft: rgba(194, 87, 10, 0.10);
+            --key-bg: linear-gradient(180deg, #ffffff 0%, #f2f4f7 45%, #dde2e9 100%); --key-border: #b9c1cc;
+            --key-shadow: 0 2px 6px rgba(15,23,42,0.12), inset 0 1px 0 rgba(255,255,255,0.95), inset 0 -6px 8px -6px rgba(15,23,42,0.08);
+            --key-text: #1e2733; --key-text-shadow: 0 1px 0 rgba(255,255,255,0.75); --input-bg: #ffffff; --input-border: #ccd2db;
+            --text-main: #10151f; --text-muted: #5b6472;
+            --scrollbar-thumb: #cbd2db; --scrollbar-thumb-hover: #a8b1bd;
+            --key-trans-bg: #fff6ea; --key-trans-border: #c2790a; --key-trans-text: #a15b06;
+            --key-dead-bg-a: rgba(226, 230, 236, 0.9); --key-dead-bg-b: rgba(241, 244, 247, 0.9); --key-dead-border: #c3cad3; --key-dead-text: #8792a0;
         }
 
         body { background-color: var(--bg-base); color: var(--text-main); font-family: 'Inter', sans-serif; overflow: hidden; margin: 0; display: flex; height: 100vh; width: 100vw; transition: background-color 0.2s, color 0.2s; }
         ::-webkit-scrollbar { width: 8px; height: 8px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--scrollbar-thumb-hover); }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
 
         /* Highly Visible Keycaps */
-        .matrix-key { position: absolute; width: 62px; height: 62px; border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); user-select: none; border: 2px solid var(--key-border); background: var(--key-bg); box-shadow: var(--key-shadow); padding: 4px; text-align: center; z-index: 1; color: var(--key-text); will-change: transform, box-shadow, border-color, filter; }
-        .matrix-key:active { transform: scale(0.92) !important; box-shadow: 0 1px 2px rgba(0,0,0,0.5) !important; z-index: 20; }
-        .matrix-key:hover { border-color: var(--accent); z-index: 5; filter: brightness(1.2); }
-        .matrix-key.selected { border-color: var(--accent) !important; box-shadow: 0 0 0 4px var(--accent-glow) !important; z-index: 10; transform: translateY(-2px); filter: brightness(1.1); }
+        .matrix-key { position: absolute; width: 62px; height: 62px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.12s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.12s ease, filter 0.12s ease; user-select: none; border: 1.5px solid var(--key-border); background: var(--key-bg); box-shadow: var(--key-shadow); padding: 4px; text-align: center; z-index: 1; color: var(--key-text); will-change: transform, box-shadow, border-color; }
+        .matrix-key:active { transform: scale(0.93) translateY(1px) !important; box-shadow: 0 1px 2px rgba(0,0,0,0.35) !important; z-index: 20; }
+        .matrix-key:hover { border-color: var(--accent); z-index: 5; transform: translateY(-1.5px); box-shadow: var(--key-shadow), 0 6px 14px rgba(0,0,0,0.18); }
+        .matrix-key.selected { border-color: var(--accent) !important; box-shadow: var(--key-shadow), 0 0 0 3px var(--accent-glow), 0 6px 14px rgba(0,0,0,0.18) !important; z-index: 10; transform: translateY(-2px); }
        
-        .matrix-key.trans { background: #0f172a; border: 2px dotted #f59e0b; opacity: 0.95; color: #f59e0b; font-style: italic; box-shadow: 0 2px 4px rgba(0,0,0,0.4); }
-        .matrix-key.dead { background: repeating-linear-gradient(45deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.8) 4px, rgba(30, 41, 59, 0.8) 4px, rgba(30, 41, 59, 0.8) 8px); border: 2px dashed #475569; opacity: 0.9; color: #94a3b8; box-shadow: none; }
+        .matrix-key.trans { background: var(--key-trans-bg); border: 1.5px dotted var(--key-trans-border); opacity: 0.95; color: var(--key-trans-text); font-style: italic; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+        .matrix-key.dead { background: repeating-linear-gradient(45deg, var(--key-dead-bg-a), var(--key-dead-bg-a) 4px, var(--key-dead-bg-b) 4px, var(--key-dead-bg-b) 8px); border: 1.5px dashed var(--key-dead-border); opacity: 0.9; color: var(--key-dead-text); box-shadow: none; }
 
         /* Lighting Mode Visuals */
-        .lighting-mode { box-shadow: 0 4px 6px rgba(0,0,0,0.8) !important; border: 2px solid rgba(255,255,255,0.3) !important; transition: background-color 0.2s, transform 0.1s; }
-        .lighting-mode:hover { transform: scale(1.05); z-index: 20; box-shadow: 0 0 15px rgba(0,0,0,0.8) !important; border-color: #fff !important; }
+        .lighting-mode { box-shadow: 0 4px 6px rgba(0,0,0,0.5) !important; border: 1.5px solid rgba(255,255,255,0.25) !important; transition: background-color 0.15s ease, transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.12s ease, border-color 0.12s ease; }
+        .lighting-mode:hover { transform: translateY(-2px) scale(1.04); z-index: 20; box-shadow: 0 10px 18px rgba(0,0,0,0.5) !important; border-color: #fff !important; }
         .lighting-off { background: repeating-conic-gradient(rgba(255,255,255,0.03) 0% 25%, transparent 0% 50%) 50% / 8px 8px; background-color: #05070a !important; border-color: #1e293b !important; opacity: 0.85; }
         .lighting-glow { box-shadow: 0 0 15px currentColor, inset 0 0 12px rgba(255,255,255,0.4) !important; z-index: 2; border-color: rgba(255,255,255,0.6) !important; }
 
-        .text-clamp { font-size: 11px; font-weight: 700; line-height: 1.2; word-break: break-word; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-shadow: 0 2px 4px rgba(0,0,0,1); }
-        .lighting-mode .text-clamp { text-shadow: 0 2px 5px rgba(0,0,0,1); font-size: 10px; opacity: 1; pointer-events: none; }
+        .text-clamp { font-family: 'JetBrains Mono', monospace; font-weight: 600; line-height: 1.2; word-break: break-word; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-shadow: var(--key-text-shadow); letter-spacing: -0.01em; }
+        .lighting-mode .text-clamp { opacity: 1; pointer-events: none; }
+        @keyframes key-blink-preview { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.22; } }
+        @keyframes key-breath-preview { 0% { opacity: 1; } 100% { opacity: 0.4; } }
 
         .input-field { width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-main); font-size: 13px; font-weight: 500; padding: 8px 10px; border-radius: 6px; outline: none; transition: all 0.2s; }
         .input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
@@ -126,6 +152,22 @@
         const MATRIX_TO_LED = new Array(84).fill(-1);
         LED_TO_MATRIX.forEach((matrixIdx, ledIdx) => { MATRIX_TO_LED[matrixIdx] = ledIdx; });
 
+        // QWERTY -> Aptmak-Blue letter/punctuation remap. Verified to be a clean bijection
+        // (26 keys, 26 distinct values) so the reverse map below is unambiguous.
+        const QWERTY_TO_APTMAK = {'KC_W':'KC_J','KC_E':'KC_U','KC_R':'KC_L','KC_T':'KC_SCLN','KC_Y':'KC_B','KC_U':'KC_P','KC_I':'KC_F','KC_O':'KC_W','KC_P':'KC_X','KC_S':'KC_O','KC_D':'KC_I','KC_F':'KC_N','KC_G':'KC_Y','KC_H':'KC_K','KC_J':'KC_H','KC_K':'KC_T','KC_L':'KC_S','KC_SCLN':'KC_R','KC_X':'KC_DOT','KC_C':'KC_COMM','KC_V':'KC_M','KC_B':'KC_E','KC_N':'KC_V','KC_M':'KC_D','KC_COMM':'KC_G','KC_DOT':'KC_C'};
+        const APTMAK_TO_QWERTY = Object.fromEntries(Object.entries(QWERTY_TO_APTMAK).map(([k, v]) => [v, k]));
+
+        // Detects the actual current layout from real key bindings rather than assuming —
+        // matrix positions 30-32 are W/E/R in QWERTY vs J/U/L in Aptmak-Blue (position 29,
+        // Q, is unchanged by the map so it's not diagnostic on its own).
+        const detectLayoutVariant = (layerObj) => {
+            if (!layerObj?.tokens) return null;
+            const t30 = layerObj.tokens[30]?.text, t31 = layerObj.tokens[31]?.text, t32 = layerObj.tokens[32]?.text;
+            if (t30 === 'KC_J' && t31 === 'KC_U' && t32 === 'KC_L') return 'aptmak';
+            if (t30 === 'KC_W' && t31 === 'KC_E' && t32 === 'KC_R') return 'qwerty';
+            return null; // doesn't match either known signature (custom layout, or layer doesn't use these positions)
+        };
+
         // --- 2. GLOBAL UTILITIES & PARSERS ---
         const getContrastColor = (hexcolor) => {
             if (!hexcolor) return '#f8fafc';
@@ -134,6 +176,21 @@
             if (cleanHex.length !== 6) return '#fff';
             const r = parseInt(cleanHex.substr(0,2),16), g = parseInt(cleanHex.substr(2,2),16), b = parseInt(cleanHex.substr(4,2),16);
             return (((r*299)+(g*587)+(b*114))/1000 >= 128) ? '#000' : '#fff';
+        };
+
+        // Scales the on-key label to its content instead of one fixed size for every key —
+        // a lone letter reads much better large; a full word like "Enter" needs to shrink to fit.
+        const getKeyFontSize = (text) => {
+            if (!text) return 11;
+            const lines = text.split('\n');
+            const maxLen = Math.max(...lines.map(l => l.length));
+            if (lines.length > 1) return maxLen > 6 ? 9 : 10;
+            if (maxLen <= 1) return 16;
+            if (maxLen <= 2) return 14.5;
+            if (maxLen <= 4) return 13;
+            if (maxLen <= 6) return 11;
+            if (maxLen <= 8) return 10;
+            return 9.5;
         };
 
         const tokenizeKeysString = (keysString) => {
@@ -161,11 +218,71 @@
             return layerObj.tokens.map(t => t.space + t.text).join('') + (layerObj.tail || "");
         };
 
+        // Runs right after a TOML file is parsed. Repairs what's safe to repair automatically
+        // (duplicate rules, stale invalid values, out-of-range references) and only *reports*
+        // what it can't safely guess a fix for (like a malformed keys grid).
+        const validateAndRepairConfig = (parsed) => {
+            const issues = [];
+            const maxLed = LED_TO_MATRIX.length - 1;
+            const numLayers = Array.isArray(parsed.layer) ? parsed.layer.length : 0;
+
+            (parsed.layer || []).forEach((l, i) => {
+                if (typeof l.keys === 'string' && l.keys.trim().length > 0) {
+                    const count = l.tokens ? l.tokens.length : 0;
+                    if (count !== 84) {
+                        issues.push(`Layer ${i} ("${l.name || l.id || i}") has ${count} keys instead of 84 — its keys grid looks malformed. This layer was NOT auto-corrected; please check it manually.`);
+                    }
+                }
+            });
+
+            if (parsed.lighting) {
+                const fixRules = (rules, label, dedupe) => {
+                    if (!Array.isArray(rules)) return rules;
+                    const seen = new Set();
+                    const cleaned = [];
+                    for (let i = rules.length - 1; i >= 0; i--) {
+                        const r = rules[i];
+                        const layerNum = typeof r.layer === 'object' ? r.layer?.layer : r.layer;
+
+                        if (r.led === undefined || r.led === null || isNaN(r.led) || r.led < 0 || r.led > maxLed) {
+                            issues.push(`Removed a ${label} rule with an invalid LED index (${r.led}).`);
+                            continue;
+                        }
+                        if (layerNum !== undefined && (layerNum < 0 || layerNum >= numLayers)) {
+                            issues.push(`Removed a ${label} rule pointing at layer ${layerNum}, which doesn't exist (this file only has ${numLayers} layers).`);
+                            continue;
+                        }
+                        if (dedupe) {
+                            const dedupeKey = `${r.led}:${layerNum}`;
+                            if (seen.has(dedupeKey)) {
+                                issues.push(`Removed a duplicate static color rule for LED ${r.led} on layer ${layerNum ?? 'all'} (kept the last one, since that's the one that actually renders).`);
+                                continue;
+                            }
+                            seen.add(dedupeKey);
+                        }
+                        if (!r.effect) r.effect = 'solid';
+                        cleaned.unshift(r);
+                    }
+                    return cleaned;
+                };
+
+                if (parsed.lighting.scene) parsed.lighting.scene = fixRules(parsed.lighting.scene, 'static color', true);
+                if (parsed.lighting.conditional_scene) parsed.lighting.conditional_scene = fixRules(parsed.lighting.conditional_scene, 'conditional', false);
+
+                if (parsed.lighting.output_mode === 'auto-off') {
+                    parsed.lighting.output_mode = 'always-off';
+                    issues.push(`Corrected output_mode from the invalid "auto-off" (a bug in an earlier version of this tool) to "always-off".`);
+                }
+            }
+
+            return { config: parsed, issues };
+        };
+
         const formatKeycode = (val) => {
             if (!val || val === '--' || val === 'KC_NO') return '';
             if (val === '_______' || val === 'KC_TRNS') return '▽';
             let core = val.startsWith('KC_') || val.startsWith('QK_') ? val.substring(3) : val;
-            const map = { 'BSPC':'Bksp', 'ENT':'Enter', 'SPC':'Space', 'MINS':'-', 'EQL':'=', 'GRV':'`', 'BSLS':'\\', 'SCLN':';', 'QUOT':"'", 'COMM':',', 'DOT':'.', 'SLSH':'/', 'LBRC':'[', 'RBRC':']', 'UP':'↑', 'DOWN':'↓', 'LEFT':'←', 'RGHT':'→' };
+            const map = { 'BSPC':'Bksp', 'ENT':'Enter', 'SPC':'Space', 'MINS':'-', 'EQL':'=', 'GRV':'`', 'BSLS':'\\', 'SCLN':';', 'QUOT':"'", 'COMM':',', 'DOT':'.', 'SLSH':'/', 'LBRC':'[', 'RBRC':']', 'UP':'↑', 'DOWN':'↓', 'LEFT':'←', 'RGHT':'→', 'OUTPUT_USB':'USB', 'BOOT':'Boot', 'RBT':'Reset', 'MAINT_LOCK_TOG':'Lock' };
             return map[core] || core;
         };
 
@@ -173,10 +290,17 @@
             if (!binding || binding === '--' || binding === 'KC_NO') return 'Empty';
             const dualMatch = binding.match(/^(?:LT|MT|TH)\(([^,]+),\s*([^,)]+)/);
             if (dualMatch) return `L${formatKeycode(dualMatch[1])}\n${formatKeycode(dualMatch[2])}`;
-            const moMatch = binding.match(/^(?:MO|TO|TG|DF|TD|MACRO|OSM)\(([^)]+)\)$/);
+            const moMatch = binding.match(/^(?:MO|TO|TG|DF|TD|MACRO|OSM|USER)\(([^)]+)\)$/);
             if (moMatch) return `${binding.substring(0,2)}${moMatch[1]}`;
             const modMatch = binding.match(/^(?:LSFT|LCTL|LALT|LGUI)\(([^)]+)\)$/);
             if (modMatch) return `M+${formatKeycode(modMatch[1])}`;
+            // MOD(MOD_LCTL|MOD_LALT|MOD_LGUI) -> "C+A+G": a held modifier combo, shown as its initials
+            const modComboMatch = binding.match(/^MOD\(([^)]+)\)$/);
+            if (modComboMatch) {
+                const initials = { LCTL: 'C', LALT: 'A', LGUI: 'G', LSFT: 'S', RCTL: 'C', RALT: 'A', RGUI: 'G', RSFT: 'S' };
+                const parts = modComboMatch[1].split('|').map(p => initials[p.replace('MOD_', '').trim()] || '?');
+                return parts.join('+');
+            }
             return formatKeycode(binding);
         };
 
@@ -200,6 +324,8 @@
 
         const ObjectEditor = memo(({ obj, onChange, onRenameKey, onRemoveKey, depth = 0 }) => {
             const isArr = Array.isArray(obj);
+            const [newKey, setNewKey] = useState('');
+            const [newType, setNewType] = useState('string');
             return (
                 <div className="flex flex-col gap-2 w-full">
                     {Object.entries(obj).map(([k, v]) => (
@@ -212,8 +338,8 @@
                         </div>
                     ))}
                     <div className="flex gap-2 items-center mt-1 p-2 border border-dashed border-[color:var(--border-panel)] rounded-xl">
-                        {!isArr && <input type="text" id={`new-key-${depth}`} placeholder="New property..." className="input-field text-xs py-1.5 flex-1" />}
-                        <select id={`new-type-${depth}`} className="input-field text-xs py-1.5 w-auto pr-8">
+                        {!isArr && <input type="text" value={newKey} onChange={e => setNewKey(e.target.value)} placeholder="New property..." className="input-field text-xs py-1.5 flex-1" />}
+                        <select value={newType} onChange={e => setNewType(e.target.value)} className="input-field text-xs py-1.5 w-auto pr-8">
                             <option value="string">Text</option>
                             <option value="number">Num</option>
                             <option value="boolean">Bool</option>
@@ -221,12 +347,11 @@
                             <option value="array">List</option>
                         </select>
                         <button onClick={() => {
-                            const typeSel = document.getElementById(`new-type-${depth}`).value;
-                            const newKey = isArr ? obj.length : document.getElementById(`new-key-${depth}`).value.trim();
-                            if(!isArr && !newKey) return;
-                            let emptyVal = typeSel==='string'?"":typeSel==='number'?0:typeSel==='boolean'?false:typeSel==='object'?{}:[];
-                            onChange(isArr ? [...obj, emptyVal] : {...obj, [newKey]: emptyVal});
-                            if(!isArr) document.getElementById(`new-key-${depth}`).value = "";
+                            const key = isArr ? obj.length : newKey.trim();
+                            if(!isArr && !key) return;
+                            let emptyVal = newType==='string'?"":newType==='number'?0:newType==='boolean'?false:newType==='object'?{}:[];
+                            onChange(isArr ? [...obj, emptyVal] : {...obj, [key]: emptyVal});
+                            setNewKey(''); setNewType('string');
                         }} className="bg-[color:var(--bg-panel)] text-[color:var(--text-main)] border border-[color:var(--border-panel)] hover:bg-[color:var(--accent)] hover:text-white px-3 py-1.5 rounded-md text-xs font-bold transition-all shrink-0">Add</button>
                     </div>
                 </div>
@@ -357,62 +482,160 @@
         };
 
         // --- 5. SMART LIGHTING DASHBOARDS ---
-        const LightingDashboard = ({ config, activeLayer, showIndices, setShowIndices, updateConfig }) => {
+        // Slider + numeric readout, clamped and NaN-guarded (same pattern used for the brightness fix)
+        const SliderField = ({ label, value, onChange, min = 0, max = 255 }) => {
+            const safeVal = Number.isFinite(value) ? value : min;
+            const clamp = (v) => Math.max(min, Math.min(max, v));
+            return (
+                <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[10px] text-[color:var(--text-muted)] w-20 shrink-0">{label}</span>
+                    <input type="range" min={min} max={max} value={safeVal} onChange={e => onChange(clamp(parseInt(e.target.value, 10)))} className="flex-1 accent-[color:var(--accent)] cursor-pointer h-1" />
+                    <input type="number" min={min} max={max} value={safeVal} onChange={e => { const v = parseInt(e.target.value, 10); onChange(Number.isNaN(v) ? min : clamp(v)); }} className="input-field w-14 py-1 px-1.5 text-[10px] font-mono text-center shrink-0" />
+                </div>
+            );
+        };
+
+        // Dropdown seeded with known values (from real sample data) + a "Custom…" escape hatch,
+        // so we never silently drop a firmware value we don't recognize.
+        const EnumField = ({ label, value, onChange, knownOptions }) => {
+            const [customMode, setCustomMode] = useState(!!value && !knownOptions.includes(value));
+            return (
+                <div className="flex items-center gap-2 mb-2">
+                    {label && <span className="text-[10px] text-[color:var(--text-muted)] w-20 shrink-0">{label}</span>}
+                    {customMode ? (
+                        <input autoFocus type="text" value={value ?? ''} onChange={e => onChange(e.target.value)} placeholder={label ? `Custom ${label.toLowerCase()}` : 'Custom value'} className="input-field flex-1 py-1 px-2 text-xs font-mono" />
+                    ) : (
+                        <select value={value ?? ''} onChange={e => { if (e.target.value === '__custom__') setCustomMode(true); else onChange(e.target.value); }} className="input-field flex-1 py-1 px-2 text-xs">
+                            {value && !knownOptions.includes(value) && <option value={value}>{value}</option>}
+                            {knownOptions.map(o => <option key={o} value={o}>{o}</option>)}
+                            <option value="__custom__">Custom…</option>
+                        </select>
+                    )}
+                    {customMode && <button type="button" onClick={() => setCustomMode(false)} title="Back to list" className="text-[10px] text-[color:var(--text-muted)] hover:text-[color:var(--accent)] shrink-0">↩</button>}
+                </div>
+            );
+        };
+
+        // h/s/v assumed on the same 0-255 scale as the existing Brightness field, for consistency
+        const hsvToHex = (h, s, v) => {
+            const hh = ((h ?? 0) / 255) * 360, ss = (s ?? 0) / 255, vv = (v ?? 0) / 255;
+            const c = vv * ss, x = c * (1 - Math.abs(((hh / 60) % 2) - 1)), m = vv - c;
+            let r = 0, g = 0, b = 0;
+            if (hh < 60) { r = c; g = x; } else if (hh < 120) { r = x; g = c; } else if (hh < 180) { g = c; b = x; }
+            else if (hh < 240) { g = x; b = c; } else if (hh < 300) { r = x; b = c; } else { r = c; b = x; }
+            const toHex = (n) => Math.round((n + m) * 255).toString(16).padStart(2, '0');
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        };
+
+        const LightingDashboard = ({ config, activeLayer, showIndices, setShowIndices, updateConfig, isPaintMode, setIsPaintMode, paintColor, setPaintColor }) => {
             const handleClearAll = () => {
                 if(!confirm(`Clear ALL lighting rules mapped to Layer ${activeLayer}?`)) return;
-                const next = JSON.parse(JSON.stringify(config));
-                if (next.lighting) {
-                    if (Array.isArray(next.lighting.scene)) {
-                        next.lighting.scene = next.lighting.scene.filter(s => s.layer !== activeLayer);
-                        if (next.lighting.scene.length === 0) delete next.lighting.scene;
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    if (next.lighting) {
+                        if (Array.isArray(next.lighting.scene)) {
+                            next.lighting.scene = next.lighting.scene.filter(s => s.layer !== activeLayer);
+                            if (next.lighting.scene.length === 0) delete next.lighting.scene;
+                        }
+                        if (Array.isArray(next.lighting.conditional_scene)) {
+                            next.lighting.conditional_scene = next.lighting.conditional_scene.filter(s => {
+                                const l = typeof s.layer === 'object' ? s.layer?.layer : s.layer;
+                                return l !== activeLayer;
+                            });
+                            if (next.lighting.conditional_scene.length === 0) delete next.lighting.conditional_scene;
+                        }
                     }
-                    if (Array.isArray(next.lighting.conditional_scene)) {
-                        next.lighting.conditional_scene = next.lighting.conditional_scene.filter(s => {
-                            const l = typeof s.layer === 'object' ? s.layer?.layer : s.layer;
-                            return l !== activeLayer && l !== undefined;
-                        });
-                        if (next.lighting.conditional_scene.length === 0) delete next.lighting.conditional_scene;
-                    }
-                }
-                updateConfig(next);
+                    return next;
+                });
             };
 
             const updateGlobalLighting = (field, val) => {
-                const next = JSON.parse(JSON.stringify(config));
-                if (!next.lighting) next.lighting = {};
-                next.lighting[field] = val;
-                updateConfig(next);
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    if (!next.lighting) next.lighting = {};
+                    next.lighting[field] = val;
+                    return next;
+                });
             };
+
+            const updateBackground = (field, val) => {
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    if (!next.lighting) next.lighting = {};
+                    if (!next.lighting.background) next.lighting.background = {};
+                    next.lighting.background[field] = val;
+                    return next;
+                });
+            };
+
+            const bg = config?.lighting?.background || {};
 
             return (
                 <div className="flex flex-col gap-4 w-full h-full">
-                    <div className="flex justify-between items-center px-2 border-b border-[color:var(--border-panel)] pb-3">
+                    <div className="flex justify-between items-center px-2 border-b border-[color:var(--border-panel)] pb-3 gap-2 flex-wrap">
                         <h4 className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest">Global Lighting & Explorer</h4>
-                        <label className="flex items-center gap-2 cursor-pointer bg-[color:var(--bg-base)] px-2 py-1 rounded-md border border-[color:var(--border-panel)]">
-                            <span className="text-[10px] font-bold text-[color:var(--text-main)]">Show Matrix/LED Indices</span>
-                            <input type="checkbox" checked={showIndices} onChange={e => setShowIndices(e.target.checked)} className="accent-[color:var(--accent)] cursor-pointer w-3 h-3" />
-                        </label>
+                        <div className="flex items-center gap-2">
+                            <label className={`flex items-center gap-2 cursor-pointer px-2 py-1 rounded-md border transition-colors ${isPaintMode ? 'bg-[color:var(--accent-soft)] border-[color:var(--accent)]' : 'bg-[color:var(--bg-base)] border-[color:var(--border-panel)]'}`}>
+                                <span className="text-[10px] font-bold text-[color:var(--text-main)]">🖌️ Paint Mode</span>
+                                <input type="checkbox" checked={isPaintMode} onChange={e => setIsPaintMode(e.target.checked)} className="accent-[color:var(--accent)] cursor-pointer w-3 h-3" />
+                            </label>
+                            {isPaintMode && (
+                                <label className="flex items-center gap-1.5 cursor-pointer bg-[color:var(--bg-base)] px-2 py-1 rounded-md border border-[color:var(--border-panel)]" title="Paint color">
+                                    <input type="color" value={paintColor} onChange={e => setPaintColor(e.target.value)} className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0" />
+                                </label>
+                            )}
+                            <label className="flex items-center gap-2 cursor-pointer bg-[color:var(--bg-base)] px-2 py-1 rounded-md border border-[color:var(--border-panel)]">
+                                <span className="text-[10px] font-bold text-[color:var(--text-main)]">Show Matrix/LED Indices</span>
+                                <input type="checkbox" checked={showIndices} onChange={e => setShowIndices(e.target.checked)} className="accent-[color:var(--accent)] cursor-pointer w-3 h-3" />
+                            </label>
+                        </div>
                     </div>
+                    {isPaintMode && (
+                        <div className="mx-2 -mt-2 px-3 py-2 bg-[color:var(--accent-soft)] border border-[color:var(--accent)] rounded-lg text-[10px] text-[color:var(--text-main)] font-medium">
+                            Click or drag across keys on the canvas to paint them with the selected color on Layer {activeLayer}.
+                        </div>
+                    )}
                    
                     <div className="flex flex-col gap-3">
                         <div className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-3 shadow-sm">
                             <h4 className="text-[10px] font-bold text-[color:var(--text-main)] mb-2">Global Settings</h4>
                             <div className="flex gap-2 items-center mb-3">
                                 <span className="text-xs text-[color:var(--text-muted)] w-24">Brightness</span>
-                                <input type="number" min="0" max="255" value={config?.lighting?.brightness ?? 255} onChange={e => updateGlobalLighting('brightness', parseInt(e.target.value))} className="input-field py-1 px-2 text-xs flex-1 font-mono text-[color:var(--accent)]" />
+                                <input type="number" min="0" max="255" value={config?.lighting?.brightness ?? 255} onChange={e => { const v = parseInt(e.target.value, 10); updateGlobalLighting('brightness', Number.isNaN(v) ? 0 : v); }} className="input-field py-1 px-2 text-xs flex-1 font-mono text-[color:var(--accent)]" />
                             </div>
                             <div className="flex gap-2 items-center">
                                 <span className="text-xs text-[color:var(--text-muted)] w-24">Output Mode</span>
                                 <select value={config?.lighting?.output_mode ?? 'always-on'} onChange={e => updateGlobalLighting('output_mode', e.target.value)} className="input-field py-1 px-2 text-xs flex-1">
                                     <option value="always-on">Always On</option>
-                                    <option value="auto-off">Auto Off</option>
+                                    <option value="always-off">Always Off</option>
+                                    <option value="powered-only">Powered Only (USB)</option>
                                 </select>
                             </div>
                         </div>
 
                         <div className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-3 shadow-sm">
-                            <h4 className="text-[10px] font-bold text-[color:var(--text-main)] mb-2">Lighting Effects Base</h4>
-                            <ObjectEditor obj={config?.lighting?.effects || {}} onChange={(val) => updateGlobalLighting('effects', val)} depth={1} />
+                            <h4 className="text-[10px] font-bold text-[color:var(--text-main)] mb-1">Background (Idle Glow)</h4>
+                            <p className="text-[9px] text-[color:var(--text-muted)] italic mb-3">Hue/Saturation/Value/Speed use the same 0–255 scale as Brightness above. Looking for effects? That's now its own tab.</p>
+
+                            <div className="flex items-center justify-between mb-2">
+                                <span className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-wide">Enable Background Glow</span>
+                                <label className="flex items-center gap-1.5 cursor-pointer">
+                                    <input type="checkbox" checked={!!bg.enabled} onChange={e => updateBackground('enabled', e.target.checked)} className="accent-[color:var(--accent)] cursor-pointer w-3 h-3" />
+                                </label>
+                            </div>
+                            {bg.enabled && (
+                                <div className="pl-0.5">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <div className="w-6 h-6 rounded-full border border-[color:var(--border-panel)] shrink-0 shadow-inner" style={{ backgroundColor: hsvToHex(bg.hue, bg.saturation, bg.value) }} title="Live preview" />
+                                        <span className="text-[9px] text-[color:var(--text-muted)] italic">Live color preview</span>
+                                    </div>
+                                    <SliderField label="Hue" value={bg.hue} onChange={v => updateBackground('hue', v)} />
+                                    <SliderField label="Saturation" value={bg.saturation} onChange={v => updateBackground('saturation', v)} />
+                                    <SliderField label="Value" value={bg.value} onChange={v => updateBackground('value', v)} />
+                                    <SliderField label="Speed" value={bg.speed} onChange={v => updateBackground('speed', v)} />
+                                    <EnumField label="Mode" value={bg.mode ?? 'solid'} onChange={v => updateBackground('mode', v)} knownOptions={['solid']} />
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -431,7 +654,21 @@
             );
         };
 
+        // Timing controls for the "blink" effect — period/phase/duty, as seen in real configs
+        const BlinkTimingFields = ({ s, onUpdate }) => (
+            <div className="flex items-center gap-2 bg-[color:var(--bg-base)] p-1.5 rounded border border-[color:var(--border-panel)] flex-wrap">
+                <span className="text-[9px] font-bold text-[color:var(--text-muted)]">Period(ms)</span>
+                <input type="number" min="0" value={s.period_ms ?? 800} onChange={e => { const v = parseInt(e.target.value, 10); onUpdate('period_ms', Number.isNaN(v) ? 800 : v); }} className="input-field py-1 px-2 text-[10px] w-16 font-mono text-center" />
+                <span className="text-[9px] font-bold text-[color:var(--text-muted)]">Phase(ms)</span>
+                <input type="number" min="0" value={s.phase_ms ?? 0} onChange={e => { const v = parseInt(e.target.value, 10); onUpdate('phase_ms', Number.isNaN(v) ? 0 : v); }} className="input-field py-1 px-2 text-[10px] w-16 font-mono text-center" />
+                <span className="text-[9px] font-bold text-[color:var(--text-muted)]">Duty %</span>
+                <input type="number" min="0" max="100" value={s.duty ?? 50} onChange={e => { const v = parseInt(e.target.value, 10); onUpdate('duty', Number.isNaN(v) ? 50 : v); }} className="input-field py-1 px-2 text-[10px] w-14 font-mono text-center" />
+            </div>
+        );
+
         const KeyLightingEditor = ({ config, updateConfig, activeLayer, selectedKey, setSelectedKey }) => {
+            const [newRuleType, setNewRuleType] = useState('base');
+            useEffect(() => { setNewRuleType('base'); }, [selectedKey, activeLayer]);
             const ledIndex = selectedKey !== null ? MATRIX_TO_LED[selectedKey] : -1;
 
             if (ledIndex === -1) {
@@ -449,60 +686,77 @@
             const condScenes = (config.lighting?.conditional_scene || []).map((s, i) => ({ ...s, _globalIdx: i })).filter(s => s.led === ledIndex && ((typeof s.layer === 'object' ? s.layer?.layer : s.layer) === activeLayer || s.layer === undefined));
 
             const updateStatic = (globalIdx, field, val) => {
-                const next = JSON.parse(JSON.stringify(config));
-                next.lighting.scene[globalIdx][field] = val;
-                updateConfig(next);
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    next.lighting.scene[globalIdx][field] = val;
+                    return next;
+                });
             };
 
             const updateCond = (globalIdx, field, val, subfield = null) => {
-                const next = JSON.parse(JSON.stringify(config));
-                if (subfield) {
-                    if (!next.lighting.conditional_scene[globalIdx][field]) next.lighting.conditional_scene[globalIdx][field] = {};
-                    next.lighting.conditional_scene[globalIdx][field][subfield] = val;
-                } else {
-                    next.lighting.conditional_scene[globalIdx][field] = val;
-                }
-                updateConfig(next);
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    if (subfield) {
+                        if (!next.lighting.conditional_scene[globalIdx][field]) next.lighting.conditional_scene[globalIdx][field] = {};
+                        next.lighting.conditional_scene[globalIdx][field][subfield] = val;
+                    } else {
+                        next.lighting.conditional_scene[globalIdx][field] = val;
+                    }
+                    return next;
+                });
             };
 
+            const hasBaseRule = staticScenes.length > 0;
+
             const addRule = (type) => {
-                const next = JSON.parse(JSON.stringify(config));
-                if (!next.lighting) next.lighting = {};
-               
-                if (type === 'base') {
-                    if (!next.lighting.scene) next.lighting.scene = [];
-                    next.lighting.scene.push({ layer: activeLayer, led: ledIndex, color: "#0050ff", effect: "solid" });
-                } else {
-                    if (!next.lighting.conditional_scene) next.lighting.conditional_scene = [];
-                    const newRule = { led: ledIndex, color: "#ea700d", effect: "solid", layer: { layer: activeLayer, active: true } };
-                   
-                    if (type === 'battery') newRule.battery = { node: 0, min_level: 20, max_level: 100 };
-                    if (type === 'usb') newRule.connection = { usb_connected: true };
-                    if (type === 'ble') newRule.connection = { profile: 0, ble_state: "connected" };
-                    if (type === 'caps') newRule.caps_lock = true;
-                    if (type === 'num') newRule.num_lock = true;
-                    if (type === 'scroll') newRule.scroll_lock = true;
-                    if (type === 'layer_active') { /* layer object is already set above */ }
-                   
-                    next.lighting.conditional_scene.push(newRule);
-                }
-                updateConfig(next);
+                if (type === 'base' && hasBaseRule) return; // already has a base color rule for this key+layer — editing that one, not stacking a second
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    if (!next.lighting) next.lighting = {};
+
+                    if (type === 'base') {
+                        if (!next.lighting.scene) next.lighting.scene = [];
+                        // Re-check inside the updater in case another add landed between render and click
+                        const alreadyHasBase = next.lighting.scene.some(s => s.led === ledIndex && (s.layer === activeLayer || s.layer === undefined));
+                        if (alreadyHasBase) return next;
+                        next.lighting.scene.push({ layer: activeLayer, led: ledIndex, color: "#0050ff", effect: "solid" });
+                    } else {
+                        if (!next.lighting.conditional_scene) next.lighting.conditional_scene = [];
+                        const newRule = { led: ledIndex, color: "#ea700d", effect: "solid", layer: { layer: activeLayer, active: true } };
+
+                        if (type === 'battery') newRule.battery = { node: 0, min_level: 20, max_level: 100 };
+                        if (type === 'usb') newRule.connection = { usb_connected: true };
+                        if (type === 'ble') newRule.connection = { profile: 0, ble_state: "connected" };
+                        if (type === 'caps') newRule.caps_lock = true;
+                        if (type === 'num') newRule.num_lock = true;
+                        if (type === 'scroll') newRule.scroll_lock = true;
+                        if (type === 'effects_enabled') newRule.effects = { enabled: true };
+                        if (type === 'layer_active') { /* layer object is already set above */ }
+
+                        next.lighting.conditional_scene.push(newRule);
+                    }
+                    return next;
+                });
             };
 
             const deleteStatic = (globalIdx) => {
                 if(!confirm("Delete this rule?")) return;
-                const next = JSON.parse(JSON.stringify(config));
-                next.lighting.scene.splice(globalIdx, 1);
-                if(next.lighting.scene.length === 0) delete next.lighting.scene;
-                updateConfig(next);
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    next.lighting.scene.splice(globalIdx, 1);
+                    if(next.lighting.scene.length === 0) delete next.lighting.scene;
+                    return next;
+                });
             };
 
             const deleteCond = (globalIdx) => {
                 if(!confirm("Delete this rule?")) return;
-                const next = JSON.parse(JSON.stringify(config));
-                next.lighting.conditional_scene.splice(globalIdx, 1);
-                if(next.lighting.conditional_scene.length === 0) delete next.lighting.conditional_scene;
-                updateConfig(next);
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    next.lighting.conditional_scene.splice(globalIdx, 1);
+                    if(next.lighting.conditional_scene.length === 0) delete next.lighting.conditional_scene;
+                    return next;
+                });
             };
 
             return (
@@ -537,6 +791,7 @@
                                         <option value="breath">Breath</option>
                                     </select>
                                 </div>
+                                {s.effect === 'blink' && <BlinkTimingFields s={s} onUpdate={(f, v) => updateStatic(s._globalIdx, f, v)} />}
                             </div>
                         ))}
 
@@ -547,9 +802,10 @@
                             else if (s.caps_lock) { type = 'lock'; icon = '🔠'; title = 'Caps Lock Active'; }
                             else if (s.num_lock) { type = 'lock'; icon = '🔢'; title = 'Num Lock Active'; }
                             else if (s.scroll_lock) { type = 'lock'; icon = '📜'; title = 'Scroll Lock Active'; }
+                            else if (s.effects) { type = 'effects'; icon = '✨'; title = `RGB Effects ${s.effects.enabled ? 'Enabled' : 'Disabled'}`; }
 
                             return (
-                                <div key={`c-${s._globalIdx}`} className={`bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] border-l-4 rounded-xl p-3 shadow-sm flex flex-col gap-3 highlight-rule ${type === 'battery' ? 'border-l-emerald-500' : type === 'connection' ? 'border-l-blue-500' : type === 'lock' ? 'border-l-purple-500' : 'border-l-[color:var(--accent)]'}`}>
+                                <div key={`c-${s._globalIdx}`} className={`bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] border-l-4 rounded-xl p-3 shadow-sm flex flex-col gap-3 highlight-rule ${type === 'battery' ? 'border-l-emerald-500' : type === 'connection' ? 'border-l-blue-500' : type === 'lock' ? 'border-l-purple-500' : type === 'effects' ? 'border-l-amber-500' : 'border-l-[color:var(--accent)]'}`}>
                                     <div className="flex justify-between items-center border-b border-[color:var(--border-panel)] pb-2">
                                         <div className="flex items-center gap-2 font-bold text-xs">
                                             <span>{icon}</span> <span>{title}</span>
@@ -565,10 +821,12 @@
                                                     <option value="1">Right Keyboard (Node 1)</option>
                                                 </select>
                                                 <select value={s.battery.charge ? 'charging' : 'level'} onChange={e=>{
-                                                    const next = JSON.parse(JSON.stringify(config));
-                                                    if(e.target.value === 'charging') { next.lighting.conditional_scene[s._globalIdx].battery = { node: s.battery.node ?? 0, min_level: 1, charge: "charging" }; }
-                                                    else { next.lighting.conditional_scene[s._globalIdx].battery = { node: s.battery.node ?? 0, min_level: 20, max_level: 100 }; }
-                                                    updateConfig(next);
+                                                    updateConfig(prev => {
+                                                        const next = JSON.parse(JSON.stringify(prev));
+                                                        if(e.target.value === 'charging') { next.lighting.conditional_scene[s._globalIdx].battery = { node: s.battery.node ?? 0, min_level: 1, charge: "charging" }; }
+                                                        else { next.lighting.conditional_scene[s._globalIdx].battery = { node: s.battery.node ?? 0, min_level: 20, max_level: 100 }; }
+                                                        return next;
+                                                    });
                                                 }} className="input-field py-1.5 px-2 text-[10px] flex-1">
                                                     <option value="level">Level Range</option>
                                                     <option value="charging">Is Charging</option>
@@ -577,9 +835,9 @@
                                             {!s.battery.charge && (
                                                 <div className="flex items-center gap-2 bg-[color:var(--bg-base)] p-1.5 rounded border border-[color:var(--border-panel)]">
                                                     <span className="text-[9px] font-bold text-[color:var(--text-muted)] w-8 text-center">MIN %</span>
-                                                    <input type="number" min="0" max="100" value={s.battery.min_level ?? 0} onChange={e=>updateCond(s._globalIdx, 'battery', parseInt(e.target.value), 'min_level')} className="input-field py-1 px-2 text-[10px] w-14 font-mono text-center" />
+                                                    <input type="number" min="0" max="100" value={s.battery.min_level ?? 0} onChange={e=>{ const v = parseInt(e.target.value, 10); updateCond(s._globalIdx, 'battery', Number.isNaN(v) ? 0 : v, 'min_level'); }} className="input-field py-1 px-2 text-[10px] w-14 font-mono text-center" />
                                                     <span className="text-[9px] font-bold text-[color:var(--text-muted)] w-8 text-center">MAX %</span>
-                                                    <input type="number" min="0" max="100" value={s.battery.max_level ?? 100} onChange={e=>updateCond(s._globalIdx, 'battery', parseInt(e.target.value), 'max_level')} className="input-field py-1 px-2 text-[10px] w-14 font-mono text-center" />
+                                                    <input type="number" min="0" max="100" value={s.battery.max_level ?? 100} onChange={e=>{ const v = parseInt(e.target.value, 10); updateCond(s._globalIdx, 'battery', Number.isNaN(v) ? 100 : v, 'max_level'); }} className="input-field py-1 px-2 text-[10px] w-14 font-mono text-center" />
                                                 </div>
                                             )}
                                         </div>
@@ -588,11 +846,13 @@
                                     {type === 'connection' && (
                                         <div className="flex gap-2">
                                             <select value={s.connection.usb_connected !== undefined ? 'usb' : (s.connection.profile ?? 0)} onChange={e=>{
-                                                const next = JSON.parse(JSON.stringify(config));
-                                                next.lighting.conditional_scene[s._globalIdx].connection = {};
-                                                if(e.target.value === 'usb') next.lighting.conditional_scene[s._globalIdx].connection.usb_connected = true;
-                                                else { next.lighting.conditional_scene[s._globalIdx].connection.profile = parseInt(e.target.value); next.lighting.conditional_scene[s._globalIdx].connection.ble_state = 'connected'; }
-                                                updateConfig(next);
+                                                updateConfig(prev => {
+                                                    const next = JSON.parse(JSON.stringify(prev));
+                                                    next.lighting.conditional_scene[s._globalIdx].connection = {};
+                                                    if(e.target.value === 'usb') next.lighting.conditional_scene[s._globalIdx].connection.usb_connected = true;
+                                                    else { next.lighting.conditional_scene[s._globalIdx].connection.profile = parseInt(e.target.value); next.lighting.conditional_scene[s._globalIdx].connection.ble_state = 'connected'; }
+                                                    return next;
+                                                });
                                             }} className="input-field py-1.5 px-2 text-[10px] flex-1 font-bold text-[color:var(--text-main)]">
                                                 <option value="usb">USB Wired</option>
                                                 <option value="0">BLE Profile 1</option>
@@ -601,13 +861,15 @@
                                             </select>
                                             {s.connection.usb_connected === undefined && (
                                                 <select value={s.connection.ble_state || (s.connection.bonded !== undefined ? (s.connection.bonded ? 'bonded' : 'unbonded') : 'connected')} onChange={e=>{
-                                                    const next = JSON.parse(JSON.stringify(config));
                                                     const prof = s.connection.profile ?? 0;
-                                                    next.lighting.conditional_scene[s._globalIdx].connection = {};
-                                                    if(e.target.value === 'bonded') next.lighting.conditional_scene[s._globalIdx].connection.bonded = { slot: prof, bonded: true };
-                                                    else if(e.target.value === 'unbonded') next.lighting.conditional_scene[s._globalIdx].connection.bonded = { slot: prof, bonded: false };
-                                                    else { next.lighting.conditional_scene[s._globalIdx].connection.profile = prof; next.lighting.conditional_scene[s._globalIdx].connection.ble_state = e.target.value; }
-                                                    updateConfig(next);
+                                                    updateConfig(prev => {
+                                                        const next = JSON.parse(JSON.stringify(prev));
+                                                        next.lighting.conditional_scene[s._globalIdx].connection = {};
+                                                        if(e.target.value === 'bonded') next.lighting.conditional_scene[s._globalIdx].connection.bonded = { slot: prof, bonded: true };
+                                                        else if(e.target.value === 'unbonded') next.lighting.conditional_scene[s._globalIdx].connection.bonded = { slot: prof, bonded: false };
+                                                        else { next.lighting.conditional_scene[s._globalIdx].connection.profile = prof; next.lighting.conditional_scene[s._globalIdx].connection.ble_state = e.target.value; }
+                                                        return next;
+                                                    });
                                                 }} className="input-field py-1.5 px-2 text-[10px] flex-1">
                                                     <option value="connected">Connected</option>
                                                     <option value="inactive">Inactive</option>
@@ -619,6 +881,13 @@
                                         </div>
                                     )}
 
+                                    {type === 'effects' && (
+                                        <select value={s.effects.enabled ? 'true' : 'false'} onChange={e => updateCond(s._globalIdx, 'effects', e.target.value === 'true', 'enabled')} className="input-field py-1.5 px-2 text-[10px] flex-1 font-bold text-[color:var(--text-main)]">
+                                            <option value="true">While RGB Effects Enabled</option>
+                                            <option value="false">While RGB Effects Disabled</option>
+                                        </select>
+                                    )}
+
                                     <div className="flex gap-3 items-center mt-1">
                                         <input type="color" value={s.color || "#ffffff"} onChange={e => updateCond(s._globalIdx, 'color', e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-[color:var(--border-panel)] p-0 bg-transparent shrink-0" />
                                         <input type="text" maxLength="7" value={s.color || "#ffffff"} onChange={e => updateCond(s._globalIdx, 'color', e.target.value)} className="input-field py-1.5 px-2 text-xs font-mono w-20 text-center uppercase" />
@@ -628,6 +897,7 @@
                                             <option value="breath">Breath</option>
                                         </select>
                                     </div>
+                                    {s.effect === 'blink' && <BlinkTimingFields s={s} onUpdate={(f, v) => updateCond(s._globalIdx, f, v)} />}
                                 </div>
                             )
                         })}
@@ -639,17 +909,18 @@
                         )}
                        
                         <div className="flex gap-2 mt-2 pt-4 border-t border-[color:var(--border-panel)] shrink-0">
-                            <select id="new-rule-type" className="input-field py-2 px-3 text-xs font-bold text-[color:var(--accent)] flex-1 shadow-sm border border-[color:var(--accent-soft)]">
-                                <option value="base">Static Base Color</option>
+                            <select value={newRuleType} onChange={e => setNewRuleType(e.target.value)} className="input-field py-2 px-3 text-xs font-bold text-[color:var(--accent)] flex-1 shadow-sm border border-[color:var(--accent-soft)]">
+                                <option value="base" disabled={hasBaseRule}>{hasBaseRule ? 'Static Base Color (already set)' : 'Static Base Color'}</option>
                                 <option value="battery">🔋 Battery Indicator</option>
                                 <option value="usb">🔌 USB Connection</option>
                                 <option value="ble">📶 BLE Connection</option>
                                 <option value="caps">🔠 Caps Lock Active</option>
                                 <option value="num">🔢 Num Lock Active</option>
                                 <option value="scroll">📜 Scroll Lock Active</option>
+                                <option value="effects_enabled">✨ RGB Effects Enabled</option>
                                 <option value="layer_active">🎯 Layer {activeLayer} Active Indicator</option>
                             </select>
-                            <button onClick={() => addRule(document.getElementById('new-rule-type').value)} className="bg-[color:var(--bg-panel)] text-[color:var(--text-main)] border border-[color:var(--border-panel)] hover:bg-[color:var(--accent)] hover:border-[color:var(--accent)] hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm shrink-0">+ Add</button>
+                            <button onClick={() => addRule(newRuleType)} className="bg-[color:var(--bg-panel)] text-[color:var(--text-main)] border border-[color:var(--border-panel)] hover:bg-[color:var(--accent)] hover:border-[color:var(--accent)] hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm shrink-0">+ Add</button>
                         </div>
                     </div>
                 </div>
@@ -874,7 +1145,7 @@
                     </div>
                     {expanded && (
                         <div className="p-3 border-t border-[color:var(--border-panel)] bg-[color:var(--bg-base)]">
-                            <ObjectEditor obj={item} depth={1} onChange={(v) => { const n={...config}; n[blockName][idx]=v; updateConfig(n); }} />
+                            <ObjectEditor obj={item} depth={1} onChange={(v) => { const arr=[...config[blockName]]; arr[idx]=v; const n={...config, [blockName]: arr}; updateConfig(n); }} />
                         </div>
                     )}
                 </div>
@@ -886,31 +1157,51 @@
             return (
                 <div className="flex flex-col w-full p-1">
                     {data.map((item, idx) => <SmartBlockItemCard key={idx} item={item} idx={idx} blockName={blockName} config={config} updateConfig={updateConfig} isFirst={idx===0} isLast={idx===data.length-1} />)}
-                    <button onClick={() => { const n={...config}; n[blockName].push({}); updateConfig(n); }} className="w-full py-3 border-2 border-dashed border-[color:var(--border-panel)] rounded-xl text-xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)] transition-colors shadow-sm">+ Add New</button>
+                    <button onClick={() => { const n={...config, [blockName]: [...(config[blockName]||[]), {}]}; updateConfig(n); }} className="w-full py-3 border-2 border-dashed border-[color:var(--border-panel)] rounded-xl text-xs font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] hover:border-[color:var(--accent)] transition-colors shadow-sm">+ Add New</button>
                 </div>
             );
         };
 
         // --- 7. RENDER COMPONENTS ---
-        const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect, onSwap, lightingColor, isLightingMode, lightingIcons, showIndices }) => {
+        const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect, onSwap, lightingColor, lightingEffect, lightingPeriodMs, lightingPhaseMs, isLightingMode, lightingIcons, showIndices, isPaintMode, onPaintDown, onPaintEnter }) => {
             const [isDragOver, setIsDragOver] = useState(false);
             if (geo.hidden) return null;
             const isTrans = binding === '_______' || binding === 'KC_TRNS';
             const isDead = binding === '--' || binding === 'KC_NO';
             const labelText = isTrans && baseBinding && !isLightingMode ? `▽ ${generateAutoLabel(baseBinding)}` : generateAutoLabel(binding);
+            const keyFontSize = getKeyFontSize(labelText);
            
             const keyStyle = geo.relative ? { position: 'relative' } : { left: `${geo.x}px`, top: `${geo.y}px`, rotate: geo.r ? `${geo.r}deg` : '0deg', transformOrigin: geo.o || 'center' };
 
             if (isLightingMode) {
+                let labelShadow = null;
                 if (lightingColor) {
+                    keyStyle.backgroundImage = 'none';
                     keyStyle.backgroundColor = lightingColor;
                     keyStyle.borderColor = lightingColor;
-                    keyStyle.color = getContrastColor(lightingColor);
+                    const contrast = getContrastColor(lightingColor);
+                    keyStyle.color = contrast;
+                    labelShadow = contrast === '#000' ? '0 1px 0 rgba(255,255,255,0.5)' : '0 1px 3px rgba(0,0,0,0.55)';
+                    // Preview only the effects we know the exact timing for (blink) or a
+                    // reasonable universal approximation (breath). Named ambient effects
+                    // (Reactive, Comet, Rain, etc.) aren't faked here — we don't have a real
+                    // spec for how they actually render, so a guessed animation would mislead
+                    // more than it'd help.
+                    if (lightingEffect === 'blink') {
+                        keyStyle.animation = `key-blink-preview ${Math.max(lightingPeriodMs || 800, 100)}ms steps(1, end) infinite`;
+                        keyStyle.animationDelay = `${lightingPhaseMs || 0}ms`;
+                    } else if (lightingEffect === 'breath') {
+                        keyStyle.animation = `key-breath-preview 2000ms ease-in-out infinite alternate`;
+                    }
                 }
+                if (isPaintMode) keyStyle.cursor = 'crosshair';
                 return (
-                    <div draggable={true} onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData('text/plain', index); }} onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const src = parseInt(e.dataTransfer.getData('text/plain'), 10); if(!isNaN(src) && src!==index) onSwap(src, index); }}
+                    <div draggable={!isPaintMode}
+                        onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData('text/plain', index); }} onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const src = parseInt(e.dataTransfer.getData('text/plain'), 10); if(!isNaN(src) && src!==index) onSwap(src, index); }}
+                        onPointerDown={(e) => { if (isPaintMode) { e.stopPropagation(); onPaintDown(index); } }}
+                        onPointerEnter={() => { if (isPaintMode) onPaintEnter(index); }}
                         className={`matrix-key lighting-mode ${!lightingColor ? 'lighting-off' : 'lighting-glow'} ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'selected' : ''}`}
-                        style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }} title={`Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}`}>
+                        style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }} title={isPaintMode ? `Click or drag to paint | Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}` : `Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}${lightingEffect && lightingEffect !== 'solid' ? ` | Effect: ${lightingEffect}` : ''}`}>
                        
                         {showIndices ? (
                             <div className="flex flex-col items-center justify-center pointer-events-none drop-shadow-md">
@@ -920,7 +1211,7 @@
                         ) : (
                             <>
                                 {lightingIcons?.length > 0 && <div className="absolute top-1 right-1 flex gap-0.5 pointer-events-none z-10">{lightingIcons.map((ic, i)=><span key={i} className="text-[14px] drop-shadow-md">{ic}</span>)}</div>}
-                                <span className="text-fit-md text-clamp pointer-events-none px-1 rounded">{labelText}</span>
+                                <span className="text-clamp pointer-events-none px-1 rounded" style={{ fontSize: `${Math.max(keyFontSize - 1, 8)}px`, textShadow: labelShadow ?? undefined }}>{labelText}</span>
                             </>
                         )}
                     </div>
@@ -931,12 +1222,12 @@
                 <div draggable={true} onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData('text/plain', index); }} onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const src = parseInt(e.dataTransfer.getData('text/plain'), 10); if(!isNaN(src) && src!==index) onSwap(src, index); }}
                     className={`matrix-key ${isSelected ? 'selected' : ''} ${isTrans ? 'trans' : ''} ${isDead ? 'dead' : ''} ${isDragOver ? 'drag-over' : ''}`}
                     style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }} title="Drag to swap keys">
-                    <span className="text-fit-md text-clamp">{labelText}</span>
+                    <span className="text-clamp" style={{ fontSize: `${keyFontSize}px` }}>{labelText}</span>
                 </div>
             );
-        }, (p, n) => p.isSelected === n.isSelected && p.binding === n.binding && p.baseBinding === n.baseBinding && p.geo === n.geo && p.lightingColor === n.lightingColor && p.isLightingMode === n.isLightingMode && JSON.stringify(p.lightingIcons) === JSON.stringify(n.lightingIcons) && p.showIndices === n.showIndices);
+        }, (p, n) => p.isSelected === n.isSelected && p.binding === n.binding && p.baseBinding === n.baseBinding && p.geo === n.geo && p.lightingColor === n.lightingColor && p.lightingEffect === n.lightingEffect && p.lightingPeriodMs === n.lightingPeriodMs && p.lightingPhaseMs === n.lightingPhaseMs && p.isLightingMode === n.isLightingMode && JSON.stringify(p.lightingIcons) === JSON.stringify(n.lightingIcons) && p.showIndices === n.showIndices && p.isPaintMode === n.isPaintMode);
 
-        const KeyboardContainer = ({ layerTokens, baseTokens, selectedKey, onSelectKey, scale, pan, isPanning, onPanStart, onPanMove, onPanEnd, onSwap, lightingScenes, isLightingMode, showIndices }) => {
+        const KeyboardContainer = ({ layerTokens, baseTokens, selectedKey, onSelectKey, scale, pan, isPanning, onPanStart, onPanMove, onPanEnd, onSwap, lightingScenes, isLightingMode, showIndices, isPaintMode, onPaintDown, onPaintEnter }) => {
             const { keyboardGeo, isFallback } = useMemo(() => {
                 const count = layerTokens.length;
                 if (count === 84) return { keyboardGeo: GLOVE80_GEO, isFallback: false };
@@ -944,15 +1235,19 @@
             }, [layerTokens.length]);
            
             return (
-                <div id="matrix-drag-surface" className="w-full h-full flex items-center justify-center overflow-hidden touch-none" onPointerDown={onPanStart} onPointerMove={onPanMove} onPointerUp={onPanEnd} onPointerCancel={onPanEnd} onPointerLeave={onPanEnd} onClick={() => onSelectKey(null)}>
+                <div id="matrix-drag-surface" className="w-full h-full flex items-center justify-center overflow-hidden touch-none" onPointerDown={isPaintMode ? undefined : onPanStart} onPointerMove={isPaintMode ? undefined : onPanMove} onPointerUp={onPanEnd} onPointerCancel={onPanEnd} onPointerLeave={onPanEnd} onClick={() => onSelectKey(null)}>
                     <div className={isFallback ? "grid grid-cols-12 gap-2 p-10 transition-transform origin-center" : "relative w-[1260px] h-[450px] origin-center transition-transform pointer-events-auto"} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transitionDuration: isPanning ? '0ms' : '150ms' }}>
                         {layerTokens.map((token, index) => {
-                            let color = null; let icons = [];
+                            let color = null; let icons = []; let effect = null; let periodMs = 800; let phaseMs = 0;
                             if (isLightingMode && lightingScenes) {
                                 const ledIndex = MATRIX_TO_LED[index];
                                 const stack = lightingScenes.filter(s => s.led === ledIndex);
                                 if (stack.length > 0) {
-                                    color = stack[stack.length - 1].color;
+                                    const winner = stack[stack.length - 1];
+                                    color = winner.color;
+                                    effect = winner.effect || 'solid';
+                                    if (winner.period_ms) periodMs = winner.period_ms;
+                                    if (winner.phase_ms) phaseMs = winner.phase_ms;
                                     if (stack.some(s => s.battery)) icons.push('🔋');
                                     if (stack.some(s => s.connection)) {
                                         // Safe optional chaining protects against undefined crashes here
@@ -962,17 +1257,109 @@
                                     if (stack.some(s => s.caps_lock)) icons.push('🔠');
                                     if (stack.some(s => s.num_lock)) icons.push('🔢');
                                     if (stack.some(s => s.scroll_lock)) icons.push('📜');
-                                    if (stack.some(s => s.layer?.active && !s.battery && !s.connection && !s.caps_lock && !s.num_lock && !s.scroll_lock)) icons.push('🎯');
+                                    if (stack.some(s => s.effects)) icons.push('✨');
+                                    if (stack.some(s => s.layer?.active && !s.battery && !s.connection && !s.caps_lock && !s.num_lock && !s.scroll_lock && !s.effects)) icons.push('🎯');
                                 }
                             }
-                            return <KeyComponent key={`matrix-key-${index}`} index={index} geo={keyboardGeo[index] || {hidden: true}} binding={token} baseBinding={baseTokens?.[index]} isSelected={selectedKey === index} onSelect={onSelectKey} onSwap={onSwap} lightingColor={color} isLightingMode={isLightingMode} lightingIcons={icons} showIndices={showIndices} />;
+                            return <KeyComponent key={`matrix-key-${index}`} index={index} geo={keyboardGeo[index] || {hidden: true}} binding={token} baseBinding={baseTokens?.[index]} isSelected={selectedKey === index} onSelect={onSelectKey} onSwap={onSwap} lightingColor={color} lightingEffect={effect} lightingPeriodMs={periodMs} lightingPhaseMs={phaseMs} isLightingMode={isLightingMode} lightingIcons={icons} showIndices={showIndices} isPaintMode={isPaintMode} onPaintDown={onPaintDown} onPaintEnter={onPaintEnter} />;
                         })}
                     </div>
                 </div>
             );
         };
 
-        const Inspector = ({ view, setView, config, activeLayer, selectedKey, setSelectedKey, updateConfig, tabs, isDockedBottom, toggleDock, handleRenameBlockKey, handleDeleteBlockKey, showIndices, setShowIndices, clipboard, setClipboard }) => {
+        const EffectsPanel = ({ config, updateConfig, setSelectedKey, setActiveLayer, setView }) => {
+            const lighting = config.lighting || {};
+            const staticRules = (lighting.scene || []).map((s, i) => ({ ...s, _kind: 'scene', _idx: i }));
+            const condRules = (lighting.conditional_scene || []).map((s, i) => ({ ...s, _kind: 'conditional_scene', _idx: i }));
+            const allRules = [...staticRules, ...condRules];
+
+            const updateGlobalEffect = (field, val) => {
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    if (!next.lighting) next.lighting = {};
+                    if (!next.lighting.effects) next.lighting.effects = {};
+                    next.lighting.effects[field] = val;
+                    return next;
+                });
+            };
+
+            const updateRuleEffect = (kind, idx, val) => {
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    next.lighting[kind][idx].effect = val;
+                    return next;
+                });
+            };
+
+            const getBadge = (r) => {
+                if (r._kind !== 'conditional_scene') return { icon: '💡', title: 'Static Color' };
+                if (r.battery) return { icon: '🔋', title: `Battery (Node ${r.battery.node ?? 0})` };
+                if (r.connection) return { icon: r.connection.usb_connected !== undefined ? '🔌' : '📶', title: r.connection.profile !== undefined ? `BLE Profile ${r.connection.profile + 1}` : 'USB Connection' };
+                if (r.caps_lock) return { icon: '🔠', title: 'Caps Lock Active' };
+                if (r.num_lock) return { icon: '🔢', title: 'Num Lock Active' };
+                if (r.scroll_lock) return { icon: '📜', title: 'Scroll Lock Active' };
+                if (r.effects) return { icon: '✨', title: `RGB Effects ${r.effects.enabled ? 'Enabled' : 'Disabled'}` };
+                return { icon: '🎯', title: 'Layer Active' };
+            };
+
+            const jumpToKey = (matrixIdx, layerNum) => {
+                if (matrixIdx === undefined || matrixIdx < 0) return;
+                if (typeof layerNum === 'number') setActiveLayer(layerNum);
+                setSelectedKey(matrixIdx);
+                setView('lighting');
+            };
+
+            const knownAmbientEffectNames = ['Ripple', 'Reactive', 'Sparkle', 'Comet', 'Rain', 'Crosshair'];
+            const knownPalettes = ['Amber', 'Polarized', 'Viridis'];
+            const knownRuleEffects = ['solid', 'blink', 'breath'];
+
+            return (
+                <div className="flex flex-col gap-4 w-full h-full">
+                    <div className="px-2 border-b border-[color:var(--border-panel)] pb-3">
+                        <h4 className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest">All Effects In This File</h4>
+                        <p className="text-[9px] text-[color:var(--text-muted)] italic mt-1">Every effect used anywhere in your lighting config, in one place. Blink/Breath rules now preview their real timing on the Lighting canvas — named ambient effects (Reactive, Comet, Rain, etc.) aren't animated here since their actual rendering is firmware-specific.</p>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto flex flex-col gap-2 px-0.5">
+                        <div className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-3 shadow-sm">
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-xs font-bold text-[color:var(--text-main)]">🌐 Global Ambient Effect</span>
+                            </div>
+                            <EnumField label="Effect" value={lighting.effects?.effect ?? ''} onChange={v => updateGlobalEffect('effect', v)} knownOptions={knownAmbientEffectNames} />
+                            <EnumField label="Palette" value={lighting.effects?.palette ?? ''} onChange={v => updateGlobalEffect('palette', v)} knownOptions={knownPalettes} />
+                            <SliderField label="Value" value={lighting.effects?.value} onChange={v => updateGlobalEffect('value', v)} />
+                            <SliderField label="Speed" value={lighting.effects?.speed} onChange={v => updateGlobalEffect('speed', v)} />
+                        </div>
+
+                        {allRules.length === 0 ? (
+                            <div className="flex-1 flex items-center justify-center text-[color:var(--text-muted)] text-[11px] font-medium text-center p-6 border border-dashed border-[color:var(--border-panel)] rounded-xl bg-[color:var(--bg-base)] m-1">
+                                No per-key lighting rules yet. Head to the Lighting tab and try Paint Mode.
+                            </div>
+                        ) : allRules.map(r => {
+                            const matrixIdx = r.led !== undefined ? LED_TO_MATRIX[r.led] : -1;
+                            const layerNum = typeof r.layer === 'object' ? r.layer?.layer : r.layer;
+                            const badge = getBadge(r);
+                            return (
+                                <div key={`${r._kind}-${r._idx}`} className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-3 shadow-sm flex items-center gap-3">
+                                    <div className="w-6 h-6 rounded-full border border-[color:var(--border-panel)] shrink-0" style={{ backgroundColor: r.color || 'transparent' }} title={r.color || 'no color'} />
+                                    <div className="flex-1 min-w-0">
+                                        <div className="text-[11px] font-bold truncate text-[color:var(--text-main)]">{badge.icon} {badge.title}</div>
+                                        <div className="text-[9px] text-[color:var(--text-muted)]">LED {r.led} · Matrix {matrixIdx >= 0 ? matrixIdx : '—'} · Layer {layerNum ?? 'All'}</div>
+                                    </div>
+                                    <div className="w-28 shrink-0">
+                                        <EnumField value={r.effect ?? 'solid'} onChange={v => updateRuleEffect(r._kind, r._idx, v)} knownOptions={knownRuleEffects} />
+                                    </div>
+                                    <button onClick={() => jumpToKey(matrixIdx, layerNum)} title="Jump to key" className="text-[13px] text-[color:var(--text-muted)] hover:text-[color:var(--accent)] shrink-0 p-1">↗</button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            );
+        };
+
+        const Inspector = ({ view, setView, config, activeLayer, setActiveLayer, selectedKey, setSelectedKey, updateConfig, tabs, isDockedBottom, toggleDock, handleRenameBlockKey, handleDeleteBlockKey, showIndices, setShowIndices, clipboard, setClipboard, isPaintMode, setIsPaintMode, paintColor, setPaintColor }) => {
             const [editMode, setEditMode] = useState('visual');
             const [localObj, setLocalObj] = useState(null);
             const [localStr, setLocalStr] = useState("");
@@ -988,7 +1375,7 @@
             useEffect(() => {
                 setError(""); setEditMode('visual');
                 if (view === 'key') { setLocalStr(currentTokenText); }
-                else if (view === 'tracker' || view === 'lighting') { setLocalStr(""); }
+                else if (view === 'tracker' || view === 'lighting' || view === 'effects') { setLocalStr(""); }
                 else if (view === 'raw_toml') {
                     const toSerialize = JSON.parse(JSON.stringify(config));
                     toSerialize.layer.forEach(l => { if(l.tokens) { l.keys = untokenizeKeys(l); delete l.tokens; delete l.tail; }});
@@ -1024,7 +1411,7 @@
                         const data = editMode === 'visual' ? localObj : window.smolToml.parse(localStr);
                         if (data.id !== undefined) newConfig.layer[activeLayer].id = data.id;
                         if (data.name !== undefined) newConfig.layer[activeLayer].name = data.name;
-                    } else if (view !== 'raw_toml' && view !== 'tracker' && view !== 'lighting') {
+                    } else if (view !== 'raw_toml' && view !== 'tracker' && view !== 'lighting' && view !== 'effects') {
                         const data = editMode === 'visual' ? localObj : window.smolToml.parse(localStr)[view];
                         if (data !== undefined && Object.keys(data).length > 0) newConfig[view] = data; else delete newConfig[view];
                     }
@@ -1046,27 +1433,34 @@
 
             const handlePaste = () => {
                 if (selectedKey === null || !clipboard) return;
-                const next = JSON.parse(JSON.stringify(config));
-               
+
                 if (view === 'key' && clipboard.type === 'key') {
+                    const next = JSON.parse(JSON.stringify(config));
                     next.layer[activeLayer].tokens[selectedKey].text = clipboard.data;
+                    updateConfig(next);
                 } else if (view === 'lighting' && clipboard.type === 'lighting') {
                     const led = MATRIX_TO_LED[selectedKey];
                     if (led === -1) return alert("Selected key has no physical LED to paste onto.");
-                    if (!next.lighting) next.lighting = {};
-                    if (!next.lighting.scene) next.lighting.scene = [];
-                    if (!next.lighting.conditional_scene) next.lighting.conditional_scene = [];
+                    updateConfig(prev => {
+                        const next = JSON.parse(JSON.stringify(prev));
+                        if (!next.lighting) next.lighting = {};
+                        if (!next.lighting.scene) next.lighting.scene = [];
+                        if (!next.lighting.conditional_scene) next.lighting.conditional_scene = [];
 
-                    next.lighting.scene = next.lighting.scene.filter(s => !(s.led === led && (s.layer === activeLayer || s.layer === undefined)));
-                    next.lighting.conditional_scene = next.lighting.conditional_scene.filter(s => !(s.led === led && ((typeof s.layer === 'object' ? s.layer?.layer : s.layer) === activeLayer || s.layer === undefined)));
+                        next.lighting.scene = next.lighting.scene.filter(s => !(s.led === led && (s.layer === activeLayer || s.layer === undefined)));
+                        next.lighting.conditional_scene = next.lighting.conditional_scene.filter(s => !(s.led === led && ((typeof s.layer === 'object' ? s.layer?.layer : s.layer) === activeLayer || s.layer === undefined)));
 
-                    clipboard.data.staticRules.forEach(r => next.lighting.scene.push({ ...r, led }));
-                    clipboard.data.condRules.forEach(r => next.lighting.conditional_scene.push({ ...r, led }));
+                        clipboard.data.staticRules.forEach(r => next.lighting.scene.push({ ...r, led, layer: activeLayer }));
+                        clipboard.data.condRules.forEach(r => {
+                            const rebasedLayer = (r.layer && typeof r.layer === 'object') ? { ...r.layer, layer: activeLayer } : activeLayer;
+                            next.lighting.conditional_scene.push({ ...r, led, layer: rebasedLayer });
+                        });
+                        return next;
+                    });
                 }
-                updateConfig(next);
             };
 
-            const isDynamicBlock = !['key', 'layer_meta', 'tracker', 'raw_toml', 'lighting'].includes(view);
+            const isDynamicBlock = !['key', 'layer_meta', 'tracker', 'raw_toml', 'lighting', 'effects'].includes(view);
 
             return (
                 <div className={`flex flex-col h-full overflow-hidden w-full bg-[color:var(--bg-panel)] ${isDockedBottom ? 'border-t' : 'border-l'} border-[color:var(--border-panel)]`}>
@@ -1087,7 +1481,7 @@
                     </div>
 
                     <div className={`p-4 flex-1 flex flex-col overflow-y-auto ${isDockedBottom ? 'flex-row gap-6' : ''}`}>
-                        {view !== 'lighting' && (
+                        {view !== 'lighting' && view !== 'effects' && (
                             <div className={`flex flex-col ${isDockedBottom ? 'w-1/3 shrink-0' : 'mb-4'}`}>
                                 <div className="mb-4 flex justify-between items-center shrink-0">
                                     <h3 className="font-bold text-sm capitalize flex items-center gap-2">
@@ -1121,6 +1515,8 @@
                         <div className={`flex flex-col flex-1 relative min-h-0 ${isDockedBottom ? 'overflow-y-auto pr-2 hide-scrollbar' : ''}`}>
                             {view === 'tracker' ? (
                                 <TrackerPanel config={config} updateConfig={updateConfig} />
+                            ) : view === 'effects' ? (
+                                <EffectsPanel config={config} updateConfig={updateConfig} setSelectedKey={setSelectedKey} setActiveLayer={setActiveLayer} setView={setView} />
                             ) : view === 'lighting' ? (
                                 <>
                                     {selectedKey !== null && (
@@ -1130,7 +1526,7 @@
                                         </div>
                                     )}
                                     {selectedKey === null ? (
-                                        <LightingDashboard config={config} activeLayer={activeLayer} showIndices={showIndices} setShowIndices={setShowIndices} updateConfig={updateConfig} />
+                                        <LightingDashboard config={config} activeLayer={activeLayer} showIndices={showIndices} setShowIndices={setShowIndices} updateConfig={updateConfig} isPaintMode={isPaintMode} setIsPaintMode={setIsPaintMode} paintColor={paintColor} setPaintColor={setPaintColor} />
                                     ) : (
                                         <KeyLightingEditor config={config} updateConfig={updateConfig} activeLayer={activeLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} />
                                     )}
@@ -1165,7 +1561,11 @@
 
         const App = () => {
             const [engineReady, setEngineReady] = useState(false);
-            const [theme, setTheme] = useState('dark');
+            const [theme, setTheme] = useState(() => {
+                const saved = localStorage.getItem('rmk-theme');
+                if (saved === 'dark' || saved === 'light') return saved;
+                return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+            });
             const [config, setConfig] = useState(null);
             const [activeLayer, setActiveLayer] = useState(0);
             const [selectedKey, setSelectedKey] = useState(null);
@@ -1183,13 +1583,47 @@
             const [view, setView] = useState('key');
            
             const [showIndices, setShowIndices] = useState(false);
+            const [isPaintMode, setIsPaintMode] = useState(false);
+            const [paintColor, setPaintColor] = useState('#0050ff');
+            const isPaintingRef = useRef(false);
 
-            useEffect(() => { const r = document.documentElement; if (theme === 'dark') r.classList.add('dark'); else r.classList.remove('dark'); }, [theme]);
+            useEffect(() => {
+                const stop = () => { isPaintingRef.current = false; };
+                window.addEventListener('pointerup', stop);
+                window.addEventListener('pointercancel', stop);
+                return () => { window.removeEventListener('pointerup', stop); window.removeEventListener('pointercancel', stop); };
+            }, []);
+
+            const handlePaintKey = useCallback((matrixIdx) => {
+                const led = MATRIX_TO_LED[matrixIdx];
+                if (led === -1 || led === undefined) return;
+                setConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    if (!next.lighting) next.lighting = {};
+                    if (!Array.isArray(next.lighting.scene)) next.lighting.scene = [];
+                    const existingIdx = next.lighting.scene.findIndex(s => s.led === led && s.layer === activeLayer);
+                    if (existingIdx !== -1) next.lighting.scene[existingIdx] = { ...next.lighting.scene[existingIdx], color: paintColor, effect: next.lighting.scene[existingIdx].effect || 'solid' };
+                    else next.lighting.scene.push({ layer: activeLayer, led, color: paintColor, effect: 'solid' });
+                    return next;
+                });
+            }, [activeLayer, paintColor]);
+
+            const handlePaintDown = useCallback((matrixIdx) => { isPaintingRef.current = true; handlePaintKey(matrixIdx); }, [handlePaintKey]);
+            const handlePaintEnter = useCallback((matrixIdx) => { if (isPaintingRef.current) handlePaintKey(matrixIdx); }, [handlePaintKey]);
+
+            useEffect(() => {
+                const r = document.documentElement;
+                if (theme === 'dark') r.classList.add('dark'); else r.classList.remove('dark');
+                localStorage.setItem('rmk-theme', theme);
+                let meta = document.querySelector('meta[name="theme-color"]');
+                if (!meta) { meta = document.createElement('meta'); meta.name = 'theme-color'; document.head.appendChild(meta); }
+                meta.content = theme === 'dark' ? '#0a0e14' : '#eef1f5';
+            }, [theme]);
             useEffect(() => { const timer = setInterval(() => { if (window.smolToml) { setEngineReady(true); clearInterval(timer); } }, 100); return () => clearInterval(timer); }, []);
 
             const dynamicTabs = useMemo(() => {
                 if (!config) return [];
-                const systemTabs = ['key', 'layer_meta', 'lighting', 'tracker', 'raw_toml'];
+                const systemTabs = ['key', 'layer_meta', 'lighting', 'effects', 'tracker', 'raw_toml'];
                 const existingBlocks = Object.keys(config).filter(k => k !== 'layer');
                 const standardBlocks = ['keyboard', 'matrix', 'layout', 'behavior', 'split', 'ble', 'vial', 'storage'];
                 return Array.from(new Set([...systemTabs, ...existingBlocks, ...standardBlocks]));
@@ -1203,8 +1637,12 @@
                         const parsed = window.smolToml.parse(event.target.result);
                         if (!parsed.layer) throw new Error("Missing '[[layer]]' array.");
                         parsed.layer.forEach(l => { const { tokens, tail } = tokenizeKeysString(l.keys || ""); l.tokens = tokens; l.tail = tail; });
-                        setConfig(parsed); setActiveLayer(0); setSelectedKey(null); setScale(0.85); setPan({ x: 0, y: -60 });
+                        const { config: repaired, issues } = validateAndRepairConfig(parsed);
+                        setConfig(repaired); setActiveLayer(0); setSelectedKey(null); setScale(0.85); setPan({ x: 0, y: -60 });
                         setDockMode('bottom'); setView('key');
+                        if (issues.length > 0) {
+                            alert(`Loaded, but found and fixed ${issues.length} issue${issues.length > 1 ? 's' : ''}:\n\n- ${issues.join('\n- ')}`);
+                        }
                     } catch (err) { alert("Parse Error: " + err.message); }
                 };
                 reader.readAsText(file); e.target.value = '';
@@ -1212,10 +1650,19 @@
 
             const handleExport = () => {
                 if (!config) return;
-                const toSerialize = JSON.parse(JSON.stringify(config));
-                toSerialize.layer.forEach(l => { l.keys = untokenizeKeys(l); delete l.tokens; delete l.tail; });
-                const tomlString = window.smolToml.stringify(toSerialize);
-                const a = document.createElement('a'); a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(tomlString); a.download = `keyboard.toml`; a.click();
+                try {
+                    const { config: repaired, issues } = validateAndRepairConfig(JSON.parse(JSON.stringify(config)));
+                    repaired.layer.forEach(l => { l.keys = untokenizeKeys(l); delete l.tokens; delete l.tail; });
+                    const tomlString = window.smolToml.stringify(repaired);
+                    // Confirm what we're about to write is actually parseable before handing it to the user
+                    window.smolToml.parse(tomlString);
+                    const a = document.createElement('a'); a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(tomlString); a.download = `keyboard.toml`; a.click();
+                    if (issues.length > 0) {
+                        alert(`Exported, but cleaned up ${issues.length} issue${issues.length > 1 ? 's' : ''} first:\n\n- ${issues.join('\n- ')}`);
+                    }
+                } catch (err) {
+                    alert("Export failed — nothing was written to disk. This is a bug, please report what you were doing right before this happened.\n\nDetails: " + err.message);
+                }
             };
 
             const handlePanStart = (e) => { if (e.target.closest('.matrix-key') && e.button !== 1) return; setIsPanning(true); setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y }); e.currentTarget.setPointerCapture(e.pointerId); };
@@ -1337,6 +1784,7 @@
 
             const activeLayerTokens = useMemo(() => config?.layer?.[activeLayer]?.tokens?.map(t => t.text) || [], [config, activeLayer]);
             const baseLayerTokens = useMemo(() => config?.layer?.[0]?.tokens?.map(t => t.text) || [], [config]);
+            const currentLayoutVariant = useMemo(() => detectLayoutVariant(config?.layer?.[activeLayer]), [config, activeLayer]);
            
             const activeLightingScenes = useMemo(() => {
                 if (!config?.lighting) return [];
@@ -1405,7 +1853,18 @@
                                                     <button title="Move Up" onClick={() => { if (i - 1 < 0) return; swapLayers(i, i - 1); setActiveLayer(i - 1); }} className="text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] hover:bg-[color:var(--bg-base)] p-1 rounded text-xs font-mono" disabled={i === 0}>↑</button>
                                                     <button title="Move Down" onClick={() => { if (i + 1 >= config.layer.length) return; swapLayers(i, i + 1); setActiveLayer(i + 1); }} className="text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] hover:bg-[color:var(--bg-base)] p-1 rounded text-xs font-mono" disabled={i === config.layer.length - 1}>↓</button>
                                                     <button title="Rename" onClick={() => { const n = prompt('Rename layer:', l.name || `Layer ${i}`); if(n) { const cfg = JSON.parse(JSON.stringify(config)); cfg.layer[i].name = n; setConfig(cfg); } }} className="text-[color:var(--text-muted)] hover:text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] p-1 rounded text-xs">✎</button>
-                                                    <button title="Delete" onClick={() => { if(config.layer.length <= 1) return alert("Cannot delete last layer."); if(confirm("Delete layer?")) { deleteLayer(i); if(activeLayer >= config.layer.length - 1) setActiveLayer(Math.max(0, config.layer.length - 2)); setSelectedKey(null); } }} className="text-[color:var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 p-1 rounded text-xs">✕</button>
+                                                    <button title="Delete" onClick={() => {
+                                                        if(config.layer.length <= 1) return alert("Cannot delete last layer.");
+                                                        if(!confirm("Delete layer?")) return;
+                                                        const newLength = config.layer.length - 1;
+                                                        deleteLayer(i);
+                                                        setActiveLayer(prevActive => {
+                                                            if (prevActive === i) return Math.min(i, newLength - 1);
+                                                            if (prevActive > i) return prevActive - 1;
+                                                            return prevActive;
+                                                        });
+                                                        setSelectedKey(null);
+                                                    }} className="text-[color:var(--text-muted)] hover:text-red-500 hover:bg-red-500/10 p-1 rounded text-xs">✕</button>
                                                 </div>
                                             </div>
                                         ))}
@@ -1423,11 +1882,17 @@
                                             + Layer
                                         </button>
                                         <button onClick={() => {
-                                            if (!confirm("Replace standard QWERTY keys on active layer with Aptmak-Blue?")) return;
-                                            const map = {'KC_W':'KC_J','KC_E':'KC_U','KC_R':'KC_L','KC_T':'KC_SCLN','KC_Y':'KC_B','KC_U':'KC_P','KC_I':'KC_F','KC_O':'KC_W','KC_P':'KC_X','KC_S':'KC_O','KC_D':'KC_I','KC_F':'KC_N','KC_G':'KC_Y','KC_H':'KC_K','KC_J':'KC_H','KC_K':'KC_T','KC_L':'KC_S','KC_SCLN':'KC_R','KC_X':'KC_DOT','KC_C':'KC_COMM','KC_V':'KC_M','KC_B':'KC_E','KC_N':'KC_V','KC_M':'KC_D','KC_COMM':'KC_G','KC_DOT':'KC_C'};
+                                            if (currentLayoutVariant === null) {
+                                                if (!confirm("Couldn't detect whether this layer is currently QWERTY or Aptmak-Blue (positions 30-32 don't match either signature exactly). Convert QWERTY -> Aptmak-Blue anyway?")) return;
+                                            }
+                                            const current = currentLayoutVariant || 'qwerty';
+                                            const goingTo = current === 'qwerty' ? 'aptmak' : 'qwerty';
+                                            const map = current === 'qwerty' ? QWERTY_TO_APTMAK : APTMAK_TO_QWERTY;
+                                            const label = goingTo === 'aptmak' ? 'Aptmak-Blue' : 'QWERTY';
+                                            if (currentLayoutVariant !== null && !confirm(`Convert active layer's letter keys to ${label}?`)) return;
                                             setConfig(prev => { const n = JSON.parse(JSON.stringify(prev)); n.layer[activeLayer].tokens.forEach(t => t.text = t.text.replace(/\bKC_[A-Z]+\b/g, m => map[m] || m)); return n; });
-                                        }} title="Convert current layer to Aptmak-Blue" className="flex-1 py-2 text-xs font-bold text-[color:var(--text-muted)] hover:text-blue-500 border border-dashed border-[color:var(--border-panel)] hover:border-blue-500 rounded-lg transition-all">
-                                            ✨ Aptmak
+                                        }} title={currentLayoutVariant === null ? "Couldn't detect current layout from this layer's bindings" : `Layer is currently ${currentLayoutVariant === 'aptmak' ? 'Aptmak-Blue' : 'QWERTY'} — click to convert to ${currentLayoutVariant === 'aptmak' ? 'QWERTY' : 'Aptmak-Blue'}`} className={`flex-1 py-2 text-xs font-bold border border-dashed rounded-lg transition-all ${currentLayoutVariant === 'aptmak' ? 'text-blue-500 border-blue-500' : currentLayoutVariant === null ? 'text-amber-500 border-amber-500/50' : 'text-[color:var(--text-muted)] border-[color:var(--border-panel)] hover:text-blue-500 hover:border-blue-500'}`}>
+                                            {currentLayoutVariant === 'aptmak' ? '⌨️ QWERTY' : currentLayoutVariant === null ? '❓ Aptmak' : '✨ Aptmak'}
                                         </button>
                                     </div>
                                 </div>
@@ -1460,7 +1925,7 @@
                                         <svg className="w-4 h-4 text-[color:var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path></svg>
                                         Middle-Click & Drag to pan
                                     </div>
-                                    <KeyboardContainer layerTokens={activeLayerTokens} baseTokens={baseLayerTokens} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={scale} pan={pan} isPanning={isPanning} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onSwap={handleSwapKeys} lightingScenes={activeLightingScenes} isLightingMode={view === 'lighting'} showIndices={showIndices} />
+                                    <KeyboardContainer layerTokens={activeLayerTokens} baseTokens={baseLayerTokens} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={scale} pan={pan} isPanning={isPanning} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onSwap={handleSwapKeys} lightingScenes={activeLightingScenes} isLightingMode={view === 'lighting'} showIndices={showIndices} isPaintMode={isPaintMode && view === 'lighting'} onPaintDown={handlePaintDown} onPaintEnter={handlePaintEnter} />
                                 </>
                             )}
                         </div>
@@ -1469,7 +1934,7 @@
                             <>
                                 <div className={dockMode === 'bottom' ? 'resizer-h' : 'resizer-v'} onPointerDown={dockMode === 'bottom' ? startBottomResize : startRightResize}></div>
                                 <div style={dockMode === 'bottom' ? { height: bottomHeight } : { width: rightWidth }} className="panel flex flex-col shrink-0 z-30 shadow-2xl transition-colors">
-                                    <Inspector view={view} setView={setView} config={config} activeLayer={activeLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} updateConfig={setConfig} tabs={dynamicTabs} handleRenameBlockKey={handleRenameBlockKey} handleDeleteBlockKey={handleDeleteBlockKey} showIndices={showIndices} setShowIndices={setShowIndices} clipboard={clipboard} setClipboard={setClipboard} isDockedBottom={dockMode === 'bottom'} toggleDock={() => setDockMode(d => d === 'right' ? 'bottom' : 'right')} />
+                                    <Inspector view={view} setView={setView} config={config} activeLayer={activeLayer} setActiveLayer={setActiveLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} updateConfig={setConfig} tabs={dynamicTabs} handleRenameBlockKey={handleRenameBlockKey} handleDeleteBlockKey={handleDeleteBlockKey} showIndices={showIndices} setShowIndices={setShowIndices} clipboard={clipboard} setClipboard={setClipboard} isDockedBottom={dockMode === 'bottom'} toggleDock={() => setDockMode(d => d === 'right' ? 'bottom' : 'right')} isPaintMode={isPaintMode} setIsPaintMode={setIsPaintMode} paintColor={paintColor} setPaintColor={setPaintColor} />
                                 </div>
                             </>
                         )}
