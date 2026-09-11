@@ -77,13 +77,17 @@
         /* Lighting Mode Visuals */
         .lighting-mode { box-shadow: 0 4px 6px rgba(0,0,0,0.5) !important; border: 1.5px solid rgba(255,255,255,0.25) !important; transition: background-color 0.15s ease, transform 0.12s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.12s ease, border-color 0.12s ease; }
         .lighting-mode:hover { transform: translateY(-2px) scale(1.04); z-index: 20; box-shadow: 0 10px 18px rgba(0,0,0,0.5) !important; border-color: #fff !important; }
-        .lighting-off { background: repeating-conic-gradient(rgba(255,255,255,0.03) 0% 25%, transparent 0% 50%) 50% / 8px 8px; background-color: #05070a !important; border-color: #1e293b !important; opacity: 0.85; }
+        .lighting-off { filter: brightness(0.5) saturate(0.45); opacity: 0.92; }
         .lighting-glow { box-shadow: 0 0 15px currentColor, inset 0 0 12px rgba(255,255,255,0.4) !important; z-index: 2; border-color: rgba(255,255,255,0.6) !important; }
 
         .text-clamp { font-family: 'JetBrains Mono', monospace; font-weight: 600; line-height: 1.2; word-break: break-word; white-space: pre-wrap; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; text-shadow: var(--key-text-shadow); letter-spacing: -0.01em; }
         .lighting-mode .text-clamp { opacity: 1; pointer-events: none; }
         @keyframes key-blink-preview { 0%, 49% { opacity: 1; } 50%, 100% { opacity: 0.22; } }
         @keyframes key-breath-preview { 0% { opacity: 1; } 100% { opacity: 0.4; } }
+        @keyframes key-preview-flash-overlay {
+            0% { opacity: 0.95; transform: scale(1.1); box-shadow: 0 0 18px 4px rgba(255,255,255,0.5); }
+            100% { opacity: 0; transform: scale(1); box-shadow: 0 0 0 0 transparent; }
+        }
 
         .input-field { width: 100%; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--text-main); font-size: 13px; font-weight: 500; padding: 8px 10px; border-radius: 6px; outline: none; transition: all 0.2s; }
         .input-field:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
@@ -115,21 +119,21 @@
             geo[42] = {x:0,y:245}; geo[43] = {x:70,y:245}; geo[44] = {x:140,y:210}; geo[45] = {x:210,y:210}; geo[46] = {x:280,y:210}; geo[47] = {x:350,y:210};
             geo[56] = {x:0,y:315}; geo[57] = {x:70,y:315}; geo[58] = {x:140,y:280}; geo[59] = {x:210,y:280}; geo[60] = {x:280,y:280}; geo[61] = {x:350,y:280};
             geo[70] = {x:0,y:385}; geo[71] = {x:70,y:385}; geo[72] = {x:140,y:350}; geo[73] = {x:210,y:350}; geo[74] = {x:280,y:350};
-            geo[6] = {x:448,y:280,r:20,o:"-168px 0px"}; geo[20] = {x:546,y:231,r:30,o:"-266px 0px"}; geo[34] = {x:490,y:105,r:-45,o:"490px 0px"};
-            geo[48] = {x:371,y:378,r:15,o:"-91px 0px"}; geo[62] = {x:462,y:350,r:25,o:"-182px 0px"}; geo[76] = {x:560,y:224,r:-45,o:"420px 0px"};
+            geo[6] = {x:448,y:280,r:20,o:"-168px 0px"}; geo[20] = {x:546,y:231,r:30,o:"-266px 0px"}; geo[34] = {x:707,y:105,r:45,o:"-427px 0px"};
+            geo[48] = {x:371,y:378,r:15,o:"-91px 0px"}; geo[62] = {x:462,y:350,r:25,o:"-182px 0px"}; geo[76] = {x:630,y:224,r:45,o:"-350px 0px"};
             geo[9] = {x:910,y:0}; geo[10] = {x:980,y:0}; geo[11] = {x:1050,y:0}; geo[12] = {x:1120,y:35}; geo[13] = {x:1190,y:35};
             geo[22] = {x:840,y:70}; geo[23] = {x:910,y:70}; geo[24] = {x:980,y:70}; geo[25] = {x:1050,y:70}; geo[26] = {x:1120,y:105}; geo[27] = {x:1190,y:105};
             geo[36] = {x:840,y:140}; geo[37] = {x:910,y:140}; geo[38] = {x:980,y:140}; geo[39] = {x:1050,y:140}; geo[40] = {x:1120,y:175}; geo[41] = {x:1190,y:175};
             geo[50] = {x:840,y:210}; geo[51] = {x:910,y:210}; geo[52] = {x:980,y:210}; geo[53] = {x:1050,y:210}; geo[54] = {x:1120,y:245}; geo[55] = {x:1190,y:245};
             geo[64] = {x:840,y:280}; geo[65] = {x:910,y:280}; geo[66] = {x:980,y:280}; geo[67] = {x:1050,y:280}; geo[68] = {x:1120,y:315}; geo[69] = {x:1190,y:315};
             geo[79] = {x:910,y:350}; geo[80] = {x:980,y:350}; geo[81] = {x:1050,y:350}; geo[82] = {x:1120,y:385}; geo[83] = {x:1190,y:385};
-            geo[7] = {x:707,y:105,r:45,o:"-427px 0px"}; geo[21] = {x:651,y:231,r:-30,o:"329px 0px"}; geo[35] = {x:749,y:280,r:-20,o:"231px 0px"};
-            geo[49] = {x:630,y:224,r:45,o:"-350px 0px"}; geo[63] = {x:728,y:350,r:-25,o:"252px 0px"}; geo[77] = {x:819,y:378,r:-15,o:"161px 0px"};
+            geo[7] = {x:749,y:280,r:-20,o:"231px 0px"}; geo[21] = {x:651,y:231,r:-30,o:"329px 0px"}; geo[35] = {x:490,y:105,r:-45,o:"490px 0px"};
+            geo[49] = {x:819,y:378,r:-15,o:"161px 0px"}; geo[63] = {x:728,y:350,r:-25,o:"252px 0px"}; geo[77] = {x:560,y:224,r:-45,o:"420px 0px"};
             return geo;
         })();
 
         // Perfectly resolved serpentine routing:
-        const L_THUMBS = [76, 62, 48, 34, 20, 6];
+        const L_THUMBS = [6, 20, 34, 48, 62, 76];
         const L_C5 = [19, 33, 47, 61];
         const L_C4 = [4, 18, 32, 46, 60, 74];
         const L_C3 = [3, 17, 31, 45, 59, 73];
@@ -137,7 +141,7 @@
         const L_C1 = [1, 15, 29, 43, 57, 71];
         const L_C0 = [0, 14, 28, 42, 56, 70];
 
-        const R_THUMBS = [77, 63, 49, 35, 21, 7];
+        const R_THUMBS = [7, 21, 35, 49, 63, 77];
         const R_C5 = [22, 36, 50, 64];
         const R_C4 = [9, 23, 37, 51, 65, 79];
         const R_C3 = [10, 24, 38, 52, 66, 80];
@@ -146,8 +150,8 @@
         const R_C0 = [13, 27, 41, 55, 69, 83];
 
         const LED_TO_MATRIX = [
-            ...L_THUMBS, ...L_C5, ...L_C4, ...L_C3, ...L_C2, ...L_C1, ...L_C0,
-            ...R_THUMBS, ...R_C5, ...R_C4, ...R_C3, ...R_C2, ...R_C1, ...R_C0
+            ...L_THUMBS, ...L_C5, ...L_C4, ...L_C3, ...L_C2, ...L_C0, ...L_C1,
+            ...R_THUMBS, ...R_C5, ...R_C4, ...R_C3, ...R_C2, ...R_C0, ...R_C1
         ];
         const MATRIX_TO_LED = new Array(84).fill(-1);
         LED_TO_MATRIX.forEach((matrixIdx, ledIdx) => { MATRIX_TO_LED[matrixIdx] = ledIdx; });
@@ -276,6 +280,14 @@
             }
 
             return { config: parsed, issues };
+        };
+
+        // Resolves a layer index to its display name for the UI only — the TOML itself
+        // always keeps storing/referencing layers by numeric index, unchanged.
+        const getLayerLabel = (config, layerNum) => {
+            if (layerNum === undefined || layerNum === null) return 'All Layers';
+            const l = config?.layer?.[layerNum];
+            return l?.name || l?.id || `Layer ${layerNum}`;
         };
 
         const formatKeycode = (val) => {
@@ -527,9 +539,44 @@
             return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
         };
 
-        const LightingDashboard = ({ config, activeLayer, showIndices, setShowIndices, updateConfig, isPaintMode, setIsPaintMode, paintColor, setPaintColor }) => {
+        // Diagnostic export: a smooth hue sweep across every LED (LED 0 = red, progressing
+        // through the spectrum) so a person can flash it to real hardware and immediately spot
+        // any key whose color doesn't fit its expected place in the sequence. Never touches the
+        // live editing session — this builds a completely separate config to download.
+        const generateLedTestPatternConfig = (liveConfig) => {
+            const next = JSON.parse(JSON.stringify(liveConfig));
+            next.lighting = next.lighting || {};
+            next.lighting.brightness = 255;
+            next.lighting.output_mode = 'always-on';
+            if (next.lighting.background) next.lighting.background.enabled = false;
+            delete next.lighting.conditional_scene; // avoid any override interfering with a clean read
+            const totalLeds = LED_TO_MATRIX.length;
+            next.lighting.scene = [];
+            for (let led = 0; led < totalLeds; led++) {
+                const hue = Math.round((led / totalLeds) * 255);
+                next.lighting.scene.push({ led, color: hsvToHex(hue, 255, 255), effect: 'solid' }); // no `layer` field = shows on every layer
+            }
+            return next;
+        };
+
+        const LightingDashboard = ({ config, activeLayer, showIndices, setShowIndices, updateConfig, isPaintMode, setIsPaintMode, paintColor, setPaintColor, pendingGuidedAction, setPendingGuidedAction, setSelectedKey }) => {
+            const handleDownloadLedTestPattern = () => {
+                try {
+                    const testConfig = generateLedTestPatternConfig(config);
+                    testConfig.layer.forEach(l => { l.keys = untokenizeKeys(l); delete l.tokens; delete l.tail; });
+                    const tomlString = window.smolToml.stringify(testConfig);
+                    window.smolToml.parse(tomlString); // sanity check before handing over the file
+                    const a = document.createElement('a');
+                    a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(tomlString);
+                    a.download = "led-test-pattern.toml";
+                    a.click();
+                } catch (err) {
+                    alert("Couldn't generate the test pattern: " + err.message);
+                }
+            };
+
             const handleClearAll = () => {
-                if(!confirm(`Clear ALL lighting rules mapped to Layer ${activeLayer}?`)) return;
+                if(!confirm(`Clear ALL lighting rules mapped to ${getLayerLabel(config, activeLayer)}?`)) return;
                 updateConfig(prev => {
                     const next = JSON.parse(JSON.stringify(prev));
                     if (next.lighting) {
@@ -592,9 +639,19 @@
                     </div>
                     {isPaintMode && (
                         <div className="mx-2 -mt-2 px-3 py-2 bg-[color:var(--accent-soft)] border border-[color:var(--accent)] rounded-lg text-[10px] text-[color:var(--text-main)] font-medium">
-                            Click or drag across keys on the canvas to paint them with the selected color on Layer {activeLayer}.
+                            Click or drag across keys on the canvas to paint them with the selected color on {getLayerLabel(config, activeLayer)}.
                         </div>
                     )}
+
+                    <div className="mx-2 p-3 bg-[color:var(--bg-panel)] border border-dashed border-[color:var(--border-panel)] rounded-xl">
+                        <div className="flex items-center justify-between gap-3 flex-wrap">
+                            <div>
+                                <span className="text-[10px] font-bold text-[color:var(--text-main)]">🔬 LED Test Pattern</span>
+                                <p className="text-[9px] text-[color:var(--text-muted)] mt-0.5">Downloads a separate file — every LED gets a distinct color in a smooth sweep (LED 0 = red, progressing through the spectrum). Flash it to your real keyboard to spot any key whose color doesn't fit its place in the sequence. Doesn't touch your current work.</p>
+                            </div>
+                            <button onClick={handleDownloadLedTestPattern} className="shrink-0 bg-[color:var(--accent-soft)] border border-[color:var(--accent)] text-[color:var(--accent)] hover:brightness-110 font-bold text-[10px] px-3 py-2 rounded-lg transition-all">⬇ Download Test Pattern</button>
+                        </div>
+                    </div>
                    
                     <div className="flex flex-col gap-3">
                         <div className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-3 shadow-sm">
@@ -639,15 +696,51 @@
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-center justify-center p-6 bg-[color:var(--bg-base)] border border-dashed border-[color:var(--border-panel)] rounded-xl shadow-inner text-center mt-2">
-                        <span className="text-3xl mb-2">🖱️</span>
-                        <span className="text-sm font-bold text-[color:var(--text-main)] mb-1">Select a Key to Edit Rules</span>
-                        <span className="text-[11px] text-[color:var(--text-muted)] leading-relaxed max-w-xs">Click any key on the canvas to configure its specific RGB rules, batteries, layers, and connection statuses.</span>
-                    </div>
+                    {pendingGuidedAction ? (
+                        <div className="flex flex-col items-center justify-center p-6 bg-[color:var(--accent-soft)] border border-[color:var(--accent)] rounded-xl shadow-inner text-center mt-2 animate-pulse">
+                            <span className="text-3xl mb-2">👆</span>
+                            <span className="text-sm font-bold text-[color:var(--text-main)] mb-1">Now click the key on the canvas you want to use</span>
+                            <span className="text-[11px] text-[color:var(--text-muted)] leading-relaxed max-w-xs">Setting up: {pendingGuidedAction === 'usb' ? '🔌 USB Indicator' : pendingGuidedAction === 'ble' ? '📶 BLE Indicator' : '🔋 Battery Indicator'}</span>
+                            <button onClick={() => setPendingGuidedAction(null)} className="mt-3 text-[10px] font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)]">Cancel</button>
+                        </div>
+                    ) : (
+                        <div className="flex flex-col gap-2 mt-2">
+                            <span className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest px-1">Get Started</span>
+                            <button onClick={() => setIsPaintMode(true)} className="flex items-center gap-3 p-3 bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl shadow-sm text-left hover:border-[color:var(--accent)] transition-all group">
+                                <span className="text-2xl">🖌️</span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-bold text-[color:var(--text-main)] group-hover:text-[color:var(--accent)]">Start Painting</div>
+                                    <div className="text-[10px] text-[color:var(--text-muted)]">Click or drag across keys to color them</div>
+                                </div>
+                            </button>
+                            <button onClick={() => setPendingGuidedAction('usb')} className="flex items-center gap-3 p-3 bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl shadow-sm text-left hover:border-[color:var(--accent)] transition-all group">
+                                <span className="text-2xl">🔌</span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-bold text-[color:var(--text-main)] group-hover:text-[color:var(--accent)]">Set Up a USB Indicator</div>
+                                    <div className="text-[10px] text-[color:var(--text-muted)]">Pick a key, then add its connection-status rule</div>
+                                </div>
+                            </button>
+                            <button onClick={() => setPendingGuidedAction('ble')} className="flex items-center gap-3 p-3 bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl shadow-sm text-left hover:border-[color:var(--accent)] transition-all group">
+                                <span className="text-2xl">📶</span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-bold text-[color:var(--text-main)] group-hover:text-[color:var(--accent)]">Set Up a BLE Indicator</div>
+                                    <div className="text-[10px] text-[color:var(--text-muted)]">Pick a key, then add its BLE-profile status rule</div>
+                                </div>
+                            </button>
+                            <button onClick={() => setPendingGuidedAction('battery')} className="flex items-center gap-3 p-3 bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl shadow-sm text-left hover:border-[color:var(--accent)] transition-all group">
+                                <span className="text-2xl">🔋</span>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-bold text-[color:var(--text-main)] group-hover:text-[color:var(--accent)]">Add a Battery Indicator</div>
+                                    <div className="text-[10px] text-[color:var(--text-muted)]">Pick a key, then add its battery-level rule</div>
+                                </div>
+                            </button>
+                            <span className="text-[9px] text-[color:var(--text-muted)] italic px-1 mt-1">Or click any key on the canvas directly to edit its rules manually.</span>
+                        </div>
+                    )}
 
                     {config?.lighting && (
                         <div className="p-1 mt-auto shrink-0">
-                            <button onClick={handleClearAll} className="w-full bg-red-50 dark:bg-red-950/20 text-red-500 border border-red-200 dark:border-red-900/30 font-bold py-3 rounded-xl transition-colors text-xs hover:bg-red-100 dark:hover:bg-red-900/40 shadow-sm">✕ Clear All Lights on Layer {activeLayer}</button>
+                            <button onClick={handleClearAll} className="w-full bg-red-50 dark:bg-red-950/20 text-red-500 border border-red-200 dark:border-red-900/30 font-bold py-3 rounded-xl transition-colors text-xs hover:bg-red-100 dark:hover:bg-red-900/40 shadow-sm">✕ Clear All Lights on {getLayerLabel(config, activeLayer)}</button>
                         </div>
                     )}
                 </div>
@@ -666,9 +759,9 @@
             </div>
         );
 
-        const KeyLightingEditor = ({ config, updateConfig, activeLayer, selectedKey, setSelectedKey }) => {
-            const [newRuleType, setNewRuleType] = useState('base');
-            useEffect(() => { setNewRuleType('base'); }, [selectedKey, activeLayer]);
+        const KeyLightingEditor = ({ config, updateConfig, activeLayer, selectedKey, setSelectedKey, pendingGuidedAction, setPendingGuidedAction }) => {
+            const [newRuleType, setNewRuleType] = useState(pendingGuidedAction || 'base');
+            useEffect(() => { setNewRuleType(pendingGuidedAction || 'base'); }, [selectedKey, activeLayer]);
             const ledIndex = selectedKey !== null ? MATRIX_TO_LED[selectedKey] : -1;
 
             if (ledIndex === -1) {
@@ -737,6 +830,7 @@
                     }
                     return next;
                 });
+                if (pendingGuidedAction && pendingGuidedAction === type) setPendingGuidedAction(null);
             };
 
             const deleteStatic = (globalIdx) => {
@@ -759,6 +853,17 @@
                 });
             };
 
+            const moveCondRule = (globalIdxA, globalIdxB) => {
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    const arr = next.lighting.conditional_scene;
+                    const temp = arr[globalIdxA];
+                    arr[globalIdxA] = arr[globalIdxB];
+                    arr[globalIdxB] = temp;
+                    return next;
+                });
+            };
+
             return (
                 <div className="flex flex-col gap-4 w-full p-2 h-full">
                     <div className="flex justify-between items-center border-b border-[color:var(--border-panel)] pb-3 px-1 shrink-0">
@@ -768,10 +873,17 @@
                             </button>
                             <div className="flex flex-col">
                                 <span className="text-[12px] font-bold text-[color:var(--text-main)] flex items-center gap-2">💡 LED Index: {ledIndex}</span>
-                                <span className="text-[9px] font-mono text-[color:var(--text-muted)]">Matrix Key {selectedKey} | Layer {activeLayer}</span>
+                                <span className="text-[9px] font-mono text-[color:var(--text-muted)]">Matrix Key {selectedKey} | {getLayerLabel(config, activeLayer)}</span>
                             </div>
                         </div>
                     </div>
+
+                    {pendingGuidedAction && (
+                        <div className="flex items-center gap-2 bg-[color:var(--accent-soft)] border border-[color:var(--accent)] rounded-lg px-3 py-2 mx-1 shrink-0">
+                            <span className="text-base">👇</span>
+                            <span className="text-[10px] font-bold text-[color:var(--text-main)]">Your {pendingGuidedAction === 'usb' ? 'USB' : pendingGuidedAction === 'ble' ? 'BLE' : 'Battery'} rule type is pre-selected below — hit "+ Add" to create it.</span>
+                        </div>
+                    )}
 
                     <div className="flex flex-col gap-3 overflow-y-auto pr-2 pb-10 hide-scrollbar">
                         {staticScenes.map((s) => (
@@ -795,7 +907,10 @@
                             </div>
                         ))}
 
-                        {condScenes.map((s) => {
+                        {condScenes.length > 1 && (
+                            <p className="text-[9px] text-[color:var(--text-muted)] italic px-1">When more than one rule below is true at once, the one lower in this list wins — use ▲▼ to reorder.</p>
+                        )}
+                        {condScenes.map((s, i) => {
                             let type = 'layer'; let icon = '🎯'; let title = 'Layer Active';
                             if (s.battery) { type = 'battery'; icon = '🔋'; title = `Battery (Node ${s.battery.node})`; }
                             else if (s.connection) { type = 'connection'; icon = s.connection.usb_connected !== undefined ? '🔌' : '📶'; title = s.connection.profile !== undefined ? `BLE Profile ${s.connection.profile + 1}` : `USB Connection`; }
@@ -810,7 +925,11 @@
                                         <div className="flex items-center gap-2 font-bold text-xs">
                                             <span>{icon}</span> <span>{title}</span>
                                         </div>
-                                        <button onClick={() => deleteCond(s._globalIdx)} className="text-[10px] p-1 text-red-500 hover:bg-red-500/10 rounded font-bold">✕</button>
+                                        <div className="flex items-center gap-1">
+                                            <button onClick={() => i > 0 && moveCondRule(s._globalIdx, condScenes[i-1]._globalIdx)} disabled={i === 0} title="Move up (earlier = lower priority)" className="text-[10px] p-1 text-[color:var(--text-muted)] hover:text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] rounded font-bold disabled:opacity-25 disabled:pointer-events-none">▲</button>
+                                            <button onClick={() => i < condScenes.length - 1 && moveCondRule(s._globalIdx, condScenes[i+1]._globalIdx)} disabled={i === condScenes.length - 1} title="Move down (later = higher priority — wins ties)" className="text-[10px] p-1 text-[color:var(--text-muted)] hover:text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] rounded font-bold disabled:opacity-25 disabled:pointer-events-none">▼</button>
+                                            <button onClick={() => deleteCond(s._globalIdx)} className="text-[10px] p-1 text-red-500 hover:bg-red-500/10 rounded font-bold">✕</button>
+                                        </div>
                                     </div>
                                    
                                     {type === 'battery' && (
@@ -845,7 +964,7 @@
 
                                     {type === 'connection' && (
                                         <div className="flex gap-2">
-                                            <select value={s.connection.usb_connected !== undefined ? 'usb' : (s.connection.profile ?? 0)} onChange={e=>{
+                                            <select value={s.connection.usb_connected !== undefined ? 'usb' : (s.connection.profile ?? s.connection.bonded?.slot ?? 0)} onChange={e=>{
                                                 updateConfig(prev => {
                                                     const next = JSON.parse(JSON.stringify(prev));
                                                     next.lighting.conditional_scene[s._globalIdx].connection = {};
@@ -860,8 +979,8 @@
                                                 <option value="2">BLE Profile 3</option>
                                             </select>
                                             {s.connection.usb_connected === undefined && (
-                                                <select value={s.connection.ble_state || (s.connection.bonded !== undefined ? (s.connection.bonded ? 'bonded' : 'unbonded') : 'connected')} onChange={e=>{
-                                                    const prof = s.connection.profile ?? 0;
+                                                <select value={s.connection.ble_state || (s.connection.bonded !== undefined ? (s.connection.bonded.bonded ? 'bonded' : 'unbonded') : 'connected')} onChange={e=>{
+                                                    const prof = s.connection.profile ?? s.connection.bonded?.slot ?? 0;
                                                     updateConfig(prev => {
                                                         const next = JSON.parse(JSON.stringify(prev));
                                                         next.lighting.conditional_scene[s._globalIdx].connection = {};
@@ -904,12 +1023,12 @@
 
                         {staticScenes.length === 0 && condScenes.length === 0 && (
                             <div className="text-[10px] text-center text-[color:var(--text-muted)] italic py-6 bg-[color:var(--bg-base)] border border-dashed border-[color:var(--border-panel)] rounded-xl m-1">
-                                No lighting rules currently applied to this key on Layer {activeLayer}.
+                                No lighting rules currently applied to this key on {getLayerLabel(config, activeLayer)}.
                             </div>
                         )}
                        
                         <div className="flex gap-2 mt-2 pt-4 border-t border-[color:var(--border-panel)] shrink-0">
-                            <select value={newRuleType} onChange={e => setNewRuleType(e.target.value)} className="input-field py-2 px-3 text-xs font-bold text-[color:var(--accent)] flex-1 shadow-sm border border-[color:var(--accent-soft)]">
+                            <select value={newRuleType} onChange={e => { setNewRuleType(e.target.value); if (pendingGuidedAction && e.target.value !== pendingGuidedAction) setPendingGuidedAction(null); }} className="input-field py-2 px-3 text-xs font-bold text-[color:var(--accent)] flex-1 shadow-sm border border-[color:var(--accent-soft)]">
                                 <option value="base" disabled={hasBaseRule}>{hasBaseRule ? 'Static Base Color (already set)' : 'Static Base Color'}</option>
                                 <option value="battery">🔋 Battery Indicator</option>
                                 <option value="usb">🔌 USB Connection</option>
@@ -918,7 +1037,7 @@
                                 <option value="num">🔢 Num Lock Active</option>
                                 <option value="scroll">📜 Scroll Lock Active</option>
                                 <option value="effects_enabled">✨ RGB Effects Enabled</option>
-                                <option value="layer_active">🎯 Layer {activeLayer} Active Indicator</option>
+                                <option value="layer_active">🎯 {getLayerLabel(config, activeLayer)} Active Indicator</option>
                             </select>
                             <button onClick={() => addRule(newRuleType)} className="bg-[color:var(--bg-panel)] text-[color:var(--text-main)] border border-[color:var(--border-panel)] hover:bg-[color:var(--accent)] hover:border-[color:var(--accent)] hover:text-white px-4 py-2 rounded-lg text-xs font-bold transition-all shadow-sm shrink-0">+ Add</button>
                         </div>
@@ -968,29 +1087,31 @@
 
             const cleanUpUnused = () => {
                 try {
-                    const next = JSON.parse(JSON.stringify(config));
                     let removedCount = 0;
-                    ['morse', 'tap_dance', 'macro', 'combo', 'mod_morph'].forEach(b => {
-                        if (next[b] && Array.isArray(next[b])) {
-                            next[b] = next[b].filter((item, idx) => {
-                                const ids = getIdentifiersForBlock(next, b, null, item, idx);
-                                if (getUsageCount(next, ids) === 0) { removedCount++; return false; }
-                                return true;
-                            });
-                            if (next[b].length === 0) delete next[b];
-                        }
-                    });
-                    if (next.behavior) {
-                        ['morse', 'tap_dance', 'mod_morph', 'macro'].forEach(type => {
-                            if (next.behavior[type]?.profiles) {
-                                Object.keys(next.behavior[type].profiles).forEach(k => {
-                                    if (getUsageCount(next, [k, `&${k}`]) === 0) { delete next.behavior[type].profiles[k]; removedCount++; }
+                    updateConfig(prev => {
+                        const next = JSON.parse(JSON.stringify(prev));
+                        ['morse', 'tap_dance', 'macro', 'combo', 'mod_morph'].forEach(b => {
+                            if (next[b] && Array.isArray(next[b])) {
+                                next[b] = next[b].filter((item, idx) => {
+                                    const ids = getIdentifiersForBlock(next, b, null, item, idx);
+                                    if (getUsageCount(next, ids) === 0) { removedCount++; return false; }
+                                    return true;
                                 });
-                                if (Object.keys(next.behavior[type].profiles).length === 0) delete next.behavior[type].profiles;
+                                if (next[b].length === 0) delete next[b];
                             }
                         });
-                    }
-                    updateConfig(next);
+                        if (next.behavior) {
+                            ['morse', 'tap_dance', 'mod_morph', 'macro'].forEach(type => {
+                                if (next.behavior[type]?.profiles) {
+                                    Object.keys(next.behavior[type].profiles).forEach(k => {
+                                        if (getUsageCount(next, [k, `&${k}`]) === 0) { delete next.behavior[type].profiles[k]; removedCount++; }
+                                    });
+                                    if (Object.keys(next.behavior[type].profiles).length === 0) delete next.behavior[type].profiles;
+                                }
+                            });
+                        }
+                        return next;
+                    });
                     alert(`Cleaned up ${removedCount} orphaned behaviors.`);
                 } catch (e) { alert("Cleanup error: " + e.message); }
             };
@@ -1055,76 +1176,82 @@
             const usage = getUsageCount(config, identifiers);
 
             const handleMove = (dir) => {
-                const next = JSON.parse(JSON.stringify(config));
-                const temp = next[blockName][idx];
-                next[blockName][idx] = next[blockName][idx + dir];
-                next[blockName][idx + dir] = temp;
-               
-                if (!item.name) {
-                    const idsA = getImplicitIds(blockName, idx);
-                    const idsB = getImplicitIds(blockName, idx+dir);
-                    const TEMP = "__TEMP_SWAP__";
-                    idsA.forEach(id => {
-                        const regexA = new RegExp(`(?:^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
-                        next.layer.forEach(l => l.tokens?.forEach(t => t.text = t.text.replace(regexA, `$1${TEMP}`)));
-                    });
-                    idsB.forEach((id, arrIdx) => {
-                        const regexB = new RegExp(`(?:^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
-                        next.layer.forEach(l => l.tokens?.forEach(t => t.text = t.text.replace(regexB, `$1${idsA[arrIdx]}`)));
-                    });
-                    next.layer.forEach(l => l.tokens?.forEach(t => { if (t.text.includes(TEMP)) t.text = t.text.replace(TEMP, idsB[0]); }));
-                }
-                updateConfig(next);
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    const temp = next[blockName][idx];
+                    next[blockName][idx] = next[blockName][idx + dir];
+                    next[blockName][idx + dir] = temp;
+
+                    if (!item.name) {
+                        const idsA = getImplicitIds(blockName, idx);
+                        const idsB = getImplicitIds(blockName, idx+dir);
+                        const TEMP = "__TEMP_SWAP__";
+                        idsA.forEach(id => {
+                            const regexA = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                            next.layer.forEach(l => l.tokens?.forEach(t => t.text = t.text.replace(regexA, `$1${TEMP}`)));
+                        });
+                        idsB.forEach((id, arrIdx) => {
+                            const regexB = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                            next.layer.forEach(l => l.tokens?.forEach(t => t.text = t.text.replace(regexB, `$1${idsA[arrIdx]}`)));
+                        });
+                        next.layer.forEach(l => l.tokens?.forEach(t => { if (t.text.includes(TEMP)) t.text = t.text.replace(TEMP, idsB[0]); }));
+                    }
+                    return next;
+                });
             };
 
             const handleDeleteArr = () => {
                 if (usage > 0 && !confirm(`⚠️ Warning: Used by ${usage} references. Deleting resets those to KC_NO. Proceed?`)) return;
-                const next = JSON.parse(JSON.stringify(config));
-                next[blockName].splice(idx, 1);
-                if (next[blockName].length === 0) delete next[blockName];
+                updateConfig(prev => {
+                    const next = JSON.parse(JSON.stringify(prev));
+                    next[blockName].splice(idx, 1);
+                    if (next[blockName].length === 0) delete next[blockName];
 
-                if (usage > 0) {
-                    identifiers.forEach(id => {
-                        const regex = new RegExp(`(?:^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
-                        next.layer.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1KC_NO`); }));
-                        ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
-                            if (next[b]) next[b] = deleteInObj(next[b], identifiers);
-                        });
-                    });
-                }
-                for(let i = idx + 1; i <= (next[blockName]?.length || 0); i++) {
-                    const oldIds = getImplicitIds(blockName, i);
-                    const newIds = getImplicitIds(blockName, i - 1);
-                    if (oldIds.length) {
-                        oldIds.forEach((oldId, j) => {
-                            const regex = new RegExp(`(?:^|\\W)(${String(oldId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
-                            next.layer.forEach(l => l.tokens?.forEach(t => t.text = t.text.replace(regex, `$1${newIds[j]}`)));
+                    if (usage > 0) {
+                        identifiers.forEach(id => {
+                            const regex = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                            next.layer.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1KC_NO`); }));
                             ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
-                                if (next[b]) next[b] = replaceInObj(next[b], [oldId], newIds[j]);
+                                if (next[b]) next[b] = deleteInObj(next[b], identifiers);
                             });
                         });
                     }
-                }
-                updateConfig(next);
+                    for(let i = idx + 1; i <= (next[blockName]?.length || 0); i++) {
+                        const oldIds = getImplicitIds(blockName, i);
+                        const newIds = getImplicitIds(blockName, i - 1);
+                        if (oldIds.length) {
+                            oldIds.forEach((oldId, j) => {
+                                const regex = new RegExp(`(^|\\W)(${String(oldId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                                next.layer.forEach(l => l.tokens?.forEach(t => t.text = t.text.replace(regex, `$1${newIds[j]}`)));
+                                ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
+                                    if (next[b]) next[b] = replaceInObj(next[b], [oldId], newIds[j]);
+                                });
+                            });
+                        }
+                    }
+                    return next;
+                });
             };
 
             const handleRenameArr = () => {
                 const newName = prompt('Rename behavior:', item.name || identifiers[0]);
                 if (newName && newName.trim() !== (item.name || identifiers[0])) {
                     const cleanName = newName.trim();
-                    const next = JSON.parse(JSON.stringify(config));
-                    next[blockName][idx].name = cleanName;
-                   
-                    if (usage > 0) {
-                        identifiers.forEach(id => {
-                            const regex = new RegExp(`(?:^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
-                            next.layer.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1${cleanName}`); }));
-                        });
-                        ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
-                            if (next[b]) next[b] = replaceInObj(next[b], identifiers, cleanName);
-                        });
-                    }
-                    updateConfig(next);
+                    updateConfig(prev => {
+                        const next = JSON.parse(JSON.stringify(prev));
+                        next[blockName][idx].name = cleanName;
+
+                        if (usage > 0) {
+                            identifiers.forEach(id => {
+                                const regex = new RegExp(`(^|\\W)(${String(id).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
+                                next.layer.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1${cleanName}`); }));
+                            });
+                            ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
+                                if (next[b]) next[b] = replaceInObj(next[b], identifiers, cleanName);
+                            });
+                        }
+                        return next;
+                    });
                 }
             };
 
@@ -1163,7 +1290,7 @@
         };
 
         // --- 7. RENDER COMPONENTS ---
-        const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect, onSwap, lightingColor, lightingEffect, lightingPeriodMs, lightingPhaseMs, isLightingMode, lightingIcons, showIndices, isPaintMode, onPaintDown, onPaintEnter }) => {
+        const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect, onSwap, lightingColor, lightingEffect, lightingPeriodMs, lightingPhaseMs, isLightingMode, lightingIcons, showIndices, isPaintMode, onPaintDown, onPaintEnter, isPreviewFlash, previewFlashDurationMs }) => {
             const [isDragOver, setIsDragOver] = useState(false);
             if (geo.hidden) return null;
             const isTrans = binding === '_______' || binding === 'KC_TRNS';
@@ -1203,6 +1330,7 @@
                         className={`matrix-key lighting-mode ${!lightingColor ? 'lighting-off' : 'lighting-glow'} ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'selected' : ''}`}
                         style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }} title={isPaintMode ? `Click or drag to paint | Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}` : `Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}${lightingEffect && lightingEffect !== 'solid' ? ` | Effect: ${lightingEffect}` : ''}`}>
                        
+                        {isPreviewFlash && <div key={`flash-${index}`} className="absolute inset-0 pointer-events-none z-30" style={{ borderRadius: 'inherit', backgroundColor: lightingColor || '#ffc247', animation: `key-preview-flash-overlay ${previewFlashDurationMs || 550}ms ease-out` }} />}
                         {showIndices ? (
                             <div className="flex flex-col items-center justify-center pointer-events-none drop-shadow-md">
                                 <span className="text-[14px] font-mono font-bold leading-none text-white opacity-95">L:{MATRIX_TO_LED[index]}</span>
@@ -1221,13 +1349,14 @@
             return (
                 <div draggable={true} onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData('text/plain', index); }} onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const src = parseInt(e.dataTransfer.getData('text/plain'), 10); if(!isNaN(src) && src!==index) onSwap(src, index); }}
                     className={`matrix-key ${isSelected ? 'selected' : ''} ${isTrans ? 'trans' : ''} ${isDead ? 'dead' : ''} ${isDragOver ? 'drag-over' : ''}`}
-                    style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }} title="Drag to swap keys">
+                    style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }} title={`Matrix: ${index}${showIndices ? '' : ' | Drag to swap keys'}`}>
+                    {showIndices && <span className="absolute top-0.5 left-1 text-[9px] font-mono font-bold opacity-60 pointer-events-none leading-none">{index}</span>}
                     <span className="text-clamp" style={{ fontSize: `${keyFontSize}px` }}>{labelText}</span>
                 </div>
             );
-        }, (p, n) => p.isSelected === n.isSelected && p.binding === n.binding && p.baseBinding === n.baseBinding && p.geo === n.geo && p.lightingColor === n.lightingColor && p.lightingEffect === n.lightingEffect && p.lightingPeriodMs === n.lightingPeriodMs && p.lightingPhaseMs === n.lightingPhaseMs && p.isLightingMode === n.isLightingMode && JSON.stringify(p.lightingIcons) === JSON.stringify(n.lightingIcons) && p.showIndices === n.showIndices && p.isPaintMode === n.isPaintMode);
+        }, (p, n) => p.isSelected === n.isSelected && p.binding === n.binding && p.baseBinding === n.baseBinding && p.geo === n.geo && p.lightingColor === n.lightingColor && p.lightingEffect === n.lightingEffect && p.lightingPeriodMs === n.lightingPeriodMs && p.lightingPhaseMs === n.lightingPhaseMs && p.isLightingMode === n.isLightingMode && JSON.stringify(p.lightingIcons) === JSON.stringify(n.lightingIcons) && p.showIndices === n.showIndices && p.isPaintMode === n.isPaintMode && p.isPreviewFlash === n.isPreviewFlash && p.previewFlashDurationMs === n.previewFlashDurationMs);
 
-        const KeyboardContainer = ({ layerTokens, baseTokens, selectedKey, onSelectKey, scale, pan, isPanning, onPanStart, onPanMove, onPanEnd, onSwap, lightingScenes, isLightingMode, showIndices, isPaintMode, onPaintDown, onPaintEnter }) => {
+        const KeyboardContainer = ({ layerTokens, baseTokens, selectedKey, onSelectKey, scale, pan, isPanning, onPanStart, onPanMove, onPanEnd, onSwap, lightingScenes, isLightingMode, showIndices, isPaintMode, onPaintDown, onPaintEnter, previewFlashes, previewFlashDurationMs }) => {
             const { keyboardGeo, isFallback } = useMemo(() => {
                 const count = layerTokens.length;
                 if (count === 84) return { keyboardGeo: GLOVE80_GEO, isFallback: false };
@@ -1236,7 +1365,7 @@
            
             return (
                 <div id="matrix-drag-surface" className="w-full h-full flex items-center justify-center overflow-hidden touch-none" onPointerDown={isPaintMode ? undefined : onPanStart} onPointerMove={isPaintMode ? undefined : onPanMove} onPointerUp={onPanEnd} onPointerCancel={onPanEnd} onPointerLeave={onPanEnd} onClick={() => onSelectKey(null)}>
-                    <div className={isFallback ? "grid grid-cols-12 gap-2 p-10 transition-transform origin-center" : "relative w-[1260px] h-[450px] origin-center transition-transform pointer-events-auto"} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transitionDuration: isPanning ? '0ms' : '150ms' }}>
+                    <div id="keyboard-inner" className={isFallback ? "grid grid-cols-12 gap-2 p-10 transition-transform origin-center" : "relative w-[1260px] h-[450px] origin-center transition-transform pointer-events-auto"} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`, transitionDuration: isPanning ? '0ms' : '150ms' }}>
                         {layerTokens.map((token, index) => {
                             let color = null; let icons = []; let effect = null; let periodMs = 800; let phaseMs = 0;
                             if (isLightingMode && lightingScenes) {
@@ -1261,14 +1390,14 @@
                                     if (stack.some(s => s.layer?.active && !s.battery && !s.connection && !s.caps_lock && !s.num_lock && !s.scroll_lock && !s.effects)) icons.push('🎯');
                                 }
                             }
-                            return <KeyComponent key={`matrix-key-${index}`} index={index} geo={keyboardGeo[index] || {hidden: true}} binding={token} baseBinding={baseTokens?.[index]} isSelected={selectedKey === index} onSelect={onSelectKey} onSwap={onSwap} lightingColor={color} lightingEffect={effect} lightingPeriodMs={periodMs} lightingPhaseMs={phaseMs} isLightingMode={isLightingMode} lightingIcons={icons} showIndices={showIndices} isPaintMode={isPaintMode} onPaintDown={onPaintDown} onPaintEnter={onPaintEnter} />;
+                            return <KeyComponent key={`matrix-key-${index}`} index={index} geo={keyboardGeo[index] || {hidden: true}} binding={token} baseBinding={baseTokens?.[index]} isSelected={selectedKey === index} onSelect={onSelectKey} onSwap={onSwap} lightingColor={color} lightingEffect={effect} lightingPeriodMs={periodMs} lightingPhaseMs={phaseMs} isLightingMode={isLightingMode} lightingIcons={icons} showIndices={showIndices} isPaintMode={isPaintMode} onPaintDown={onPaintDown} onPaintEnter={onPaintEnter} isPreviewFlash={previewFlashes && previewFlashes[index] !== undefined} previewFlashDurationMs={previewFlashDurationMs} />;
                         })}
                     </div>
                 </div>
             );
         };
 
-        const EffectsPanel = ({ config, updateConfig, setSelectedKey, setActiveLayer, setView }) => {
+        const EffectsPanel = ({ config, updateConfig, setSelectedKey, setActiveLayer, setView, isPreviewingEffect, setIsPreviewingEffect }) => {
             const lighting = config.lighting || {};
             const staticRules = (lighting.scene || []).map((s, i) => ({ ...s, _kind: 'scene', _idx: i }));
             const condRules = (lighting.conditional_scene || []).map((s, i) => ({ ...s, _kind: 'conditional_scene', _idx: i }));
@@ -1313,12 +1442,15 @@
             const knownAmbientEffectNames = ['Ripple', 'Reactive', 'Sparkle', 'Comet', 'Rain', 'Crosshair'];
             const knownPalettes = ['Amber', 'Polarized', 'Viridis'];
             const knownRuleEffects = ['solid', 'blink', 'breath'];
+            const knownEffectKeys = ['effect', 'palette', 'value', 'speed'];
+            const extraEffectFields = Object.fromEntries(Object.entries(lighting.effects || {}).filter(([k]) => !knownEffectKeys.includes(k)));
+            const [showAdvancedEffects, setShowAdvancedEffects] = useState(Object.keys(extraEffectFields).length > 0);
 
             return (
                 <div className="flex flex-col gap-4 w-full h-full">
                     <div className="px-2 border-b border-[color:var(--border-panel)] pb-3">
                         <h4 className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest">All Effects In This File</h4>
-                        <p className="text-[9px] text-[color:var(--text-muted)] italic mt-1">Every effect used anywhere in your lighting config, in one place. Blink/Breath rules now preview their real timing on the Lighting canvas — named ambient effects (Reactive, Comet, Rain, etc.) aren't animated here since their actual rendering is firmware-specific.</p>
+                        <p className="text-[9px] text-[color:var(--text-muted)] italic mt-1">Every effect used anywhere in your lighting config, in one place. Blink/Breath rules preview their real timing on the Lighting canvas. Named ambient effects (Reactive, Comet, Rain, etc.) can be simulated with the Preview button below — pacing follows your configured Speed, and Sparkle/Rain/Comet get a distinct flash pattern, but it's still a stylized simulation, not an exact reproduction of your firmware's real rendering.</p>
                     </div>
 
                     <div className="flex-1 overflow-y-auto flex flex-col gap-2 px-0.5">
@@ -1330,6 +1462,29 @@
                             <EnumField label="Palette" value={lighting.effects?.palette ?? ''} onChange={v => updateGlobalEffect('palette', v)} knownOptions={knownPalettes} />
                             <SliderField label="Value" value={lighting.effects?.value} onChange={v => updateGlobalEffect('value', v)} />
                             <SliderField label="Speed" value={lighting.effects?.speed} onChange={v => updateGlobalEffect('speed', v)} />
+
+                            <button type="button" onClick={() => setIsPreviewingEffect(p => !p)} className={`w-full mt-2 py-2 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-2 ${isPreviewingEffect ? 'bg-red-500/10 border-red-500 text-red-500' : 'bg-[color:var(--accent-soft)] border-[color:var(--accent)] text-[color:var(--accent)] hover:brightness-110'}`}>
+                                {isPreviewingEffect ? '■ Stop Preview' : `▶ Preview "${lighting.effects?.effect || 'Effect'}" (simulated key presses)`}
+                            </button>
+                            {isPreviewingEffect && <p className="text-[9px] text-[color:var(--text-muted)] italic mt-1 text-center">Watch the canvas — random keys are flashing to simulate presses.</p>}
+
+                            <button type="button" onClick={() => setShowAdvancedEffects(s => !s)} className="text-[9px] font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] mt-1">
+                                {showAdvancedEffects ? '▾ Hide advanced fields' : '▸ Advanced fields'}
+                            </button>
+                            {showAdvancedEffects && (
+                                <div className="mt-2 pt-2 border-t border-dashed border-[color:var(--border-panel)]">
+                                    <ObjectEditor obj={extraEffectFields} onChange={(val) => {
+                                        updateConfig(prev => {
+                                            const next = JSON.parse(JSON.stringify(prev));
+                                            if (!next.lighting) next.lighting = {};
+                                            const current = next.lighting.effects || {};
+                                            next.lighting.effects = { effect: current.effect, palette: current.palette, value: current.value, speed: current.speed, ...val };
+                                            return next;
+                                        });
+                                    }} depth={1} />
+                                    <p className="text-[9px] text-[color:var(--text-muted)] italic mt-1">Per-effect tuning tables (like a "params" table with Crosshair/Comet/Rain settings) and any other extra fields your firmware supports show up here.</p>
+                                </div>
+                            )}
                         </div>
 
                         {allRules.length === 0 ? (
@@ -1345,7 +1500,7 @@
                                     <div className="w-6 h-6 rounded-full border border-[color:var(--border-panel)] shrink-0" style={{ backgroundColor: r.color || 'transparent' }} title={r.color || 'no color'} />
                                     <div className="flex-1 min-w-0">
                                         <div className="text-[11px] font-bold truncate text-[color:var(--text-main)]">{badge.icon} {badge.title}</div>
-                                        <div className="text-[9px] text-[color:var(--text-muted)]">LED {r.led} · Matrix {matrixIdx >= 0 ? matrixIdx : '—'} · Layer {layerNum ?? 'All'}</div>
+                                        <div className="text-[9px] text-[color:var(--text-muted)]">LED {r.led} · Matrix {matrixIdx >= 0 ? matrixIdx : '—'} · {getLayerLabel(config, layerNum)}</div>
                                     </div>
                                     <div className="w-28 shrink-0">
                                         <EnumField value={r.effect ?? 'solid'} onChange={v => updateRuleEffect(r._kind, r._idx, v)} knownOptions={knownRuleEffects} />
@@ -1359,11 +1514,13 @@
             );
         };
 
-        const Inspector = ({ view, setView, config, activeLayer, setActiveLayer, selectedKey, setSelectedKey, updateConfig, tabs, isDockedBottom, toggleDock, handleRenameBlockKey, handleDeleteBlockKey, showIndices, setShowIndices, clipboard, setClipboard, isPaintMode, setIsPaintMode, paintColor, setPaintColor }) => {
+        const Inspector = ({ view, setView, config, activeLayer, setActiveLayer, selectedKey, setSelectedKey, updateConfig, tabs, isDockedBottom, toggleDock, handleRenameBlockKey, handleDeleteBlockKey, showIndices, setShowIndices, clipboard, setClipboard, isPaintMode, setIsPaintMode, paintColor, setPaintColor, isPreviewingEffect, setIsPreviewingEffect }) => {
             const [editMode, setEditMode] = useState('visual');
             const [localObj, setLocalObj] = useState(null);
             const [localStr, setLocalStr] = useState("");
             const [error, setError] = useState("");
+            const [pendingGuidedAction, setPendingGuidedAction] = useState(null); // 'usb' | 'ble' | 'battery' — set by the Lighting tab's guided entry points, consumed by KeyLightingEditor
+            useEffect(() => { if (selectedKey === null) setPendingGuidedAction(null); }, [selectedKey]);
            
             const currentTokenText = selectedKey !== null && config.layer[activeLayer].tokens ? config.layer[activeLayer].tokens[selectedKey]?.text || "" : "";
 
@@ -1401,21 +1558,29 @@
 
             const handleSave = () => {
                 try {
-                    const newConfig = JSON.parse(JSON.stringify(config));
+                    let safeValue, layerMetaData, blockData;
                     if (view === 'key') {
                         if (selectedKey === null) return;
-                        const safeValue = localStr.trim().replace(/\s+/g, '');
+                        safeValue = localStr.trim().replace(/\s+/g, '');
                         if (!safeValue) throw new Error("Keycode cannot be empty.");
-                        newConfig.layer[activeLayer].tokens[selectedKey].text = safeValue;
                     } else if (view === 'layer_meta') {
-                        const data = editMode === 'visual' ? localObj : window.smolToml.parse(localStr);
-                        if (data.id !== undefined) newConfig.layer[activeLayer].id = data.id;
-                        if (data.name !== undefined) newConfig.layer[activeLayer].name = data.name;
+                        layerMetaData = editMode === 'visual' ? localObj : window.smolToml.parse(localStr);
                     } else if (view !== 'raw_toml' && view !== 'tracker' && view !== 'lighting' && view !== 'effects') {
-                        const data = editMode === 'visual' ? localObj : window.smolToml.parse(localStr)[view];
-                        if (data !== undefined && Object.keys(data).length > 0) newConfig[view] = data; else delete newConfig[view];
+                        blockData = editMode === 'visual' ? localObj : window.smolToml.parse(localStr)[view];
                     }
-                    updateConfig(newConfig); setError("");
+                    updateConfig(prev => {
+                        const newConfig = JSON.parse(JSON.stringify(prev));
+                        if (view === 'key') {
+                            newConfig.layer[activeLayer].tokens[selectedKey].text = safeValue;
+                        } else if (view === 'layer_meta') {
+                            if (layerMetaData.id !== undefined) newConfig.layer[activeLayer].id = layerMetaData.id;
+                            if (layerMetaData.name !== undefined) newConfig.layer[activeLayer].name = layerMetaData.name;
+                        } else if (view !== 'raw_toml' && view !== 'tracker' && view !== 'lighting' && view !== 'effects') {
+                            if (blockData !== undefined && Object.keys(blockData).length > 0) newConfig[view] = blockData; else delete newConfig[view];
+                        }
+                        return newConfig;
+                    });
+                    setError("");
                 } catch (err) { setError(err.message); }
             };
 
@@ -1435,9 +1600,11 @@
                 if (selectedKey === null || !clipboard) return;
 
                 if (view === 'key' && clipboard.type === 'key') {
-                    const next = JSON.parse(JSON.stringify(config));
-                    next.layer[activeLayer].tokens[selectedKey].text = clipboard.data;
-                    updateConfig(next);
+                    updateConfig(prev => {
+                        const next = JSON.parse(JSON.stringify(prev));
+                        next.layer[activeLayer].tokens[selectedKey].text = clipboard.data;
+                        return next;
+                    });
                 } else if (view === 'lighting' && clipboard.type === 'lighting') {
                     const led = MATRIX_TO_LED[selectedKey];
                     if (led === -1) return alert("Selected key has no physical LED to paste onto.");
@@ -1485,7 +1652,12 @@
                             <div className={`flex flex-col ${isDockedBottom ? 'w-1/3 shrink-0' : 'mb-4'}`}>
                                 <div className="mb-4 flex justify-between items-center shrink-0">
                                     <h3 className="font-bold text-sm capitalize flex items-center gap-2">
-                                        {view === 'key' ? (selectedKey !== null ? `Layer ${activeLayer} : Key ${selectedKey}` : 'No Key Selected') : `${view.replace('_', ' ')}`}
+                                        {view === 'key' ? (selectedKey !== null ? (
+                                            <span className="flex items-baseline gap-2">
+                                                <span>{getLayerLabel(config, activeLayer)}</span>
+                                                <span className="text-[color:var(--text-muted)] font-mono text-xs font-normal">Matrix {selectedKey}{MATRIX_TO_LED[selectedKey] >= 0 ? ` · LED ${MATRIX_TO_LED[selectedKey]}` : ' · no LED'}</span>
+                                            </span>
+                                        ) : 'No Key Selected') : `${view.replace('_', ' ')}`}
                                     </h3>
                                     <div className="flex gap-2 items-center">
                                         {view === 'key' && selectedKey !== null && (
@@ -1516,7 +1688,7 @@
                             {view === 'tracker' ? (
                                 <TrackerPanel config={config} updateConfig={updateConfig} />
                             ) : view === 'effects' ? (
-                                <EffectsPanel config={config} updateConfig={updateConfig} setSelectedKey={setSelectedKey} setActiveLayer={setActiveLayer} setView={setView} />
+                                <EffectsPanel config={config} updateConfig={updateConfig} setSelectedKey={setSelectedKey} setActiveLayer={setActiveLayer} setView={setView} isPreviewingEffect={isPreviewingEffect} setIsPreviewingEffect={setIsPreviewingEffect} />
                             ) : view === 'lighting' ? (
                                 <>
                                     {selectedKey !== null && (
@@ -1526,9 +1698,9 @@
                                         </div>
                                     )}
                                     {selectedKey === null ? (
-                                        <LightingDashboard config={config} activeLayer={activeLayer} showIndices={showIndices} setShowIndices={setShowIndices} updateConfig={updateConfig} isPaintMode={isPaintMode} setIsPaintMode={setIsPaintMode} paintColor={paintColor} setPaintColor={setPaintColor} />
+                                        <LightingDashboard config={config} activeLayer={activeLayer} showIndices={showIndices} setShowIndices={setShowIndices} updateConfig={updateConfig} isPaintMode={isPaintMode} setIsPaintMode={setIsPaintMode} paintColor={paintColor} setPaintColor={setPaintColor} pendingGuidedAction={pendingGuidedAction} setPendingGuidedAction={setPendingGuidedAction} setSelectedKey={setSelectedKey} />
                                     ) : (
-                                        <KeyLightingEditor config={config} updateConfig={updateConfig} activeLayer={activeLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} />
+                                        <KeyLightingEditor config={config} updateConfig={updateConfig} activeLayer={activeLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} pendingGuidedAction={pendingGuidedAction} setPendingGuidedAction={setPendingGuidedAction} />
                                     )}
                                 </>
                             ) : (view !== 'key' || selectedKey !== null) ? (
@@ -1573,6 +1745,52 @@
            
             const [scale, setScale] = useState(0.85);
             const [pan, setPan] = useState({ x: 0, y: -60 });
+            const canvasWrapperRef = useRef(null);
+            const toolbarRef = useRef(null);
+            const KB_NATURAL_W = 1260, KB_NATURAL_H = 450;
+
+            const autoFitCanvas = useCallback(() => {
+                const el = canvasWrapperRef.current;
+                if (!el) return;
+                const { clientWidth: w, clientHeight: h } = el;
+                if (w === 0 || h === 0) return;
+                const tokenCount = config?.layer?.[activeLayer]?.tokens?.length || 0;
+                if (tokenCount !== 84) return; // non-standard (fallback grid) layout — its own flow/wrap sizing, not a fixed-size canvas to fit
+
+                // Measure the toolbar's actual rendered footprint instead of guessing a fixed
+                // pixel value — it's absolutely positioned inside this same container, so it
+                // never reduces clientHeight even though it visually covers part of it.
+                const toolbarH = toolbarRef.current ? toolbarRef.current.getBoundingClientRect().height : 40;
+                const chromeReserve = toolbarH + 24 /* top-6 offset */ + 16 /* breathing room */;
+
+                // The keyboard is vertically centered, so reserving clearance at the top costs
+                // double from the fit budget (half comes off the top margin, half off the
+                // bottom, to keep it centered while still clearing the toolbar).
+                const effectiveH = Math.max(h - chromeReserve * 2, 80);
+                const fitScale = Math.min(w / KB_NATURAL_W, effectiveH / KB_NATURAL_H) * 0.94;
+                const clampedScale = Math.max(0.2, Math.min(2.0, fitScale));
+                setScale(clampedScale);
+                setPan({ x: 0, y: 0 });
+
+                // Verification pass: after the browser has actually painted the new scale,
+                // measure the real rendered keyboard against the real wrapper bounds. If it
+                // still overflows for any reason this calculation didn't anticipate, shrink
+                // further until it genuinely fits — correct by measurement, not by assumption.
+                requestAnimationFrame(() => requestAnimationFrame(() => {
+                    const wrapperEl = canvasWrapperRef.current;
+                    const kbEl = document.getElementById('keyboard-inner');
+                    if (!wrapperEl || !kbEl) return;
+                    const wrapperRect = wrapperEl.getBoundingClientRect();
+                    const kbRect = kbEl.getBoundingClientRect();
+                    const topOverflow = Math.max(0, wrapperRect.top - kbRect.top);
+                    const bottomOverflow = Math.max(0, kbRect.bottom - wrapperRect.bottom);
+                    const worstOverflow = Math.max(topOverflow, bottomOverflow);
+                    if (worstOverflow > 2 && kbRect.height > 0) {
+                        const correctionFactor = Math.max(0.1, (kbRect.height - worstOverflow * 2) / kbRect.height);
+                        setScale(s => Math.max(0.2, s * correctionFactor));
+                    }
+                }));
+            }, [config, activeLayer]);
             const [isPanning, setIsPanning] = useState(false);
             const [panStart, setPanStart] = useState({ x: 0, y: 0 });
            
@@ -1580,6 +1798,15 @@
             const [rightWidth, setRightWidth] = useState(420);
             const [bottomHeight, setBottomHeight] = useState(320);
             const [dockMode, setDockMode] = useState('bottom');
+
+            useEffect(() => {
+                const el = canvasWrapperRef.current;
+                if (!el || !config) return;
+                autoFitCanvas();
+                const observer = new ResizeObserver(() => autoFitCanvas());
+                observer.observe(el);
+                return () => observer.disconnect();
+            }, [config, dockMode, autoFitCanvas]);
             const [view, setView] = useState('key');
            
             const [showIndices, setShowIndices] = useState(false);
@@ -1609,6 +1836,59 @@
             }, [activeLayer, paintColor]);
 
             const handlePaintDown = useCallback((matrixIdx) => { isPaintingRef.current = true; handlePaintKey(matrixIdx); }, [handlePaintKey]);
+
+            // Effect preview: simulates random key presses so reactive-style effects (which
+            // need real physical presses to show anything) can be seen animating. Purely a
+            // visual simulation layer — never reads or writes config, and stops cleanly.
+            const [isPreviewingEffect, setIsPreviewingEffect] = useState(false);
+            const [previewFlashes, setPreviewFlashes] = useState({}); // { [matrixIdx]: flashId }
+            const [previewFlashDurationMs, setPreviewFlashDurationMs] = useState(550);
+            useEffect(() => {
+                if (!isPreviewingEffect) { setPreviewFlashes({}); return; }
+                const validIndices = MATRIX_TO_LED.map((led, idx) => led >= 0 ? idx : -1).filter(idx => idx >= 0);
+                if (validIndices.length === 0) { setIsPreviewingEffect(false); return; }
+
+                const effectName = config?.lighting?.effects?.effect || '';
+                const speedVal = config?.lighting?.effects?.speed ?? 128; // 0-255 scale, same convention as Brightness
+                // Higher configured speed -> faster ticks. Clamped to a sane range so it's
+                // never so fast it's just noise, nor so slow it looks stalled.
+                const clampedSpeed = Math.min(Math.max(speedVal, 0), 255);
+                const tickInterval = Math.round(900 - (clampedSpeed / 255) * 700); // ~200ms (fast) to ~900ms (slow)
+
+                // Modest, honestly-labeled visual variety by effect-name category — this is
+                // still a stylized simulation, not a faithful reproduction of each effect's
+                // real algorithm (we don't have specs for those), just enough that different
+                // effects don't look visually identical in this preview.
+                let flashCountRange = [1, 2], flashDurationMs = 550;
+                const nameLower = effectName.toLowerCase();
+                if (nameLower.includes('sparkle')) { flashCountRange = [3, 5]; flashDurationMs = 320; }
+                else if (nameLower.includes('rain')) { flashCountRange = [2, 4]; flashDurationMs = 420; }
+                else if (nameLower.includes('comet') || nameLower.includes('ripple')) { flashCountRange = [1, 1]; flashDurationMs = 750; }
+                setPreviewFlashDurationMs(flashDurationMs);
+
+                let flashCounter = 0;
+                const pendingTimeouts = [];
+                const interval = setInterval(() => {
+                    const count = flashCountRange[0] + Math.floor(Math.random() * (flashCountRange[1] - flashCountRange[0] + 1));
+                    const picks = {};
+                    for (let i = 0; i < count; i++) {
+                        const idx = validIndices[Math.floor(Math.random() * validIndices.length)];
+                        const flashId = flashCounter++;
+                        picks[idx] = flashId;
+                        const timeoutId = setTimeout(() => {
+                            setPreviewFlashes(prev => {
+                                if (prev[idx] !== flashId) return prev; // a newer flash already replaced this one
+                                const next = { ...prev };
+                                delete next[idx];
+                                return next;
+                            });
+                        }, flashDurationMs);
+                        pendingTimeouts.push(timeoutId);
+                    }
+                    setPreviewFlashes(prev => ({ ...prev, ...picks }));
+                }, tickInterval);
+                return () => { clearInterval(interval); pendingTimeouts.forEach(clearTimeout); };
+            }, [isPreviewingEffect, config?.lighting?.effects?.effect, config?.lighting?.effects?.speed]);
             const handlePaintEnter = useCallback((matrixIdx) => { if (isPaintingRef.current) handlePaintKey(matrixIdx); }, [handlePaintKey]);
 
             useEffect(() => {
@@ -1638,7 +1918,7 @@
                         if (!parsed.layer) throw new Error("Missing '[[layer]]' array.");
                         parsed.layer.forEach(l => { const { tokens, tail } = tokenizeKeysString(l.keys || ""); l.tokens = tokens; l.tail = tail; });
                         const { config: repaired, issues } = validateAndRepairConfig(parsed);
-                        setConfig(repaired); setActiveLayer(0); setSelectedKey(null); setScale(0.85); setPan({ x: 0, y: -60 });
+                        setConfig(repaired); setActiveLayer(0); setSelectedKey(null);
                         setDockMode('bottom'); setView('key');
                         if (issues.length > 0) {
                             alert(`Loaded, but found and fixed ${issues.length} issue${issues.length > 1 ? 's' : ''}:\n\n- ${issues.join('\n- ')}`);
@@ -1753,7 +2033,7 @@
                     if (!next[blockName]) return next;
                     next[blockName][newKey] = next[blockName][oldKey]; delete next[blockName][oldKey];
                     if (count > 0) {
-                        const regex = new RegExp(`(?:^|\\W)(${String(oldKey).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
+                        const regex = new RegExp(`(^|\\W)(${String(oldKey).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
                         next.layer?.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1${newKey}`); }));
                         ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
                             if (next[b]) next[b] = replaceInObj(next[b], [oldKey], newKey);
@@ -1772,7 +2052,7 @@
                     if (!next[blockName]) return next;
                     delete next[blockName][key]; if (Object.keys(next[blockName]).length === 0) delete next[blockName];
                     if (count > 0) {
-                        const regex = new RegExp(`(?:^|\\W)(${String(key).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?:\\W|$)`, 'g');
+                        const regex = new RegExp(`(^|\\W)(${String(key).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})(?=\\W|$)`, 'g');
                         next.layer?.forEach(l => l.tokens?.forEach(t => { t.text = t.text.replace(regex, `$1KC_NO`); }));
                         ['behavior', 'macro', 'combo', 'mod_morph', 'tap_dance', 'morse'].forEach(b => {
                             if (next[b]) next[b] = deleteInObj(next[b], [key]);
@@ -1856,7 +2136,7 @@
                                                 <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity pr-1">
                                                     <button title="Move Up" onClick={() => { if (i - 1 < 0) return; swapLayers(i, i - 1); setActiveLayer(i - 1); }} className="text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] hover:bg-[color:var(--bg-base)] p-1 rounded text-xs font-mono" disabled={i === 0}>↑</button>
                                                     <button title="Move Down" onClick={() => { if (i + 1 >= config.layer.length) return; swapLayers(i, i + 1); setActiveLayer(i + 1); }} className="text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] hover:bg-[color:var(--bg-base)] p-1 rounded text-xs font-mono" disabled={i === config.layer.length - 1}>↓</button>
-                                                    <button title="Rename" onClick={() => { const n = prompt('Rename layer:', l.name || `Layer ${i}`); if(n) { const cfg = JSON.parse(JSON.stringify(config)); cfg.layer[i].name = n; setConfig(cfg); } }} className="text-[color:var(--text-muted)] hover:text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] p-1 rounded text-xs">✎</button>
+                                                    <button title="Rename" onClick={() => { const n = prompt('Rename layer:', l.name || `Layer ${i}`); if(n) { setConfig(prev => { const cfg = JSON.parse(JSON.stringify(prev)); cfg.layer[i].name = n; return cfg; }); } }} className="text-[color:var(--text-muted)] hover:text-[color:var(--accent)] hover:bg-[color:var(--accent-soft)] p-1 rounded text-xs">✎</button>
                                                     <button title="Delete" onClick={() => {
                                                         if(config.layer.length <= 1) return alert("Cannot delete last layer.");
                                                         if(!confirm("Delete layer?")) return;
@@ -1917,7 +2197,7 @@
                     <div className="resizer-v" onPointerDown={startLeftResize}></div>
 
                     <div className={`flex flex-1 ${dockMode === 'bottom' ? 'flex-col' : 'flex-row'} overflow-hidden relative`}>
-                        <div className="flex-1 relative overflow-hidden z-10 flex items-center justify-center">
+                        <div ref={canvasWrapperRef} className="flex-1 relative overflow-hidden z-10 flex items-center justify-center">
                             {!config ? (
                                 <div className="flex flex-col items-center gap-10 max-w-2xl text-center">
                                     <div className="text-[color:var(--text-muted)] flex flex-col items-center gap-4">
@@ -1927,18 +2207,20 @@
                                 </div>
                             ) : (
                                 <>
-                                    <div className="absolute top-6 right-6 flex items-center panel border rounded-lg shadow-sm z-40 transition-colors">
+                                    <div ref={toolbarRef} className="absolute top-6 right-6 flex items-center panel border rounded-lg shadow-sm z-40 transition-colors">
                                         <button onClick={() => setScale(s => Math.max(0.3, s - 0.1))} className="p-2.5 text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg></button>
                                         <span className="text-[11px] font-mono font-bold w-12 text-center select-none text-[color:var(--text-main)]">{Math.round(scale * 100)}%</span>
                                         <button onClick={() => setScale(s => Math.min(2.0, s + 0.1))} className="p-2.5 text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg></button>
                                         <div className="w-px h-5 bg-[color:var(--border-panel)] mx-1"></div>
-                                        <button onClick={() => { setScale(0.85); setPan({x:0, y:-60}); }} title="Recenter View" className="p-2.5 text-[color:var(--accent)] hover:brightness-110 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg></button>
+                                        <button onClick={autoFitCanvas} title="Recenter & Auto-Fit View" className="p-2.5 text-[color:var(--accent)] hover:brightness-110 transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"></path></svg></button>
+                                        <div className="w-px h-5 bg-[color:var(--border-panel)] mx-1"></div>
+                                        <button onClick={() => setShowIndices(s => !s)} title="Show matrix key numbers on every key" className={`px-2.5 py-2 text-[10px] font-mono font-bold transition-colors ${showIndices ? 'text-[color:var(--accent)]' : 'text-[color:var(--text-muted)] hover:text-[color:var(--text-main)]'}`}>#{showIndices ? '✓' : ''}</button>
                                     </div>
                                     <div className="absolute top-6 left-6 flex items-center text-[color:var(--text-muted)] bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] px-4 py-2 rounded-lg shadow-sm z-40 transition-colors text-[11px] font-semibold gap-2 pointer-events-none">
                                         <svg className="w-4 h-4 text-[color:var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path></svg>
                                         Middle-Click & Drag to pan
                                     </div>
-                                    <KeyboardContainer layerTokens={activeLayerTokens} baseTokens={baseLayerTokens} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={scale} pan={pan} isPanning={isPanning} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onSwap={handleSwapKeys} lightingScenes={activeLightingScenes} isLightingMode={view === 'lighting' || view === 'effects'} showIndices={showIndices} isPaintMode={isPaintMode && view === 'lighting'} onPaintDown={handlePaintDown} onPaintEnter={handlePaintEnter} />
+                                    <KeyboardContainer layerTokens={activeLayerTokens} baseTokens={baseLayerTokens} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={scale} pan={pan} isPanning={isPanning} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onSwap={handleSwapKeys} lightingScenes={activeLightingScenes} isLightingMode={view === 'lighting' || view === 'effects'} showIndices={showIndices} isPaintMode={isPaintMode && view === 'lighting'} onPaintDown={handlePaintDown} onPaintEnter={handlePaintEnter} previewFlashes={previewFlashes} previewFlashDurationMs={previewFlashDurationMs} />
                                 </>
                             )}
                         </div>
@@ -1947,7 +2229,7 @@
                             <>
                                 <div className={dockMode === 'bottom' ? 'resizer-h' : 'resizer-v'} onPointerDown={dockMode === 'bottom' ? startBottomResize : startRightResize}></div>
                                 <div style={dockMode === 'bottom' ? { height: bottomHeight } : { width: rightWidth }} className="panel flex flex-col shrink-0 z-30 shadow-2xl transition-colors">
-                                    <Inspector view={view} setView={setView} config={config} activeLayer={activeLayer} setActiveLayer={setActiveLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} updateConfig={setConfig} tabs={dynamicTabs} handleRenameBlockKey={handleRenameBlockKey} handleDeleteBlockKey={handleDeleteBlockKey} showIndices={showIndices} setShowIndices={setShowIndices} clipboard={clipboard} setClipboard={setClipboard} isDockedBottom={dockMode === 'bottom'} toggleDock={() => setDockMode(d => d === 'right' ? 'bottom' : 'right')} isPaintMode={isPaintMode} setIsPaintMode={setIsPaintMode} paintColor={paintColor} setPaintColor={setPaintColor} />
+                                    <Inspector view={view} setView={setView} config={config} activeLayer={activeLayer} setActiveLayer={setActiveLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} updateConfig={setConfig} tabs={dynamicTabs} handleRenameBlockKey={handleRenameBlockKey} handleDeleteBlockKey={handleDeleteBlockKey} showIndices={showIndices} setShowIndices={setShowIndices} clipboard={clipboard} setClipboard={setClipboard} isDockedBottom={dockMode === 'bottom'} toggleDock={() => setDockMode(d => d === 'right' ? 'bottom' : 'right')} isPaintMode={isPaintMode} setIsPaintMode={setIsPaintMode} paintColor={paintColor} setPaintColor={setPaintColor} isPreviewingEffect={isPreviewingEffect} setIsPreviewingEffect={setIsPreviewingEffect} />
                                 </div>
                             </>
                         )}
