@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en" class="oled">
 <head>
@@ -109,25 +110,17 @@
 
         .kc-grid { width: 100%; height: 100%; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: none; overflow: hidden; padding: 2px; box-sizing: border-box; }
        
-        .kc-main {
-            font-weight: 700; font-size: 11px; color: inherit; line-height: 1.1; z-index: 2; text-align: center;
-            width: 100%; word-break: break-all; overflow: hidden; text-overflow: ellipsis;
-            display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-        }
+        .kc-main { font-weight: 700; font-size: 11px; color: inherit; line-height: 1.1; z-index: 2; text-align: center; width: 100%; word-break: break-all; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; }
+        .kc-main.kc-main-solo { font-size: 15px; -webkit-line-clamp: 1; }
+        .kc-main.kc-main-short { font-size: 13px; -webkit-line-clamp: 1; }
        
-        .kc-tl {
-            position: absolute; top: 1px; left: 3px; font-size: 8px; opacity: 0.85; font-weight: 700; color: var(--accent-primary);
-            max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left;
-        }
+        .kc-tl { position: absolute; top: 1px; left: 3px; font-size: 9.5px; opacity: 0.9; font-weight: 700; color: var(--accent-primary); max-width: 70%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: left; }
        
         .kc-tr { position: absolute; top: 1px; right: 3px; font-size: 9px; opacity: 0.7; }
        
-        .kc-custom {
-            display: flex; align-items: center; justify-content: center; text-align: center;
-            width: 100%; max-height: 100%; font-size: 9px; font-weight: 600; line-height: 1.1;
-            word-break: break-all; overflow: hidden; text-overflow: ellipsis;
-            display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;
-        }
+        .kc-custom { display: flex; align-items: center; justify-content: center; text-align: center; width: 100%; max-height: 100%; font-size: 11px; font-weight: 700; line-height: 1.1; word-break: break-all; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+        .kc-custom.kc-main-solo { font-size: 15px; }
+        .kc-custom.kc-main-short { font-size: 13px; }
 
         .palette-btn { min-width: calc(48px * var(--btn-scale, 1)); height: calc(48px * var(--btn-scale, 1)); background-color: var(--bg-surface); border-radius: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: calc(12px * var(--btn-scale, 1)); font-weight: 600; color: var(--text-main); cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); padding: 4px; border: 1px solid var(--border-subtle); line-height: 1.2; }
         .palette-btn:hover { transform: translateY(-1px); background-color: var(--bg-panel); border-color: var(--border-highlight); box-shadow: 0 4px 12px var(--key-shadow); }
@@ -157,6 +150,27 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
         const SLOT_LINK_LABELS = { shiftTap: 'when tapped with Shift', hold: 'when held', doubleTap: 'when double-tapped', label: 'add text label to the key' };
        
         const LAYER_POINTER_BEHAVIORS = new Set(['&mo', '&to', '&tog', '&sl', '&lt', '&layer']);
+
+        // GLIDE's naming convention for behaviors it generates. The "ht"/"mm"/"td" segment is kept
+        // immediately after GLIDE_ (rather than a fully flat &GLIDE_<ids>) because two different
+        // behavior kinds can compute the same identifier suffix from unrelated keys (e.g. a hold-tap
+        // of hold=N1/tap=F4 and a mod-morph of tap=N1/shiftTap=F4 both reduce to "N1_F4") — behavior
+        // names must be globally unique in the exported ZMK devicetree, so without a type marker two
+        // unrelated behaviors could collide into one invalid, ambiguous exported name.
+        const GLIDE_HT_PREFIX = '&GLIDE_ht_';
+        const GLIDE_MM_PREFIX = '&GLIDE_mm_';
+        const GLIDE_TD_PREFIX = '&GLIDE_td_';
+        const GLIDE_BEHAVIOR_DESCRIPTION = 'GLIDE-generated and controlled. Renaming or removing this behavior will break its GLIDE correlation.';
+
+        const isGlideHtName = (v) => typeof v === 'string' && v.startsWith(GLIDE_HT_PREFIX);
+        const isGlideMmName = (v) => typeof v === 'string' && v.startsWith(GLIDE_MM_PREFIX);
+        // Tap-dance recognition stays intentionally broad — any &td_* name is treated as a decomposable
+        // tap-dance whether GLIDE made it or not (pre-existing behavior, unrelated to GLIDE's own naming);
+        // the addition here just also catches GLIDE's &GLIDE_td_ prefix, which doesn't start with &td_.
+        const isRecognizedTdName = (v) => typeof v === 'string' && (v.startsWith('&td_') || v.startsWith(GLIDE_TD_PREFIX));
+        const stripGlideHtPrefix = (v) => v.slice(GLIDE_HT_PREFIX.length);
+        const stripGlideMmPrefix = (v) => v.slice(GLIDE_MM_PREFIX.length);
+        const stripTdPrefix = (v) => v.startsWith(GLIDE_TD_PREFIX) ? v.slice(GLIDE_TD_PREFIX.length) : v.replace('&td_', '').replace('auto_', '');
        
         const detectOs = () => { const platform = navigator.userAgent.toLowerCase(); if (platform.includes('mac')) return 'mac'; if (platform.includes('linux')) return 'linux'; return 'win'; };
 
@@ -283,24 +297,58 @@ const { useState, useEffect, useMemo, useCallback, memo, useRef } = React;
                 return val;
             };
 
+            // Remaps the layer index on a binding that IS a layer-pointer (&mo/&lt/etc directly),
+            // or that WRAPS one — e.g. a synthesized &GLIDE_ht_* hold-tap whose hold-side is a layer
+            // pointer, where GLIDE always flattens the hold's param onto this outer binding's
+            // params[0]. Without this second case, a layer delete/move/insert silently leaves the
+            // embedded index stale whenever the tap-side isn't a plain &kp (so it never collapsed
+            // to a native &lt).
+            const remapDirectBinding = (binding) => {
+                if (!binding) return;
+                let isLayerPointer = LAYER_POINTER_BEHAVIORS.has(binding.value);
+                if (!isLayerPointer && typeof binding.value === 'string') {
+                    const ht = (config.holdTaps || []).find(h => h.name === binding.value);
+                    if (ht && ht.bindings && LAYER_POINTER_BEHAVIORS.has(ht.bindings[0])) isLayerPointer = true;
+                }
+                if (!isLayerPointer) return;
+                const p = binding.params?.[0];
+                if (!p || p.value === undefined || p.value === null) return;
+                let val = parseInt(p.value, 10);
+                if (isNaN(val)) return;
+                let newVal = remapVal(val);
+                if (newVal === -1) {
+                    binding.value = '&none'; binding.params = [];
+                } else {
+                    p.value = typeof p.value === 'string' ? String(newVal) : newVal;
+                }
+            };
+
+            // Recurses into any mod-morph/tap-dance definition referenced by name — GLIDE's own
+            // auto-named ones and arbitrary hand-authored custom names alike — since both carry
+            // fully self-contained nested binding objects that can themselves hide a layer pointer.
+            // Shared definitions are processed at most once per pass so a behavior referenced by
+            // several keys doesn't get its layer index shifted multiple times.
+            const processedNames = new Set();
+            const remapNestedBehavior = (binding) => {
+                if (!binding || typeof binding.value !== 'string') return;
+                remapDirectBinding(binding);
+                if (processedNames.has(binding.value)) return;
+                const mm = (config.modMorphs || []).find(m => m.name === binding.value);
+                const td = (config.tapDances || []).find(t => t.name === binding.value);
+                if (mm || td) {
+                    processedNames.add(binding.value);
+                    if (mm && mm.cases) mm.cases.forEach(c => remapNestedBehavior(c.binding));
+                    if (td && td.bindings) td.bindings.forEach(b => remapNestedBehavior(b));
+                }
+            };
+
             config.layers.forEach(layer => {
-                (layer || []).forEach(binding => {
-                    if (!binding || !LAYER_POINTER_BEHAVIORS.has(binding.value)) return;
-                    const p = binding.params?.[0];
-                    if (!p || p.value === undefined || p.value === null) return;
-                    let val = parseInt(p.value, 10);
-                    if (isNaN(val)) return;
-                    let newVal = remapVal(val);
-                    if (newVal === -1) {
-                        binding.value = '&none'; binding.params = [];
-                    } else {
-                        p.value = typeof p.value === 'string' ? String(newVal) : newVal;
-                    }
-                });
+                (layer || []).forEach(binding => remapNestedBehavior(binding));
             });
 
             if (config.combos) {
                 config.combos.forEach(combo => {
+                    remapNestedBehavior(combo.binding);
                     if (!combo.layers) return;
                     combo.layers = [...new Set(combo.layers.map(remapVal).filter(v => v !== -1))];
                 });
@@ -370,10 +418,11 @@ const GLOVE80_NAMES = {
 
         const runGC = (newConfig) => {
             const usedNames = new Set();
+            const isTrackedName = (v) => isGlideHtName(v) || isRecognizedTdName(v) || isGlideMmName(v);
             const extractNames = (node) => {
                 if (!node) return;
                 if (typeof node === 'object') {
-                    if (node.value && typeof node.value === 'string' && (node.value.startsWith('&ht_auto_') || node.value.startsWith('&td_') || node.value.startsWith('&mm_auto_'))) usedNames.add(node.value);
+                    if (node.value && typeof node.value === 'string' && isTrackedName(node.value)) usedNames.add(node.value);
                     if (Array.isArray(node.params)) node.params.forEach(extractNames); if (Array.isArray(node.bindings)) node.bindings.forEach(extractNames); if (Array.isArray(node.cases)) node.cases.forEach(c => extractNames(c.binding));
                 }
             };
@@ -384,22 +433,47 @@ const GLOVE80_NAMES = {
                 ['holdTaps', 'tapDances', 'modMorphs'].forEach(arrKey => {
                     (newConfig[arrKey] || []).forEach(beh => {
                         if (usedNames.has(beh.name)) {
-                            if (beh.bindings) beh.bindings.forEach(b => { if (typeof b === 'object') extractNames(b); else if (typeof b === 'string' && (b.startsWith('&ht_auto_') || b.startsWith('&td_') || b.startsWith('&mm_auto_'))) usedNames.add(b); });
+                            if (beh.bindings) beh.bindings.forEach(b => { if (typeof b === 'object') extractNames(b); else if (typeof b === 'string' && isTrackedName(b)) usedNames.add(b); });
                             if (beh.cases) beh.cases.forEach(c => extractNames(c.binding));
                         }
                     });
                 });
             } while (usedNames.size > size);
-            if (newConfig.holdTaps) newConfig.holdTaps = newConfig.holdTaps.filter(h => !h.name.startsWith('&ht_auto_') || usedNames.has(h.name));
-            if (newConfig.tapDances) newConfig.tapDances = newConfig.tapDances.filter(t => !t.name.startsWith('&td_') || usedNames.has(t.name));
-            if (newConfig.modMorphs) newConfig.modMorphs = newConfig.modMorphs.filter(m => !m.name.startsWith('&mm_auto_') || usedNames.has(m.name));
+            if (newConfig.holdTaps) newConfig.holdTaps = newConfig.holdTaps.filter(h => !isGlideHtName(h.name) || usedNames.has(h.name));
+            if (newConfig.tapDances) newConfig.tapDances = newConfig.tapDances.filter(t => !isRecognizedTdName(t.name) || usedNames.has(t.name));
+            if (newConfig.modMorphs) newConfig.modMorphs = newConfig.modMorphs.filter(m => !isGlideMmName(m.name) || usedNames.has(m.name));
             if (newConfig.holdTaps && newConfig.holdTaps.length === 0) delete newConfig.holdTaps; if (newConfig.tapDances && newConfig.tapDances.length === 0) delete newConfig.tapDances; if (newConfig.modMorphs && newConfig.modMorphs.length === 0) delete newConfig.modMorphs;
             return newConfig;
         };
 
+        const countBehaviorUsage = (config, behaviorName) => {
+            if (!config || !behaviorName) return 0;
+            let count = 0;
+            const scan = (node) => {
+                if (!node) return;
+                if (typeof node === 'object') {
+                    if (node.value === behaviorName) count++;
+                    if (Array.isArray(node.params)) node.params.forEach(scan);
+                }
+            };
+            (config.layers || []).forEach(layer => (layer || []).forEach(scan));
+            (config.combos || []).forEach(combo => scan(combo.binding));
+            return count;
+        };
+
+        // True for behavior names GLIDE itself understands structurally (native ZMK primitives,
+        // or GLIDE's own auto_/td_ synthesized names). Anything else is a hand-authored custom
+        // behavior that must go through "Detach & Customize" before the slot model can rewrite it.
+        const isGlideNativeBindingValue = (val) => {
+            if (!val) return true;
+            const NATIVE = ['&kp', '&mt', '&lt', '&trans', '&none', '&magic', '&mo', '&to', '&tog', '&sl', '&layer', '&bt', '&out', '&rgb_ug', '&ext_power', '&sk', 'Custom'];
+            if (NATIVE.includes(val)) return true;
+            return isGlideHtName(val) || isGlideMmName(val) || isRecognizedTdName(val);
+        };
+
         const parseModMorph = (binding, config) => {
             if (!binding || binding.value === '&none') return { tap: null, shiftTap: null };
-            if (binding.value.startsWith('&mm_auto_')) { const mm = (config?.modMorphs || []).find(m => m.name === binding.value); if (mm && mm.cases && mm.cases.length >= 2) return { tap: mm.cases[0].binding, shiftTap: mm.cases[1].binding }; }
+            if (isGlideMmName(binding.value)) { const mm = (config?.modMorphs || []).find(m => m.name === binding.value); if (mm && mm.cases && mm.cases.length >= 2) return { tap: mm.cases[0].binding, shiftTap: mm.cases[1].binding }; }
             return { tap: binding, shiftTap: null };
         };
 
@@ -407,7 +481,7 @@ const GLOVE80_NAMES = {
             if (!binding || binding.value === '&none') return { tap: null, hold: null };
             if (binding.value === '&mt') return { hold: { value: binding.params?.[0]?.value }, tap: { value: '&kp', params: [binding.params?.[1]] } };
             if (binding.value === '&lt') return { hold: { value: '&mo', params: [binding.params?.[0]] }, tap: { value: '&kp', params: [binding.params?.[1]] } };
-            if (binding.value.startsWith('&ht_auto_')) {
+            if (isGlideHtName(binding.value)) {
                 const ht = (config?.holdTaps || []).find(h => h.name === binding.value);
                 if (ht && ht.bindings && ht.bindings.length >= 2) {
                     let pIdx = 0;
@@ -422,7 +496,7 @@ const GLOVE80_NAMES = {
             let slots = { tap: null, shiftTap: null, hold: null, doubleTap: null };
             if (!binding || binding.value === '&none') return slots;
             let primaryBinding = binding; let secondaryBinding = null;
-            if (primaryBinding.value.startsWith('&td_')) { const td = (config?.tapDances || []).find(t => t.name === primaryBinding.value); if (td && td.bindings && td.bindings.length >= 2) { primaryBinding = td.bindings[0]; secondaryBinding = td.bindings[1]; } }
+            if (isRecognizedTdName(primaryBinding.value)) { const td = (config?.tapDances || []).find(t => t.name === primaryBinding.value); if (td && td.bindings && td.bindings.length >= 2) { primaryBinding = td.bindings[0]; secondaryBinding = td.bindings[1]; } }
             const pHT = parseHoldTap(primaryBinding, config); slots.hold = pHT.hold;
             const pMM = parseModMorph(pHT.tap, config); slots.tap = pMM.tap; slots.shiftTap = pMM.shiftTap;
             slots.doubleTap = secondaryBinding; return slots;
@@ -430,9 +504,9 @@ const GLOVE80_NAMES = {
 
         const makeModMorph = (tap, shiftTap, configRef) => {
             if (!shiftTap || shiftTap.value === '&none') return tap; if (!tap || tap.value === '&none') return shiftTap;
-            const tName = tap.params?.[0]?.value || tap.value.replace('&',''); const stName = shiftTap.params?.[0]?.value || shiftTap.value.replace('&',''); const mmName = `&mm_auto_${tName}_${stName}`;
+            const tName = tap.params?.[0]?.value || tap.value.replace('&',''); const stName = shiftTap.params?.[0]?.value || shiftTap.value.replace('&',''); const mmName = `${GLIDE_MM_PREFIX}${tName}_${stName}`;
             if (!configRef.modMorphs) configRef.modMorphs = [];
-            if (!configRef.modMorphs.find(m => m.name === mmName)) configRef.modMorphs.push({ name: mmName, cases: [ { binding: tap, mods: [], keepMods: [] }, { binding: shiftTap, mods: ["MOD_LSFT", "MOD_RSFT"], keepMods: [] } ] });
+            if (!configRef.modMorphs.find(m => m.name === mmName)) configRef.modMorphs.push({ name: mmName, description: GLIDE_BEHAVIOR_DESCRIPTION, cases: [ { binding: tap, mods: [], keepMods: [] }, { binding: shiftTap, mods: ["MOD_LSFT", "MOD_RSFT"], keepMods: [] } ] });
             return { value: mmName };
         };
 
@@ -444,9 +518,9 @@ const GLOVE80_NAMES = {
             if (!forceCustom && (tapVal === '&kp' || tapVal.startsWith('&mac'))) {
                 if (tapVal === '&kp') { if (isLayer) return { value: '&lt', params: [hold.params?.[0] || {value: 0}, tap.params[0]] }; if (isMod) return { value: '&mt', params: [{value: holdVal}, tap.params[0]] }; }
             }
-            const hName = hold.params?.[0]?.value || holdVal.replace('&',''); const tName = tap.params?.[0]?.value || tapVal.replace('&',''); const htName = `&ht_auto_${hName}_${tName}`;
+            const hName = hold.params?.[0]?.value || holdVal.replace('&',''); const tName = tap.params?.[0]?.value || tapVal.replace('&',''); const htName = `${GLIDE_HT_PREFIX}${hName}_${tName}`;
             if (!configRef.holdTaps) configRef.holdTaps = [];
-            if (!configRef.holdTaps.find(h => h.name === htName)) configRef.holdTaps.push({ name: htName, bindings: [holdVal, tapVal], tappingTermMs: 200, flavor: "tap-preferred", quickTapMs: -1, requirePriorIdleMs: 0, retroTap: false, holdTriggerOnRelease: false });
+            if (!configRef.holdTaps.find(h => h.name === htName)) configRef.holdTaps.push({ name: htName, description: GLIDE_BEHAVIOR_DESCRIPTION, bindings: [holdVal, tapVal], tappingTermMs: 200, flavor: "tap-preferred", quickTapMs: -1, requirePriorIdleMs: 0, retroTap: false, holdTriggerOnRelease: false });
             let params = []; if (hold.params) params.push(...hold.params); if (tap.params) params.push(...tap.params);
             return { value: htName, params };
         };
@@ -459,9 +533,9 @@ const GLOVE80_NAMES = {
             if (!primary && !secondary) return { newBinding: { value: '&none' }, newConfig };
             if (primary && !secondary) return { newBinding: primary, newConfig };
             if (!primary && secondary) return { newBinding: secondary, newConfig };
-            const tName = primary.params?.[0]?.value || primary.value.replace('&',''); const dtName = secondary.params?.[0]?.value || secondary.value.replace('&',''); const tdName = `&td_auto_${tName}_${dtName}`;
+            const tName = primary.params?.[0]?.value || primary.value.replace('&',''); const dtName = secondary.params?.[0]?.value || secondary.value.replace('&',''); const tdName = `${GLIDE_TD_PREFIX}${tName}_${dtName}`;
             if (!newConfig.tapDances) newConfig.tapDances = [];
-            if (!newConfig.tapDances.find(t => t.name === tdName)) newConfig.tapDances.push({ name: tdName, tappingTermMs: 200, bindings: [primary, secondary] });
+            if (!newConfig.tapDances.find(t => t.name === tdName)) newConfig.tapDances.push({ name: tdName, description: GLIDE_BEHAVIOR_DESCRIPTION, tappingTermMs: 200, bindings: [primary, secondary] });
             return { newBinding: { value: tdName }, newConfig };
         }
 
@@ -507,37 +581,46 @@ const GLOVE80_NAMES = {
 
         const escapeHtml = (str) => String(str ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
 
+        const mainLabelSizeClass = (text) => {
+            if (!text) return '';
+            const len = Array.from(String(text)).length;
+            if (len === 1) return 'kc-main-solo';
+            if (len <= 3) return 'kc-main-short';
+            return '';
+        };
+
         const getBeautifulLabel = (binding, osMode, hasCustomBg, config, layerNames) => {
             if (!binding) return '';
             const cc = (colorStr) => hasCustomBg ? 'text-inherit' : colorStr;
 
             if (binding.decoration && binding.decoration.label) {
                 const lbl = binding.decoration.label;
-                return `<div class="kc-grid"><span class="kc-custom ${cc('text-app-text')}">${escapeHtml(lbl)}</span></div>`;
+                return `<div class="kc-grid"><span class="kc-custom ${mainLabelSizeClass(lbl)} ${cc('text-app-text')}">${escapeHtml(lbl)}</span></div>`;
             }
 
             let val = binding.value; if (!val || val === '&none' || val === 'none') return '';
 
             const renderStructured = (main, tl = '', icon = '') => {
+                const mainSizeClass = mainLabelSizeClass(main);
                 return `<div class="kc-grid">
                             ${tl ? `<span class="kc-tl ${cc('text-app-accent')}">${escapeHtml(tl)}</span>` : ''}
                             ${icon ? `<span class="kc-tr ${cc('text-app-textMuted')}">${icon}</span>` : ''}
-                            <span class="kc-main ${cc('text-app-text')}">${escapeHtml(main)}</span>
+                            <span class="kc-main ${mainSizeClass} ${cc('text-app-text')}">${escapeHtml(main)}</span>
                         </div>`;
             };
 
             if (val === '&trans') return `<div class="kc-grid"><span class="text-[18px] font-bold ${cc('text-app-textMuted')}">▽</span></div>`;
             if (val === 'Custom') return renderStructured(binding.params?.[0]?.value || 'Custom', '', '⚙️');
            
-            if (val.startsWith('&ht_auto_')) {
+            if (isGlideHtName(val)) {
                 const ht = config?.holdTaps?.find(h => h.name === val);
                 if (ht && ht.bindings) return renderStructured(formatKeycode(ht.bindings[1], osMode), formatKeycode(ht.bindings[0], osMode), '⏱️');
             }
-            if (val.startsWith('&mm_auto_')) {
+            if (isGlideMmName(val)) {
                 const mm = config?.modMorphs?.find(m => m.name === val);
                 if (mm && mm.cases) return renderStructured(formatKeycode(mm.cases[0].binding.value, osMode), '⇧'+formatKeycode(mm.cases[1].binding.value, osMode), '🔤');
             }
-            if (val.startsWith('&td_')) {
+            if (isRecognizedTdName(val)) {
                 const td = config?.tapDances?.find(t => t.name === val);
                 if (td && td.bindings) return renderStructured(formatKeycode(td.bindings[0].value, osMode), formatKeycode(td.bindings[1].value, osMode), '🔀');
             }
@@ -556,7 +639,8 @@ const GLOVE80_NAMES = {
            
             if (val === '&mo' || val === '&tog' || val === '&to' || val === '&sl' || val === '&layer') {
                 let icon = val === '&mo' || val === '&layer' ? '⭕' : (val === '&tog' ? '🔁' : (val === '&to' ? '➡️' : '📌'));
-                return `<div class="kc-grid"><span class="kc-main ${cc('text-app-accent')}">${escapeHtml(formatParam(p1, layerNames))}</span><span class="kc-tr ${cc('text-app-textMuted')}">${icon}</span></div>`;
+                const layerLabel = formatParam(p1, layerNames);
+                return `<div class="kc-grid"><span class="kc-main ${mainLabelSizeClass(layerLabel)} ${cc('text-app-accent')}">${escapeHtml(layerLabel)}</span><span class="kc-tr ${cc('text-app-textMuted')}">${icon}</span></div>`;
             }
            
             if (val === '&mt') return renderStructured(formatKeycode(p2, osMode), formatKeycode(p1, osMode), '⏱️');
@@ -605,9 +689,9 @@ const GLOVE80_NAMES = {
                 return `Sticky Key: ${formatKeycode(combinedFallback, osMode)}`;
             }
            
-            if (val.startsWith('&ht_auto_')) return val.replace('&ht_auto_', '').split('_').map(s => formatKeycode(s, osMode)).join(' + ');
-            if (val.startsWith('&td_')) return val.replace('&td_', '').replace('auto_', '').split('_').map(s => formatKeycode(s, osMode)).join(' / ');
-            if (val.startsWith('&mm_auto_')) return val.replace('&mm_auto_', '').split('_').map(s => formatKeycode(s, osMode)).join(' / Shift+');
+            if (isGlideHtName(val)) return stripGlideHtPrefix(val).split('_').map(s => formatKeycode(s, osMode)).join(' + ');
+            if (isRecognizedTdName(val)) return stripTdPrefix(val).split('_').map(s => formatKeycode(s, osMode)).join(' / ');
+            if (isGlideMmName(val)) return stripGlideMmPrefix(val).split('_').map(s => formatKeycode(s, osMode)).join(' / Shift+');
            
             let combinedFallback = [formatParamFull(p1, layerNames), formatParamFull(p2, layerNames)].filter(x => x).join(' ');
             if (val.startsWith('&')) return val.replace('&', '') + (combinedFallback ? ` ${combinedFallback}` : '');
@@ -910,9 +994,9 @@ const App = () => {
                 if (!config) return [];
                 const list = [];
                 if (Array.isArray(config.macros)) { config.macros.forEach(m => list.push({ label: m.name.replace('&', ''), type: m.name, cat: 'Macro' })); }
-                if (Array.isArray(config.holdTaps)) { config.holdTaps.filter(b => !b.name.startsWith('&ht_auto_')).forEach(b => list.push({ label: b.name.replace('&', ''), type: b.name, cat: 'Hold-Tap' })); }
-                if (Array.isArray(config.tapDances)) { config.tapDances.filter(b => !b.name.startsWith('&td_')).forEach(b => list.push({ label: b.name.replace('&', ''), type: b.name, cat: 'Tap-Dance' })); }
-                if (Array.isArray(config.modMorphs)) { config.modMorphs.filter(b => !b.name.startsWith('&mm_auto_')).forEach(b => list.push({ label: b.name.replace('&', ''), type: b.name, cat: 'Mod-Morph' })); }
+                if (Array.isArray(config.holdTaps)) { config.holdTaps.filter(b => !isGlideHtName(b.name)).forEach(b => list.push({ label: b.name.replace('&', ''), type: b.name, cat: 'Hold-Tap' })); }
+                if (Array.isArray(config.tapDances)) { config.tapDances.filter(b => !isRecognizedTdName(b.name)).forEach(b => list.push({ label: b.name.replace('&', ''), type: b.name, cat: 'Tap-Dance' })); }
+                if (Array.isArray(config.modMorphs)) { config.modMorphs.filter(b => !isGlideMmName(b.name)).forEach(b => list.push({ label: b.name.replace('&', ''), type: b.name, cat: 'Mod-Morph' })); }
                 if (Array.isArray(config.stickyKeys)) { config.stickyKeys.filter(b => !b.name.startsWith('&sk_auto_')).forEach(b => list.push({ label: b.name.replace('&', ''), type: b.name, cat: 'Sticky-Key' })); }
                 return list;
             }, [config]);
@@ -991,7 +1075,12 @@ const App = () => {
 
             const assignLayerTap = (layerIdx) => {
                 if (!config || (selectedKey === null && editingComboIdx === null)) return;
-                const newSlots = { ...parsedSlots, hold: { value: '&mo', params: [{value: layerIdx}] } };
+                // tap must be an explicit binding object (never left absent/null) here: makeHoldTap
+                // collapses a hold-with-no-tap down to a bare native value (e.g. plain &mo), which is
+                // indistinguishable from "the user just wants a standalone momentary-layer key" — the
+                // next tap assignment would then silently overwrite this hold instead of completing it.
+                const pendingTap = parsedSlots.tap || { value: '&none' };
+                const newSlots = { ...parsedSlots, tap: pendingTap, hold: { value: '&mo', params: [{value: layerIdx}] } };
                 let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config, false);
                 if (currentBinding?.decoration) newBinding.decoration = currentBinding.decoration;
                
@@ -1028,6 +1117,14 @@ const App = () => {
                 const beh = behArray.find(b => b.name === behName); if (beh) { beh[key] = val; pushHistory(newConfig); }
             };
 
+            const toggleModMorphCaseMod = (behName, caseIdx, modCode) => {
+                if (!config) return; const newConfig = structuredClone(config);
+                const mm = (newConfig.modMorphs || []).find(m => m.name === behName); if (!mm || !mm.cases?.[caseIdx]) return;
+                const c = mm.cases[caseIdx]; if (!Array.isArray(c.mods)) c.mods = [];
+                if (c.mods.includes(modCode)) c.mods = c.mods.filter(m => m !== modCode); else c.mods = [...c.mods, modCode];
+                pushHistory(newConfig);
+            };
+
             const updateSlotParam = (slotKey, paramIdx, val, forceNumber = false) => {
                 if (!config || (selectedKey === null && editingComboIdx === null)) return;
                 const newSlots = structuredClone(parsedSlots);
@@ -1062,6 +1159,23 @@ const App = () => {
                 setManuallyAddedSlots(prev => { const next = new Set(prev); next.delete(slotKey); return next; });
                 if (activeActionSlot === slotKey) { if (newSlots.tap) setActiveActionSlot('tap'); else if (newSlots.hold) setActiveActionSlot('hold'); else setActiveActionSlot('tap'); }
                 if (activeConfigSlot === slotKey) setActiveConfigSlot(null);
+            };
+
+            // Clears every slot (tap/shiftTap/hold/doubleTap) plus the custom label in one step.
+            // Deliberately NOT four calls to clearSlot() in a row: each of those reads the same
+            // pre-click config/parsedSlots and calls setConfig(value) with a plain value rather than
+            // a functional updater, so React's batching only keeps the LAST call's result — the
+            // earlier clears would silently vanish, leaving the key's actual binding untouched while
+            // only the label got removed.
+            const clearAllActions = () => {
+                if (!config || (selectedKey === null && editingComboIdx === null)) return;
+                const newConfig = structuredClone(config);
+                if (editingComboIdx !== null) newConfig.combos[editingComboIdx].binding = { value: '&none' };
+                else newConfig.layers[activeLayer][selectedKey] = { value: '&none' };
+                pushHistory(newConfig);
+                setManuallyAddedSlots(new Set());
+                setActiveActionSlot('tap');
+                setActiveConfigSlot(null);
             };
 
             const updateDecorationProperty = (property, value) => {
@@ -1149,7 +1263,8 @@ const App = () => {
                     );
                 }
                
-                if (!['&kp', '&mt', '&lt', '&trans', '&none', '&magic'].includes(baseVal) && !baseVal.startsWith('&ht_auto_') && !baseVal.startsWith('&td_')) {
+                const isKnownBehaviorStruct = (config.holdTaps || []).some(h => h.name === baseVal) || (config.tapDances || []).some(t => t.name === baseVal) || (config.modMorphs || []).some(m => m.name === baseVal);
+                if (!['&kp', '&mt', '&lt', '&trans', '&none', '&magic'].includes(baseVal) && !isKnownBehaviorStruct) {
                     return (
                         <div className="bg-app-card p-4 rounded-b-xl border-x border-b border-app-borderHighlight -mt-2 pt-4 flex flex-col gap-3 shadow-inner relative z-0" onClick={e => e.stopPropagation()}>
                             {(slotBinding.params || []).map((paramObj, pIdx) => {
@@ -1187,8 +1302,11 @@ const App = () => {
                     );
                 }
 
-                if (bindingName.startsWith('&ht_auto_')) {
-                    const ht = (config.holdTaps || []).find(h => h.name === bindingName); if (!ht) return null;
+                const htMatch = (config.holdTaps || []).find(h => h.name === bindingName);
+                const tdMatch = (config.tapDances || []).find(t => t.name === bindingName);
+                const mmMatch = (config.modMorphs || []).find(m => m.name === bindingName);
+                if (htMatch) {
+                    const ht = htMatch;
                     return (
                         <div className="bg-app-card p-4 rounded-b-xl border-x border-b border-app-borderHighlight -mt-2 pt-4 flex flex-col gap-4 shadow-inner relative z-0" onClick={e => e.stopPropagation()}>
                             <div className="flex gap-4">
@@ -1238,8 +1356,8 @@ const App = () => {
                             {renderDoneButton()}
                         </div>
                     );
-                } else if (bindingName.startsWith('&td_')) {
-                    const td = (config.tapDances || []).find(t => t.name === bindingName); if (!td) return null;
+                } else if (tdMatch) {
+                    const td = tdMatch;
                     return (
                         <div className="bg-app-card p-4 rounded-b-xl border-x border-b border-app-borderHighlight -mt-2 pt-4 flex flex-col gap-4 shadow-inner relative z-0" onClick={e => e.stopPropagation()}>
                             <div className="flex flex-col gap-1.5">
@@ -1249,6 +1367,29 @@ const App = () => {
                                     <span className="p-2 text-xs text-app-textMuted font-mono">ms</span>
                                 </div>
                             </div>
+                            {renderDoneButton()}
+                        </div>
+                    );
+                } else if (mmMatch) {
+                    const mm = mmMatch;
+                    const MOD_TOGGLE_OPTIONS = ['MOD_LSFT', 'MOD_RSFT', 'MOD_LCTL', 'MOD_RCTL', 'MOD_LALT', 'MOD_RALT', 'MOD_LGUI', 'MOD_RGUI'];
+                    return (
+                        <div className="bg-app-card p-4 rounded-b-xl border-x border-b border-app-borderHighlight -mt-2 pt-4 flex flex-col gap-4 shadow-inner relative z-0" onClick={e => e.stopPropagation()}>
+                            <p className="text-[10px] text-app-textMuted leading-tight -mt-1">This behavior switches its output based on which mod keys are held. Each case below fires when exactly its checked mods are active. Bindings themselves aren't editable here — use the JSON tab for that.</p>
+                            {(mm.cases || []).map((c, cIdx) => (
+                                <div key={cIdx} className="flex flex-col gap-2 pb-3 border-b border-app-borderHighlight last:border-b-0 last:pb-0">
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-[10px] uppercase tracking-widest text-app-textMuted font-bold">Case {cIdx + 1}{cIdx === 0 ? ' (default)' : ''}</span>
+                                        <span className="font-mono text-[11px] text-app-accent">{describeBinding(c.binding, effectiveOs, layerNames)}</span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {MOD_TOGGLE_OPTIONS.map(mc => {
+                                            const active = (c.mods || []).includes(mc);
+                                            return <button key={mc} onClick={() => toggleModMorphCaseMod(bindingName, cIdx, mc)} className={`px-2 py-1 text-[10px] font-bold rounded border transition-colors ${active ? 'bg-app-accent text-white border-app-accent' : 'bg-app-surface text-app-textMuted border-app-borderHighlight hover:text-app-text hover:border-app-textMuted'}`}>{mc.replace('MOD_','')}</button>;
+                                        })}
+                                    </div>
+                                </div>
+                            ))}
                             {renderDoneButton()}
                         </div>
                     );
@@ -1265,14 +1406,14 @@ const App = () => {
                
                 if (slotKey === 'hold') {
                     const primaryBinding = currentBinding;
-                    if (primaryBinding && !primaryBinding.value.startsWith('&ht_auto_') && !primaryBinding.value.startsWith('&td_') && (primaryBinding.value === '&mt' || primaryBinding.value === '&lt')) isStandardHoldTap = true;
-                    else if (primaryBinding?.value?.startsWith('&ht_auto_')) targetName = primaryBinding.value;
-                    else if (primaryBinding?.value?.startsWith('&td_')) {
+                    if (primaryBinding && !isGlideHtName(primaryBinding.value) && !isRecognizedTdName(primaryBinding.value) && (primaryBinding.value === '&mt' || primaryBinding.value === '&lt')) isStandardHoldTap = true;
+                    else if (isGlideHtName(primaryBinding?.value)) targetName = primaryBinding.value;
+                    else if (isRecognizedTdName(primaryBinding?.value)) {
                         const td = config?.tapDances?.find(t => t.name === primaryBinding.value);
-                        if (td && td.bindings?.[0]?.value?.startsWith('&ht_auto_')) targetName = td.bindings[0].value;
+                        if (td && isGlideHtName(td.bindings?.[0]?.value)) targetName = td.bindings[0].value;
                     }
                 }
-                if (slotKey === 'doubleTap' && currentBinding?.value?.startsWith('&td_')) targetName = currentBinding.value;
+                if (slotKey === 'doubleTap' && isRecognizedTdName(currentBinding?.value)) targetName = currentBinding.value;
 
                 if (isStandardHoldTap) {
                     const newSlots = { ...parsedSlots }; let { newBinding, newConfig } = buildBindingAndConfig(newSlots, config, true);
@@ -1282,6 +1423,45 @@ const App = () => {
                     pushHistory(newConfig);
                 }
                 setActiveConfigSlot(slotKey);
+            };
+
+            const detachCustomBehavior = (slotKey) => {
+                if (!config || (selectedKey === null && editingComboIdx === null)) return;
+                const slotBinding = parsedSlots[slotKey]; if (!slotBinding) return;
+                const originalName = slotBinding.value;
+                const htMatch = (config.holdTaps || []).find(h => h.name === originalName);
+                const tdMatch = !htMatch && (config.tapDances || []).find(t => t.name === originalName);
+                const mmMatch = !htMatch && !tdMatch && (config.modMorphs || []).find(m => m.name === originalName);
+                const match = htMatch || tdMatch || mmMatch;
+                if (!match) return;
+
+                const usageCount = countBehaviorUsage(config, originalName);
+                const hasSharedTuning = !!(htMatch && htMatch.holdTriggerKeyPositions && htMatch.holdTriggerKeyPositions.length > 0);
+                if (usageCount > 1 || hasSharedTuning) {
+                    const warn = `"${originalName.replace('&','')}" is used by ${usageCount} key${usageCount === 1 ? '' : 's'}/combo${usageCount === 1 ? '' : 's'}${hasSharedTuning ? ' and has shared hold-trigger tuning' : ''}. Detaching will let you edit this one independently, but it will stop sharing settings with the others. Continue?`;
+                    if (!window.confirm(warn)) return;
+                }
+
+                const newConfig = structuredClone(config);
+                const slug = originalName.replace('&', '').replace(/[^a-zA-Z0-9]+/g, '_');
+                let newName, arrKey;
+                if (htMatch) { arrKey = 'holdTaps'; newName = `${GLIDE_HT_PREFIX}detached_${slug}_${Date.now() % 100000}`; }
+                else if (tdMatch) { arrKey = 'tapDances'; newName = `${GLIDE_TD_PREFIX}detached_${slug}_${Date.now() % 100000}`; }
+                else { arrKey = 'modMorphs'; newName = `${GLIDE_MM_PREFIX}detached_${slug}_${Date.now() % 100000}`; }
+
+                const cloned = structuredClone(match); cloned.name = newName; cloned.description = GLIDE_BEHAVIOR_DESCRIPTION;
+                if (!newConfig[arrKey]) newConfig[arrKey] = [];
+                newConfig[arrKey].push(cloned);
+
+                const newBinding = { value: newName };
+                if (slotBinding.params) newBinding.params = structuredClone(slotBinding.params);
+                if (currentBinding?.decoration) newBinding.decoration = currentBinding.decoration;
+
+                if (editingComboIdx !== null) newConfig.combos[editingComboIdx].binding = newBinding;
+                else newConfig.layers[activeLayer][selectedKey] = newBinding;
+
+                pushHistory(newConfig);
+                showToast(`Detached — this key now has its own copy of "${originalName.replace('&','')}"`);
             };
 
             const renderSlot = (slotKey, label) => {
@@ -1309,24 +1489,29 @@ const App = () => {
                 }
 
                 const slotBinding = parsedSlots[slotKey]; const isFilled = !!slotBinding && slotBinding.value !== '&none';
-                let rawBindingName = '';
+                let rawBindingName = slotBinding?.value || '';
                 if (slotKey === 'hold') {
                     let pb = currentBinding;
-                    if (pb?.value?.startsWith('&td_')) pb = config?.tapDances?.find(t => t.name === pb.value)?.bindings?.[0];
-                    if (pb?.value?.startsWith('&ht_auto_')) rawBindingName = pb.value;
-                    else rawBindingName = pb?.value || '';
+                    if (isRecognizedTdName(pb?.value)) pb = config?.tapDances?.find(t => t.name === pb.value)?.bindings?.[0];
+                    rawBindingName = pb?.value || '';
                 }
-                if (slotKey === 'doubleTap' && currentBinding?.value?.startsWith('&td_')) rawBindingName = currentBinding.value;
+                if (slotKey === 'doubleTap' && isRecognizedTdName(currentBinding?.value)) rawBindingName = currentBinding.value;
 
                 const showGear = isFilled && (slotKey === 'hold' || slotKey === 'doubleTap' || !['&kp', '&mt', '&lt', '&trans', '&none', '&magic'].includes(slotBinding.value));
+                const isCustomBehavior = isFilled && !isGlideNativeBindingValue(slotBinding.value);
+                const usageCount = isCustomBehavior ? countBehaviorUsage(config, slotBinding.value) : 0;
 
                 if (isFilled) {
                     return (
                         <div key={slotKey} className="flex flex-col">
                             <div onClick={(e) => { e.stopPropagation(); setActiveActionSlot(slotKey); setActiveConfigSlot(null); }} className={`rounded-xl px-4 py-2 text-xs font-semibold flex items-center justify-between cursor-pointer transition-all border ${isSelected ? 'btn-active-hollow shadow-sm' : 'bg-transparent text-gray-300 border-app-borderHighlight hover:border-app-textMuted hover:-translate-y-px shadow-sm'} relative z-10`}>
-                                <span className="w-auto mr-4 tracking-wide">{label}:</span>
+                                <span className="w-auto mr-4 tracking-wide flex items-center gap-1.5">
+                                    {label}:
+                                    {isCustomBehavior && <span className="text-[9px] uppercase tracking-widest bg-app-panel border border-app-borderHighlight text-app-textMuted px-1.5 py-0.5 rounded" title="Hand-authored custom behavior, not decomposed into slots">Custom{usageCount > 1 ? ` · shared ×${usageCount}` : ''}</span>}
+                                </span>
                                 <span className="flex-1 truncate font-mono text-[11px] text-right pr-2">{describeBinding(slotBinding, effectiveOs, layerNames)}</span>
                                 <div className="flex items-center gap-1 shrink-0">
+                                    {isCustomBehavior && <button onClick={(e) => { e.stopPropagation(); detachCustomBehavior(slotKey); }} className="w-6 h-6 rounded flex items-center justify-center transition-all text-[12px] shrink-0 text-app-textMuted hover:text-app-accent border border-app-borderHighlight hover:border-app-accent hover:-translate-y-px" title={`Detach & Customize — clone this behavior so you can edit it independently${usageCount > 1 ? ` (currently shared with ${usageCount - 1} other place${usageCount - 1 === 1 ? '' : 's'})` : ''}`}>⑂</button>}
                                     {showGear && <button onClick={(e) => handleGearClick(e, slotKey)} className={`w-6 h-6 rounded flex items-center justify-center transition-all text-[12px] shrink-0 ${isConfigOpen ? 'bg-app-accent text-white border border-app-accent hover:bg-app-accentHover' : (isSelected ? 'hover:bg-app-accentGhost text-app-accent border border-app-accentGhost hover:-translate-y-px' : 'text-app-textMuted hover:text-app-text border border-app-borderHighlight hover:-translate-y-px')}`} title="Settings">{isConfigOpen ? '✕' : '⚙️'}</button>}
                                     <button onClick={(e) => { e.stopPropagation(); clearSlot(slotKey); }} className={`w-6 h-6 rounded flex items-center justify-center transition-all text-[14px] leading-none shrink-0 ${isSelected ? 'hover:bg-app-accentGhost text-app-accent border border-app-accentGhost hover:-translate-y-px' : 'text-app-textMuted hover:text-red-400 hover:bg-red-500/10 border border-transparent hover:border-red-500/20 hover:-translate-y-px'}`} title="Clear slot">🗑️</button>
                                 </div>
@@ -1591,7 +1776,7 @@ const App = () => {
                                                 `Key ${getLogicalName(selectedKey, config?.keyboard)}`
                                             ) : 'No Selection'}
                                         </span>
-                                        <button className="text-app-textMuted hover:text-red-400 hover:bg-red-500/10 transition-colors w-8 h-8 rounded-lg flex items-center justify-center shrink-0" title="Clear All Actions" onClick={() => { if(window.confirm('Clear all actions?')) { clearSlot('tap'); clearSlot('shiftTap'); clearSlot('hold'); clearSlot('doubleTap'); clearSlot('label'); } }}><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
+                                        <button className="text-app-textMuted hover:text-red-400 hover:bg-red-500/10 transition-colors w-8 h-8 rounded-lg flex items-center justify-center shrink-0" title="Clear All Actions" onClick={() => { if(window.confirm('Clear all actions?')) { clearAllActions(); } }}><svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg></button>
                                     </div>
                                    
                                     {(selectedKey !== null || editingComboIdx !== null) ? (
