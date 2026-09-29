@@ -529,6 +529,32 @@
         };
 
         // h/s/v assumed on the same 0-255 scale as the existing Brightness field, for consistency
+        // Scans the whole file for every color used in any lighting rule, deduped
+        // case-insensitively (keeping the first-seen casing), so it stays live-updated
+        // via useMemo(() => getUsedColors(config), [config]) wherever it's called.
+        const getUsedColors = (config) => {
+            const seen = new Map(); // lowercased -> original casing
+            const collect = (arr) => (arr || []).forEach(r => { if (r.color && !seen.has(r.color.toLowerCase())) seen.set(r.color.toLowerCase(), r.color); });
+            collect(config?.lighting?.scene);
+            collect(config?.lighting?.conditional_scene);
+            return Array.from(seen.values());
+        };
+
+        // A row of clickable swatches for every color already used in the file — sits
+        // alongside the traditional color picker/hex input, never replaces them.
+        const ColorPaletteStrip = ({ colors, value, onChange }) => {
+            if (!colors || colors.length === 0) return null;
+            return (
+                <div className="flex flex-wrap gap-1.5 p-2 bg-[color:var(--bg-base)] border border-[color:var(--border-panel)] rounded-lg">
+                    {colors.map(c => (
+                        <button key={c} type="button" onClick={() => onChange(c)} title={c}
+                            className={`w-6 h-6 rounded-md border-2 shrink-0 transition-transform hover:scale-110 ${value?.toLowerCase() === c.toLowerCase() ? 'border-[color:var(--accent)] ring-2 ring-[color:var(--accent)] ring-offset-1 ring-offset-[color:var(--bg-base)]' : 'border-[color:var(--border-panel)]'}`}
+                            style={{ backgroundColor: c }} />
+                    ))}
+                </div>
+            );
+        };
+
         const hsvToHex = (h, s, v) => {
             const hh = ((h ?? 0) / 255) * 360, ss = (s ?? 0) / 255, vv = (v ?? 0) / 255;
             const c = vv * ss, x = c * (1 - Math.abs(((hh / 60) % 2) - 1)), m = vv - c;
@@ -539,42 +565,7 @@
             return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
         };
 
-        // Diagnostic export: a smooth hue sweep across every LED (LED 0 = red, progressing
-        // through the spectrum) so a person can flash it to real hardware and immediately spot
-        // any key whose color doesn't fit its expected place in the sequence. Never touches the
-        // live editing session — this builds a completely separate config to download.
-        const generateLedTestPatternConfig = (liveConfig) => {
-            const next = JSON.parse(JSON.stringify(liveConfig));
-            next.lighting = next.lighting || {};
-            next.lighting.brightness = 255;
-            next.lighting.output_mode = 'always-on';
-            if (next.lighting.background) next.lighting.background.enabled = false;
-            delete next.lighting.conditional_scene; // avoid any override interfering with a clean read
-            const totalLeds = LED_TO_MATRIX.length;
-            next.lighting.scene = [];
-            for (let led = 0; led < totalLeds; led++) {
-                const hue = Math.round((led / totalLeds) * 255);
-                next.lighting.scene.push({ led, color: hsvToHex(hue, 255, 255), effect: 'solid' }); // no `layer` field = shows on every layer
-            }
-            return next;
-        };
-
-        const LightingDashboard = ({ config, activeLayer, showIndices, setShowIndices, updateConfig, isPaintMode, setIsPaintMode, paintColor, setPaintColor, pendingGuidedAction, setPendingGuidedAction, setSelectedKey }) => {
-            const handleDownloadLedTestPattern = () => {
-                try {
-                    const testConfig = generateLedTestPatternConfig(config);
-                    testConfig.layer.forEach(l => { l.keys = untokenizeKeys(l); delete l.tokens; delete l.tail; });
-                    const tomlString = window.smolToml.stringify(testConfig);
-                    window.smolToml.parse(tomlString); // sanity check before handing over the file
-                    const a = document.createElement('a');
-                    a.href = "data:text/plain;charset=utf-8," + encodeURIComponent(tomlString);
-                    a.download = "led-test-pattern.toml";
-                    a.click();
-                } catch (err) {
-                    alert("Couldn't generate the test pattern: " + err.message);
-                }
-            };
-
+        const LightingDashboard = ({ config, activeLayer, showIndices, setShowIndices, updateConfig, isPaintMode, setIsPaintMode, paintColor, setPaintColor, pendingGuidedAction, setPendingGuidedAction, setSelectedKey, usedColors, isEyedropper, setIsEyedropper }) => {
             const handleClearAll = () => {
                 if(!confirm(`Clear ALL lighting rules mapped to ${getLayerLabel(config, activeLayer)}?`)) return;
                 updateConfig(prev => {
@@ -616,6 +607,7 @@
             };
 
             const bg = config?.lighting?.background || {};
+            const [showGlobalSettings, setShowGlobalSettings] = useState(!isPaintMode);
 
             return (
                 <div className="flex flex-col gap-4 w-full h-full">
@@ -624,35 +616,41 @@
                         <div className="flex items-center gap-2">
                             <label className={`flex items-center gap-2 cursor-pointer px-2 py-1 rounded-md border transition-colors ${isPaintMode ? 'bg-[color:var(--accent-soft)] border-[color:var(--accent)]' : 'bg-[color:var(--bg-base)] border-[color:var(--border-panel)]'}`}>
                                 <span className="text-[10px] font-bold text-[color:var(--text-main)]">🖌️ Paint Mode</span>
-                                <input type="checkbox" checked={isPaintMode} onChange={e => setIsPaintMode(e.target.checked)} className="accent-[color:var(--accent)] cursor-pointer w-3 h-3" />
+                                <input type="checkbox" checked={isPaintMode} onChange={e => { setIsPaintMode(e.target.checked); if (!e.target.checked) setIsEyedropper(false); }} className="accent-[color:var(--accent)] cursor-pointer w-3 h-3" />
                             </label>
-                            {isPaintMode && (
-                                <label className="flex items-center gap-1.5 cursor-pointer bg-[color:var(--bg-base)] px-2 py-1 rounded-md border border-[color:var(--border-panel)]" title="Paint color">
-                                    <input type="color" value={paintColor} onChange={e => setPaintColor(e.target.value)} className="w-5 h-5 rounded cursor-pointer border-0 bg-transparent p-0" />
-                                </label>
-                            )}
                             <label className="flex items-center gap-2 cursor-pointer bg-[color:var(--bg-base)] px-2 py-1 rounded-md border border-[color:var(--border-panel)]">
                                 <span className="text-[10px] font-bold text-[color:var(--text-main)]">Show Matrix/LED Indices</span>
                                 <input type="checkbox" checked={showIndices} onChange={e => setShowIndices(e.target.checked)} className="accent-[color:var(--accent)] cursor-pointer w-3 h-3" />
                             </label>
                         </div>
                     </div>
+
                     {isPaintMode && (
-                        <div className="mx-2 -mt-2 px-3 py-2 bg-[color:var(--accent-soft)] border border-[color:var(--accent)] rounded-lg text-[10px] text-[color:var(--text-main)] font-medium">
-                            Click or drag across keys on the canvas to paint them with the selected color on {getLayerLabel(config, activeLayer)}.
+                        <div className="mx-2 p-3 bg-[color:var(--bg-panel)] border-2 border-[color:var(--accent)] rounded-xl shadow-sm flex flex-col gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-12 h-12 rounded-lg border-2 border-[color:var(--border-panel)] shadow-inner shrink-0" style={{ backgroundColor: paintColor }} title="Current paint color" />
+                                <div className="flex-1 flex flex-col gap-1.5">
+                                    <div className="flex items-center gap-2">
+                                        <input type="color" value={paintColor} onChange={e => setPaintColor(e.target.value)} className="w-8 h-8 rounded cursor-pointer border border-[color:var(--border-panel)] p-0 bg-transparent shrink-0" title="Pick a color" />
+                                        <input type="text" maxLength="7" value={paintColor} onChange={e => setPaintColor(e.target.value)} className="input-field py-1.5 px-2 text-xs font-mono flex-1 text-center uppercase" placeholder="#RRGGBB" />
+                                        <button onClick={() => setIsEyedropper(e => !e)} title="Sample a color from an existing key on the canvas" className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${isEyedropper ? 'bg-[color:var(--accent)] text-white border-[color:var(--accent)]' : 'bg-[color:var(--bg-base)] text-[color:var(--text-main)] border-[color:var(--border-panel)] hover:border-[color:var(--accent)]'}`}>💧 {isEyedropper ? 'Click a key…' : 'Sample'}</button>
+                                    </div>
+                                    <p className="text-[10px] text-[color:var(--text-main)] font-medium">{isEyedropper ? 'Click any colored key to pick up its color.' : `Click or drag across keys to paint them on ${getLayerLabel(config, activeLayer)}.`}</p>
+                                </div>
+                            </div>
+                            {usedColors.length > 0 && (
+                                <div>
+                                    <span className="text-[9px] font-bold text-[color:var(--text-muted)] uppercase tracking-wide block mb-1">Colors already in this file</span>
+                                    <ColorPaletteStrip colors={usedColors} value={paintColor} onChange={setPaintColor} />
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    <div className="mx-2 p-3 bg-[color:var(--bg-panel)] border border-dashed border-[color:var(--border-panel)] rounded-xl">
-                        <div className="flex items-center justify-between gap-3 flex-wrap">
-                            <div>
-                                <span className="text-[10px] font-bold text-[color:var(--text-main)]">🔬 LED Test Pattern</span>
-                                <p className="text-[9px] text-[color:var(--text-muted)] mt-0.5">Downloads a separate file — every LED gets a distinct color in a smooth sweep (LED 0 = red, progressing through the spectrum). Flash it to your real keyboard to spot any key whose color doesn't fit its place in the sequence. Doesn't touch your current work.</p>
-                            </div>
-                            <button onClick={handleDownloadLedTestPattern} className="shrink-0 bg-[color:var(--accent-soft)] border border-[color:var(--accent)] text-[color:var(--accent)] hover:brightness-110 font-bold text-[10px] px-3 py-2 rounded-lg transition-all">⬇ Download Test Pattern</button>
-                        </div>
-                    </div>
-                   
+                    <button type="button" onClick={() => setShowGlobalSettings(s => !s)} className="mx-2 flex items-center gap-1.5 text-[10px] font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)] -mb-2">
+                        {showGlobalSettings ? '▾' : '▸'} Global Settings & Background
+                    </button>
+                    {showGlobalSettings && (
                     <div className="flex flex-col gap-3">
                         <div className="bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl p-3 shadow-sm">
                             <h4 className="text-[10px] font-bold text-[color:var(--text-main)] mb-2">Global Settings</h4>
@@ -695,6 +693,7 @@
                             )}
                         </div>
                     </div>
+                    )}
 
                     {pendingGuidedAction ? (
                         <div className="flex flex-col items-center justify-center p-6 bg-[color:var(--accent-soft)] border border-[color:var(--accent)] rounded-xl shadow-inner text-center mt-2 animate-pulse">
@@ -703,7 +702,7 @@
                             <span className="text-[11px] text-[color:var(--text-muted)] leading-relaxed max-w-xs">Setting up: {pendingGuidedAction === 'usb' ? '🔌 USB Indicator' : pendingGuidedAction === 'ble' ? '📶 BLE Indicator' : '🔋 Battery Indicator'}</span>
                             <button onClick={() => setPendingGuidedAction(null)} className="mt-3 text-[10px] font-bold text-[color:var(--text-muted)] hover:text-[color:var(--accent)]">Cancel</button>
                         </div>
-                    ) : (
+                    ) : !isPaintMode ? (
                         <div className="flex flex-col gap-2 mt-2">
                             <span className="text-[10px] font-bold text-[color:var(--text-muted)] uppercase tracking-widest px-1">Get Started</span>
                             <button onClick={() => setIsPaintMode(true)} className="flex items-center gap-3 p-3 bg-[color:var(--bg-panel)] border border-[color:var(--border-panel)] rounded-xl shadow-sm text-left hover:border-[color:var(--accent)] transition-all group">
@@ -736,7 +735,7 @@
                             </button>
                             <span className="text-[9px] text-[color:var(--text-muted)] italic px-1 mt-1">Or click any key on the canvas directly to edit its rules manually.</span>
                         </div>
-                    )}
+                    ) : null}
 
                     {config?.lighting && (
                         <div className="p-1 mt-auto shrink-0">
@@ -759,7 +758,7 @@
             </div>
         );
 
-        const KeyLightingEditor = ({ config, updateConfig, activeLayer, selectedKey, setSelectedKey, pendingGuidedAction, setPendingGuidedAction }) => {
+        const KeyLightingEditor = ({ config, updateConfig, activeLayer, selectedKey, setSelectedKey, pendingGuidedAction, setPendingGuidedAction, usedColors }) => {
             const [newRuleType, setNewRuleType] = useState(pendingGuidedAction || 'base');
             useEffect(() => { setNewRuleType(pendingGuidedAction || 'base'); }, [selectedKey, activeLayer]);
             const ledIndex = selectedKey !== null ? MATRIX_TO_LED[selectedKey] : -1;
@@ -903,6 +902,7 @@
                                         <option value="breath">Breath</option>
                                     </select>
                                 </div>
+                                {usedColors.length > 0 && <ColorPaletteStrip colors={usedColors} value={s.color} onChange={c => updateStatic(s._globalIdx, 'color', c)} />}
                                 {s.effect === 'blink' && <BlinkTimingFields s={s} onUpdate={(f, v) => updateStatic(s._globalIdx, f, v)} />}
                             </div>
                         ))}
@@ -1016,6 +1016,7 @@
                                             <option value="breath">Breath</option>
                                         </select>
                                     </div>
+                                    {usedColors.length > 0 && <ColorPaletteStrip colors={usedColors} value={s.color} onChange={c => updateCond(s._globalIdx, 'color', c)} />}
                                     {s.effect === 'blink' && <BlinkTimingFields s={s} onUpdate={(f, v) => updateCond(s._globalIdx, f, v)} />}
                                 </div>
                             )
@@ -1290,7 +1291,7 @@
         };
 
         // --- 7. RENDER COMPONENTS ---
-        const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect, onSwap, lightingColor, lightingEffect, lightingPeriodMs, lightingPhaseMs, isLightingMode, lightingIcons, showIndices, isPaintMode, onPaintDown, onPaintEnter, isPreviewFlash, previewFlashDurationMs }) => {
+        const KeyComponent = memo(({ index, geo, binding, baseBinding, isSelected, onSelect, onSwap, lightingColor, lightingEffect, lightingPeriodMs, lightingPhaseMs, isLightingMode, lightingIcons, showIndices, isPaintMode, onPaintDown, onPaintEnter, isPreviewFlash, previewFlashDurationMs, isEyedropper, onEyedropperPick }) => {
             const [isDragOver, setIsDragOver] = useState(false);
             if (geo.hidden) return null;
             const isTrans = binding === '_______' || binding === 'KC_TRNS';
@@ -1321,14 +1322,14 @@
                         keyStyle.animation = `key-breath-preview 2000ms ease-in-out infinite alternate`;
                     }
                 }
-                if (isPaintMode) keyStyle.cursor = 'crosshair';
+                if (isPaintMode || isEyedropper) keyStyle.cursor = 'crosshair';
                 return (
-                    <div draggable={!isPaintMode}
+                    <div draggable={!isPaintMode && !isEyedropper}
                         onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData('text/plain', index); }} onDragOver={(e) => { e.preventDefault(); setIsDragOver(true); }} onDragLeave={() => setIsDragOver(false)} onDrop={(e) => { e.preventDefault(); setIsDragOver(false); const src = parseInt(e.dataTransfer.getData('text/plain'), 10); if(!isNaN(src) && src!==index) onSwap(src, index); }}
-                        onPointerDown={(e) => { if (isPaintMode) { e.stopPropagation(); onPaintDown(index); } }}
-                        onPointerEnter={() => { if (isPaintMode) onPaintEnter(index); }}
+                        onPointerDown={(e) => { if (isEyedropper) { e.stopPropagation(); } else if (isPaintMode) { e.stopPropagation(); onPaintDown(index); } }}
+                        onPointerEnter={() => { if (isPaintMode && !isEyedropper) onPaintEnter(index); }}
                         className={`matrix-key lighting-mode ${!lightingColor ? 'lighting-off' : 'lighting-glow'} ${isDragOver ? 'drag-over' : ''} ${isSelected ? 'selected' : ''}`}
-                        style={keyStyle} onClick={(e) => { e.stopPropagation(); onSelect(index); }} title={isPaintMode ? `Click or drag to paint | Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}` : `Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}${lightingEffect && lightingEffect !== 'solid' ? ` | Effect: ${lightingEffect}` : ''}`}>
+                        style={keyStyle} onClick={(e) => { e.stopPropagation(); if (isEyedropper) onEyedropperPick(index); else onSelect(index); }} title={isEyedropper ? `Sample this key's color | Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}` : isPaintMode ? `Click or drag to paint | Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}` : `Matrix: ${index} | LED: ${MATRIX_TO_LED[index]}${lightingEffect && lightingEffect !== 'solid' ? ` | Effect: ${lightingEffect}` : ''}`}>
                        
                         {isPreviewFlash && <div key={`flash-${index}`} className="absolute inset-0 pointer-events-none z-30" style={{ borderRadius: 'inherit', backgroundColor: lightingColor || '#ffc247', animation: `key-preview-flash-overlay ${previewFlashDurationMs || 550}ms ease-out` }} />}
                         {showIndices ? (
@@ -1354,9 +1355,9 @@
                     <span className="text-clamp" style={{ fontSize: `${keyFontSize}px` }}>{labelText}</span>
                 </div>
             );
-        }, (p, n) => p.isSelected === n.isSelected && p.binding === n.binding && p.baseBinding === n.baseBinding && p.geo === n.geo && p.lightingColor === n.lightingColor && p.lightingEffect === n.lightingEffect && p.lightingPeriodMs === n.lightingPeriodMs && p.lightingPhaseMs === n.lightingPhaseMs && p.isLightingMode === n.isLightingMode && JSON.stringify(p.lightingIcons) === JSON.stringify(n.lightingIcons) && p.showIndices === n.showIndices && p.isPaintMode === n.isPaintMode && p.isPreviewFlash === n.isPreviewFlash && p.previewFlashDurationMs === n.previewFlashDurationMs);
+        }, (p, n) => p.isSelected === n.isSelected && p.binding === n.binding && p.baseBinding === n.baseBinding && p.geo === n.geo && p.lightingColor === n.lightingColor && p.lightingEffect === n.lightingEffect && p.lightingPeriodMs === n.lightingPeriodMs && p.lightingPhaseMs === n.lightingPhaseMs && p.isLightingMode === n.isLightingMode && JSON.stringify(p.lightingIcons) === JSON.stringify(n.lightingIcons) && p.showIndices === n.showIndices && p.isPaintMode === n.isPaintMode && p.isPreviewFlash === n.isPreviewFlash && p.previewFlashDurationMs === n.previewFlashDurationMs && p.isEyedropper === n.isEyedropper);
 
-        const KeyboardContainer = ({ layerTokens, baseTokens, selectedKey, onSelectKey, scale, pan, isPanning, onPanStart, onPanMove, onPanEnd, onSwap, lightingScenes, isLightingMode, showIndices, isPaintMode, onPaintDown, onPaintEnter, previewFlashes, previewFlashDurationMs }) => {
+        const KeyboardContainer = ({ layerTokens, baseTokens, selectedKey, onSelectKey, scale, pan, isPanning, onPanStart, onPanMove, onPanEnd, onSwap, lightingScenes, isLightingMode, showIndices, isPaintMode, onPaintDown, onPaintEnter, previewFlashes, previewFlashDurationMs, isEyedropper, onEyedropperPick }) => {
             const { keyboardGeo, isFallback } = useMemo(() => {
                 const count = layerTokens.length;
                 if (count === 84) return { keyboardGeo: GLOVE80_GEO, isFallback: false };
@@ -1390,7 +1391,7 @@
                                     if (stack.some(s => s.layer?.active && !s.battery && !s.connection && !s.caps_lock && !s.num_lock && !s.scroll_lock && !s.effects)) icons.push('🎯');
                                 }
                             }
-                            return <KeyComponent key={`matrix-key-${index}`} index={index} geo={keyboardGeo[index] || {hidden: true}} binding={token} baseBinding={baseTokens?.[index]} isSelected={selectedKey === index} onSelect={onSelectKey} onSwap={onSwap} lightingColor={color} lightingEffect={effect} lightingPeriodMs={periodMs} lightingPhaseMs={phaseMs} isLightingMode={isLightingMode} lightingIcons={icons} showIndices={showIndices} isPaintMode={isPaintMode} onPaintDown={onPaintDown} onPaintEnter={onPaintEnter} isPreviewFlash={previewFlashes && previewFlashes[index] !== undefined} previewFlashDurationMs={previewFlashDurationMs} />;
+                            return <KeyComponent key={`matrix-key-${index}`} index={index} geo={keyboardGeo[index] || {hidden: true}} binding={token} baseBinding={baseTokens?.[index]} isSelected={selectedKey === index} onSelect={onSelectKey} onSwap={onSwap} lightingColor={color} lightingEffect={effect} lightingPeriodMs={periodMs} lightingPhaseMs={phaseMs} isLightingMode={isLightingMode} lightingIcons={icons} showIndices={showIndices} isPaintMode={isPaintMode} onPaintDown={onPaintDown} onPaintEnter={onPaintEnter} isPreviewFlash={previewFlashes && previewFlashes[index] !== undefined} previewFlashDurationMs={previewFlashDurationMs} isEyedropper={isEyedropper} onEyedropperPick={onEyedropperPick} />;
                         })}
                     </div>
                 </div>
@@ -1514,13 +1515,14 @@
             );
         };
 
-        const Inspector = ({ view, setView, config, activeLayer, setActiveLayer, selectedKey, setSelectedKey, updateConfig, tabs, isDockedBottom, toggleDock, handleRenameBlockKey, handleDeleteBlockKey, showIndices, setShowIndices, clipboard, setClipboard, isPaintMode, setIsPaintMode, paintColor, setPaintColor, isPreviewingEffect, setIsPreviewingEffect }) => {
+        const Inspector = ({ view, setView, config, activeLayer, setActiveLayer, selectedKey, setSelectedKey, updateConfig, tabs, isDockedBottom, toggleDock, handleRenameBlockKey, handleDeleteBlockKey, showIndices, setShowIndices, clipboard, setClipboard, isPaintMode, setIsPaintMode, paintColor, setPaintColor, isPreviewingEffect, setIsPreviewingEffect, isEyedropper, setIsEyedropper }) => {
             const [editMode, setEditMode] = useState('visual');
             const [localObj, setLocalObj] = useState(null);
             const [localStr, setLocalStr] = useState("");
             const [error, setError] = useState("");
             const [pendingGuidedAction, setPendingGuidedAction] = useState(null); // 'usb' | 'ble' | 'battery' — set by the Lighting tab's guided entry points, consumed by KeyLightingEditor
             useEffect(() => { if (selectedKey === null) setPendingGuidedAction(null); }, [selectedKey]);
+            const usedColors = useMemo(() => getUsedColors(config), [config]);
            
             const currentTokenText = selectedKey !== null && config.layer[activeLayer].tokens ? config.layer[activeLayer].tokens[selectedKey]?.text || "" : "";
 
@@ -1698,9 +1700,9 @@
                                         </div>
                                     )}
                                     {selectedKey === null ? (
-                                        <LightingDashboard config={config} activeLayer={activeLayer} showIndices={showIndices} setShowIndices={setShowIndices} updateConfig={updateConfig} isPaintMode={isPaintMode} setIsPaintMode={setIsPaintMode} paintColor={paintColor} setPaintColor={setPaintColor} pendingGuidedAction={pendingGuidedAction} setPendingGuidedAction={setPendingGuidedAction} setSelectedKey={setSelectedKey} />
+                                        <LightingDashboard config={config} activeLayer={activeLayer} showIndices={showIndices} setShowIndices={setShowIndices} updateConfig={updateConfig} isPaintMode={isPaintMode} setIsPaintMode={setIsPaintMode} paintColor={paintColor} setPaintColor={setPaintColor} pendingGuidedAction={pendingGuidedAction} setPendingGuidedAction={setPendingGuidedAction} setSelectedKey={setSelectedKey} usedColors={usedColors} isEyedropper={isEyedropper} setIsEyedropper={setIsEyedropper} />
                                     ) : (
-                                        <KeyLightingEditor config={config} updateConfig={updateConfig} activeLayer={activeLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} pendingGuidedAction={pendingGuidedAction} setPendingGuidedAction={setPendingGuidedAction} />
+                                        <KeyLightingEditor config={config} updateConfig={updateConfig} activeLayer={activeLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} pendingGuidedAction={pendingGuidedAction} setPendingGuidedAction={setPendingGuidedAction} usedColors={usedColors} />
                                     )}
                                 </>
                             ) : (view !== 'key' || selectedKey !== null) ? (
@@ -1731,6 +1733,56 @@
             );
         };
 
+        // Undo/redo as a drop-in replacement for useState: setPresent has the exact same
+        // calling convention (value or updater function), so it can replace setConfig
+        // everywhere it's already used without touching those call sites. Rapid successive
+        // changes within `coalesceMs` of each other (e.g. typing in a hex color field one
+        // character at a time) are merged into a single undo step instead of one per keystroke.
+        const useUndoableState = (initialValue, coalesceMs = 700) => {
+            const [history, setHistory] = useState({ past: [], present: initialValue, future: [] });
+            const lastPushRef = useRef(0);
+
+            const setPresent = useCallback((updater) => {
+                setHistory(h => {
+                    const newPresent = typeof updater === 'function' ? updater(h.present) : updater;
+                    if (newPresent === h.present) return h;
+                    const now = Date.now();
+                    const shouldCheckpoint = now - lastPushRef.current > coalesceMs;
+                    lastPushRef.current = now;
+                    return {
+                        past: shouldCheckpoint ? [...h.past.slice(-49), h.present] : h.past,
+                        present: newPresent,
+                        future: []
+                    };
+                });
+            }, [coalesceMs]);
+
+            const undo = useCallback(() => {
+                lastPushRef.current = 0; // force the next edit after an undo to start a fresh checkpoint
+                setHistory(h => {
+                    if (h.past.length === 0) return h;
+                    const previous = h.past[h.past.length - 1];
+                    return { past: h.past.slice(0, -1), present: previous, future: [h.present, ...h.future] };
+                });
+            }, []);
+
+            const redo = useCallback(() => {
+                lastPushRef.current = 0;
+                setHistory(h => {
+                    if (h.future.length === 0) return h;
+                    const next = h.future[0];
+                    return { past: [...h.past, h.present], present: next, future: h.future.slice(1) };
+                });
+            }, []);
+
+            const resetHistory = useCallback((newPresent) => {
+                lastPushRef.current = 0;
+                setHistory({ past: [], present: newPresent, future: [] });
+            }, []);
+
+            return { present: history.present, setPresent, undo, redo, resetHistory, canUndo: history.past.length > 0, canRedo: history.future.length > 0 };
+        };
+
         const App = () => {
             const [engineReady, setEngineReady] = useState(false);
             const [theme, setTheme] = useState(() => {
@@ -1738,7 +1790,21 @@
                 if (saved === 'dark' || saved === 'light') return saved;
                 return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
             });
-            const [config, setConfig] = useState(null);
+            const { present: config, setPresent: setConfig, undo: undoConfig, redo: redoConfig, resetHistory: resetConfigHistory, canUndo, canRedo } = useUndoableState(null);
+
+            useEffect(() => {
+                const handleKeyDown = (e) => {
+                    const isModifier = e.ctrlKey || e.metaKey;
+                    if (!isModifier) return;
+                    const tag = document.activeElement?.tagName;
+                    const isEditableFocus = tag === 'INPUT' || tag === 'TEXTAREA' || document.activeElement?.isContentEditable;
+                    if (isEditableFocus) return; // let native text-field undo/redo handle it there
+                    if (e.key === 'z' && !e.shiftKey) { e.preventDefault(); undoConfig(); }
+                    else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') { e.preventDefault(); redoConfig(); }
+                };
+                window.addEventListener('keydown', handleKeyDown);
+                return () => window.removeEventListener('keydown', handleKeyDown);
+            }, [undoConfig, redoConfig]);
             const [activeLayer, setActiveLayer] = useState(0);
             const [selectedKey, setSelectedKey] = useState(null);
             const [clipboard, setClipboard] = useState(null);
@@ -1811,6 +1877,7 @@
            
             const [showIndices, setShowIndices] = useState(false);
             const [isPaintMode, setIsPaintMode] = useState(false);
+            const [isEyedropper, setIsEyedropper] = useState(false);
             const [paintColor, setPaintColor] = useState('#0050ff');
             const isPaintingRef = useRef(false);
 
@@ -1836,6 +1903,16 @@
             }, [activeLayer, paintColor]);
 
             const handlePaintDown = useCallback((matrixIdx) => { isPaintingRef.current = true; handlePaintKey(matrixIdx); }, [handlePaintKey]);
+
+            const handleEyedropperPick = useCallback((matrixIdx) => {
+                const led = MATRIX_TO_LED[matrixIdx];
+                if (led === -1 || led === undefined || !config?.lighting) { setIsEyedropper(false); return; }
+                const staticMatches = (config.lighting.scene || []).filter(s => s.led === led && (s.layer === activeLayer || s.layer === undefined));
+                const condMatches = (config.lighting.conditional_scene || []).filter(s => s.led === led && ((typeof s.layer === 'object' ? s.layer?.layer : s.layer) === activeLayer || s.layer === undefined));
+                const allMatches = [...staticMatches, ...condMatches];
+                if (allMatches.length > 0) setPaintColor(allMatches[allMatches.length - 1].color);
+                setIsEyedropper(false);
+            }, [config, activeLayer]);
 
             // Effect preview: simulates random key presses so reactive-style effects (which
             // need real physical presses to show anything) can be seen animating. Purely a
@@ -1918,7 +1995,7 @@
                         if (!parsed.layer) throw new Error("Missing '[[layer]]' array.");
                         parsed.layer.forEach(l => { const { tokens, tail } = tokenizeKeysString(l.keys || ""); l.tokens = tokens; l.tail = tail; });
                         const { config: repaired, issues } = validateAndRepairConfig(parsed);
-                        setConfig(repaired); setActiveLayer(0); setSelectedKey(null);
+                        resetConfigHistory(repaired); setActiveLayer(0); setSelectedKey(null);
                         setDockMode('bottom'); setView('key');
                         if (issues.length > 0) {
                             alert(`Loaded, but found and fixed ${issues.length} issue${issues.length > 1 ? 's' : ''}:\n\n- ${issues.join('\n- ')}`);
@@ -2208,6 +2285,9 @@
                             ) : (
                                 <>
                                     <div ref={toolbarRef} className="absolute top-6 right-6 flex items-center panel border rounded-lg shadow-sm z-40 transition-colors">
+                                        <button onClick={undoConfig} disabled={!canUndo} title="Undo (Ctrl+Z)" className="p-2.5 text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] transition-colors disabled:opacity-25 disabled:pointer-events-none"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 15L4 10l5-5M4 10h11a4 4 0 010 8h-1"></path></svg></button>
+                                        <button onClick={redoConfig} disabled={!canRedo} title="Redo (Ctrl+Y)" className="p-2.5 text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] transition-colors disabled:opacity-25 disabled:pointer-events-none"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 15l5-5-5-5M20 10H9a4 4 0 000 8h1"></path></svg></button>
+                                        <div className="w-px h-5 bg-[color:var(--border-panel)] mx-1"></div>
                                         <button onClick={() => setScale(s => Math.max(0.3, s - 0.1))} className="p-2.5 text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 12H4"></path></svg></button>
                                         <span className="text-[11px] font-mono font-bold w-12 text-center select-none text-[color:var(--text-main)]">{Math.round(scale * 100)}%</span>
                                         <button onClick={() => setScale(s => Math.min(2.0, s + 0.1))} className="p-2.5 text-[color:var(--text-muted)] hover:text-[color:var(--text-main)] transition-colors"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg></button>
@@ -2220,7 +2300,7 @@
                                         <svg className="w-4 h-4 text-[color:var(--accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path></svg>
                                         Middle-Click & Drag to pan
                                     </div>
-                                    <KeyboardContainer layerTokens={activeLayerTokens} baseTokens={baseLayerTokens} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={scale} pan={pan} isPanning={isPanning} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onSwap={handleSwapKeys} lightingScenes={activeLightingScenes} isLightingMode={view === 'lighting' || view === 'effects'} showIndices={showIndices} isPaintMode={isPaintMode && view === 'lighting'} onPaintDown={handlePaintDown} onPaintEnter={handlePaintEnter} previewFlashes={previewFlashes} previewFlashDurationMs={previewFlashDurationMs} />
+                                    <KeyboardContainer layerTokens={activeLayerTokens} baseTokens={baseLayerTokens} selectedKey={selectedKey} onSelectKey={setSelectedKey} scale={scale} pan={pan} isPanning={isPanning} onPanStart={handlePanStart} onPanMove={handlePanMove} onPanEnd={handlePanEnd} onSwap={handleSwapKeys} lightingScenes={activeLightingScenes} isLightingMode={view === 'lighting' || view === 'effects'} showIndices={showIndices} isPaintMode={isPaintMode && view === 'lighting'} onPaintDown={handlePaintDown} onPaintEnter={handlePaintEnter} previewFlashes={previewFlashes} previewFlashDurationMs={previewFlashDurationMs} isEyedropper={isEyedropper && view === 'lighting'} onEyedropperPick={handleEyedropperPick} />
                                 </>
                             )}
                         </div>
@@ -2229,7 +2309,7 @@
                             <>
                                 <div className={dockMode === 'bottom' ? 'resizer-h' : 'resizer-v'} onPointerDown={dockMode === 'bottom' ? startBottomResize : startRightResize}></div>
                                 <div style={dockMode === 'bottom' ? { height: bottomHeight } : { width: rightWidth }} className="panel flex flex-col shrink-0 z-30 shadow-2xl transition-colors">
-                                    <Inspector view={view} setView={setView} config={config} activeLayer={activeLayer} setActiveLayer={setActiveLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} updateConfig={setConfig} tabs={dynamicTabs} handleRenameBlockKey={handleRenameBlockKey} handleDeleteBlockKey={handleDeleteBlockKey} showIndices={showIndices} setShowIndices={setShowIndices} clipboard={clipboard} setClipboard={setClipboard} isDockedBottom={dockMode === 'bottom'} toggleDock={() => setDockMode(d => d === 'right' ? 'bottom' : 'right')} isPaintMode={isPaintMode} setIsPaintMode={setIsPaintMode} paintColor={paintColor} setPaintColor={setPaintColor} isPreviewingEffect={isPreviewingEffect} setIsPreviewingEffect={setIsPreviewingEffect} />
+                                    <Inspector view={view} setView={setView} config={config} activeLayer={activeLayer} setActiveLayer={setActiveLayer} selectedKey={selectedKey} setSelectedKey={setSelectedKey} updateConfig={setConfig} tabs={dynamicTabs} handleRenameBlockKey={handleRenameBlockKey} handleDeleteBlockKey={handleDeleteBlockKey} showIndices={showIndices} setShowIndices={setShowIndices} clipboard={clipboard} setClipboard={setClipboard} isDockedBottom={dockMode === 'bottom'} toggleDock={() => setDockMode(d => d === 'right' ? 'bottom' : 'right')} isPaintMode={isPaintMode} setIsPaintMode={setIsPaintMode} paintColor={paintColor} setPaintColor={setPaintColor} isPreviewingEffect={isPreviewingEffect} setIsPreviewingEffect={setIsPreviewingEffect} isEyedropper={isEyedropper} setIsEyedropper={setIsEyedropper} />
                                 </div>
                             </>
                         )}
